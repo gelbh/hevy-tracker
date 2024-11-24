@@ -1,116 +1,122 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <base target="_blank">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 400px;
-      margin: 0 auto;
-    }
-    .container {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .button-container {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    button {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .primary {
-      background-color: #4285f4;
-      color: white;
-    }
-    .secondary {
-      background-color: #f1f3f4;
-    }
-    a {
-      color: #4285f4;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    #saveButton:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-    .spinner {
-      display: none;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #3498db;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-left: 10px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div>
-      Please enter your Hevy API key. You can find it in your <a href="https://hevy.com/settings?developer">Hevy Developer Settings</a>.
+  <head>
+    <base target="_blank" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .button-container {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .primary {
+        background-color: #4285f4;
+        color: white;
+      }
+      .secondary {
+        background-color: #f1f3f4;
+      }
+      #saveButton:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ffffff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div>
+        Enter your Hevy API key. You can find it in your
+        <a href="https://hevy.com/settings?developer">Hevy Developer Settings</a
+        >.
+      </div>
+      <input
+        type="text"
+        id="apiKey"
+        placeholder="Enter API key"
+        oninput="validateInput()"
+      />
+      <div class="button-container">
+        <button class="secondary" onclick="closeDialog()">Cancel</button>
+        <button id="saveButton" class="primary" onclick="saveApiKey()" disabled>
+          Save
+          <span id="spinner" class="spinner"></span>
+        </button>
+      </div>
     </div>
-    <input type="text" id="apiKey" placeholder="Enter API key" oninput="validateInput()">
-    <div class="button-container">
-      <button class="secondary" onclick="closeDialog()">Cancel</button>
-      <button id="saveButton" class="primary" onclick="saveApiKey()" disabled>
-        Save
-        <span id="spinner" class="spinner"></span>
-      </button>
-    </div>
-  </div>
-  
-  <script>
-    function validateInput() {
-      const apiKey = document.getElementById('apiKey').value.trim();
-      document.getElementById('saveButton').disabled = !apiKey;
-    }
 
-    function closeDialog() {
-      google.script.host.close();
-    }
+    <script>
+      function validateInput() {
+        const apiKey = document.getElementById("apiKey").value.trim();
+        document.getElementById("saveButton").disabled = !apiKey;
+      }
 
-    function saveApiKey() {
-      const apiKey = document.getElementById('apiKey').value.trim();
-      if (!apiKey) return;
+      function closeDialog() {
+        google.script.host.close();
+      }
 
-      const saveButton = document.getElementById('saveButton');
-      const spinner = document.getElementById('spinner');
-      saveButton.disabled = true;
-      spinner.style.display = 'inline-block';
+      function saveApiKey() {
+        const apiKey = document.getElementById("apiKey").value.trim();
+        if (!apiKey) return;
 
-      google.script.run
-        .withSuccessHandler(function() {
-          google.script.host.close();
-        })
-        .withFailureHandler(function(error) {
-          saveButton.disabled = false;
-          spinner.style.display = 'none';
-          alert('Error saving API key: ' + error);
-        })
-        .saveHevyApiKey(apiKey);
-    }
-  </script>
-</body>
+        // Disable button and show spinner
+        const saveButton = document.getElementById("saveButton");
+        const spinner = document.getElementById("spinner");
+        saveButton.disabled = true;
+        spinner.style.display = "inline-block";
+
+        google.script.run
+          .withSuccessHandler(function () {
+            google.script.host.close();
+          })
+          .withFailureHandler(function (error) {
+            saveButton.disabled = false;
+            spinner.style.display = "none";
+            alert("Error saving API key: " + error);
+          })
+          .saveHevyApiKey(apiKey);
+      }
+    </script>
+  </body>
 </html>

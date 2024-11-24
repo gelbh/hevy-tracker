@@ -114,12 +114,14 @@ class ApiClient {
       properties.setProperty("HEVY_API_KEY", apiKey);
 
       if (!currentKey) {
-        showProgress(
-          "API key set successfully. Starting initial data import...",
-          "Setup Progress",
-          TOAST_DURATION.NORMAL
-        );
-        this.runInitialImport();
+        setTimeout(() => {
+          showProgress(
+            "API key set successfully. Starting initial data import...",
+            "Setup Progress",
+            TOAST_DURATION.NORMAL
+          );
+          this.runInitialImport();
+        }, 0);
       } else {
         showProgress(
           "API key updated successfully!",
