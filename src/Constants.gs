@@ -147,3 +147,4 @@ const SHEET_THEMES = {
 };
 
 // Authorized API Key (set by deployment)
+const AUTHORIZED_API_KEY = "";
