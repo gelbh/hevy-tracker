@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/453f832f-77aa-4306-832f-fae72623e741" alt="hevy-tracker-logo" width="200" style="max-width: 50%;" />
+</p>
+
 # Hevy Tracker
 
 A Google Sheets Add-on for importing and analyzing workout data from Hevy App. Automatically syncs your workouts, exercises, routines, and weight measurements to a structured spreadsheet for advanced analysis and tracking.
