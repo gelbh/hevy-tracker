@@ -69,7 +69,7 @@ function onOpen(e) {
 function onHomepage(e) {
   const isTemplate = SpreadsheetApp.getActive().getId() === '1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk';
 
-  showHtmlDialog('Sidebar', {
+  showHtmlDialog('src/ui/dialogs/Sidebar', {
     width: 300,
     title: 'Hevy Tracker',
     templateData: { isTemplate },
@@ -81,7 +81,7 @@ function onHomepage(e) {
  * Shows the create spreadsheet dialog
  */
 function showCreateSpreadsheetDialog() {
-  showHtmlDialog('TemplateDialog', {
+  showHtmlDialog('src/ui/dialogs/TemplateDialog', {
     width: 450,
     height: 250,
     title: 'Create Template Spreadsheet'
@@ -92,7 +92,7 @@ function showCreateSpreadsheetDialog() {
  * Shows the setup guide dialog
  */
 function showGuideDialog() {
-  showHtmlDialog('SetupInstructions', {
+  showHtmlDialog('src/ui/dialogs/SetupInstructions', {
     width: 500,
     height: 500,
     title: 'Hevy Tracker Setup Guide',

@@ -40,7 +40,7 @@ class ApiClient {
       }
     }
 
-    showHtmlDialog('ApiKeyDialog', {
+    showHtmlDialog('src/ui/dialogs/ApiKeyDialog', {
       width: 450,
       height: 250,
       title: 'Hevy API Key Setup'
