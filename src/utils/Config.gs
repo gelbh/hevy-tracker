@@ -2,10 +2,19 @@
  * Secure configuration management
  */
 class Config {
-  // This will be overwritten by config.local.gs
-  static AUTHORIZED_API_KEY = "";
+  // Use static getter/setter instead of class fields
+  static get AUTHORIZED_API_KEY() {
+    if (!this._AUTHORIZED_API_KEY) {
+      this._AUTHORIZED_API_KEY = ""; // Will be overwritten by config.local.gs
+    }
+    return this._AUTHORIZED_API_KEY;
+  }
+
+  static set AUTHORIZED_API_KEY(value) {
+    this._AUTHORIZED_API_KEY = value;
+  }
 
   static get isAuthorized() {
-    return Config.AUTHORIZED_API_KEY !== "";
+    return this.AUTHORIZED_API_KEY !== "";
   }
 }

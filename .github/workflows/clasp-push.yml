@@ -23,9 +23,10 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      - name: Setup clasp credentials
+      - name: Create clasp config
         run: |
           echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+          echo '{"scriptId":"${{ secrets.SCRIPT_ID }}"}' > .clasp.json
 
       - name: Push to Apps Script
-        run: clasp push
+        run: clasp push --force
