@@ -1,0 +1,5 @@
+echo "**/**
+!src/**/*.gs
+!src/**/*.js
+!src/**/*.html
+!appsscript.json" > .claspignore
