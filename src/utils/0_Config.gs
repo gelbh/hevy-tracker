@@ -2,10 +2,10 @@
  * Secure configuration management
  */
 class Config {
-  // Use static getter/setter instead of class fields
   static get AUTHORIZED_API_KEY() {
+    // This value will be set by GitHub Actions during deployment
     if (!this._AUTHORIZED_API_KEY) {
-      this._AUTHORIZED_API_KEY = ""; // Will be overwritten by config.local.gs
+      this._AUTHORIZED_API_KEY = "";
     }
     return this._AUTHORIZED_API_KEY;
   }

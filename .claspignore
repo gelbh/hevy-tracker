@@ -5,7 +5,3 @@
 !src/**/*.gs
 !src/**/*.html
 !appsscript.json
-
-# Explicitly ignore sensitive files even if they match above patterns
-src/utils/config.local.gs
-*.local.gs

@@ -20,10 +20,6 @@ pids
 *.seed
 *.pid.lock
 
-# Sensitive configuration
-src/utils/config.local.gs
-*.local.gs
-
 # Local testing
 .act/
 .github/workflows/.env
