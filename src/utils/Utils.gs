@@ -19,7 +19,7 @@ function transferWeightHistory(showMessages = true) {
     const currentKey = properties.getProperty("HEVY_API_KEY");
     if (
       !currentKey ||
-      currentKey !== Config.AUTHORIZED_API_KEY ||
+      currentKey !== Config._AUTHORIZED_API_KEY ||
       !Config.isAuthorized
     ) {
       return false;
