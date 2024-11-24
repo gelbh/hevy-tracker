@@ -1,183 +1,16 @@
 /**
  * Common utility functions for the Hevy API integration
+ * @module Utils
  */
+
+// -----------------
+// Property Management
+// -----------------
 
 /**
- * Transfers weight history data from template sheet to official Weight History sheet
- * and removes the source sheet and associated form
- * Only processes transfer if the user has the authorized API key
- * @param {boolean} [showMessages=true] Whether to show progress messages
- * @returns {boolean} Whether the transfer was authorized and attempted
+ * Gets user properties safely
+ * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
-function transferWeightHistory(showMessages = true) {
-  try {
-    const properties = getUserProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access user properties");
-    }
-
-    const currentKey = properties.getProperty("HEVY_API_KEY");
-    if (
-      !currentKey ||
-      currentKey !== Config._AUTHORIZED_API_KEY ||
-      !Config.isAuthorized
-    ) {
-      return false;
-    }
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    try {
-      const existingTempSheet = ss.getSheetByName("TempSheet");
-      if (existingTempSheet) {
-        ss.deleteSheet(existingTempSheet);
-      }
-    } catch (e) {
-      Logger.debug("Error cleaning up existing temp sheet", e);
-    }
-
-    const sourceSheet = ss.getSheetByName("My Weight History");
-    if (!sourceSheet) {
-      return true;
-    }
-
-    const transferKey = `WEIGHT_TRANSFER_${ss.getId()}`;
-    if (properties.getProperty(transferKey)) {
-      return true;
-    }
-
-    const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
-    const targetSheet = targetManager.sheet;
-
-    const sourceData = sourceSheet.getDataRange().getValues();
-    let transferCount = 0;
-
-    if (sourceData.length > 1) {
-      sourceData.shift();
-      transferCount = sourceData.length;
-
-      const lastRow = Math.max(1, targetSheet.getLastRow());
-      targetSheet
-        .getRange(lastRow + 1, 1, sourceData.length, 2)
-        .setValues(sourceData);
-
-      targetManager.formatSheet();
-    }
-
-    try {
-      const formUrl = sourceSheet.getFormUrl();
-      if (formUrl) {
-        const form = FormApp.openByUrl(formUrl);
-        const formResponses = form.getResponses();
-        for (const response of formResponses) {
-          form.deleteResponse(response.getId());
-        }
-
-        form.removeDestination();
-
-        ss.deleteSheet(sourceSheet);
-
-        const formFile = DriveApp.getFileById(form.getId());
-        formFile.setTrashed(true);
-      }
-    } catch (e) {
-      Logger.debug("Error during form/sheet cleanup", e);
-      throw e;
-    }
-
-    properties.setProperty(transferKey, "true");
-
-    if (showMessages && transferCount > 0) {
-      showProgress(
-        `Successfully transferred ${transferCount} weight records and removed the source sheet!`,
-        "Transfer Complete",
-        TOAST_DURATION.NORMAL
-      );
-    }
-
-    return true;
-  } catch (error) {
-    handleError(error, "Transferring weight history");
-    return false;
-  }
-}
-
-/**
- * Creates a copy of the template spreadsheet
- * @return {Object} Object containing the new spreadsheet URL
- */
-function makeTemplateCopy() {
-  try {
-    const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-
-    const templateFile = DriveApp.getFileById(TEMPLATE_ID);
-    const newFile = templateFile.makeCopy("Hevy Tracker - My Workouts");
-    const newSpreadsheet = SpreadsheetApp.open(newFile);
-
-    return {
-      url: newSpreadsheet.getUrl(),
-    };
-  } catch (error) {
-    handleError(error, "Creating template spreadsheet");
-    throw error;
-  }
-}
-
-/**
- * Creates and shows an HTML dialog from a template file with standard configuration
- * @param {string} filename - Name of the HTML template file (without .html extension)
- * @param {Object} [options] - Configuration options
- * @param {number} [options.width=500] - Dialog width in pixels
- * @param {number} [options.height=500] - Dialog height in pixels
- * @param {string} [options.title=''] - Dialog title
- * @param {string} [options.modalTitle=''] - Title shown in the modal header (defaults to title if not provided)
- * @param {Object} [options.templateData={}] - Data to pass to the template
- * @param {boolean} [options.showAsSidebar=false] - Whether to show as sidebar instead of modal
- */
-function showHtmlDialog(filename, options = {}) {
-  const {
-    width = 500,
-    height = 500,
-    title = "",
-    modalTitle = "",
-    templateData = {},
-    showAsSidebar = false,
-  } = options;
-
-  try {
-    let html;
-    if (Object.keys(templateData).length > 0) {
-      const template = HtmlService.createTemplateFromFile(filename);
-      Object.assign(template, templateData);
-      html = template.evaluate();
-    } else {
-      html = HtmlService.createHtmlOutputFromFile(filename);
-    }
-
-    const htmlOutput = html
-      .setTitle(title || filename)
-      .setSandboxMode(HtmlService.SandboxMode.IFRAME);
-
-    if (!showAsSidebar) {
-      htmlOutput.setWidth(width).setHeight(height);
-      SpreadsheetApp.getUi().showModalDialog(
-        htmlOutput,
-        modalTitle || title || filename
-      );
-    } else {
-      htmlOutput.setWidth(width);
-      SpreadsheetApp.getUi().showSidebar(htmlOutput);
-    }
-  } catch (error) {
-    handleError(error, {
-      context: "Showing HTML dialog",
-      filename,
-      options,
-    });
-    throw error;
-  }
-}
-
 function getUserProperties() {
   try {
     return PropertiesService.getUserProperties();
@@ -186,6 +19,10 @@ function getUserProperties() {
     return null;
   }
 }
+
+// -----------------
+// UI Utilities
+// -----------------
 
 /**
  * Shows a progress toast with consistent formatting
@@ -200,6 +37,327 @@ function showProgress(
 ) {
   SpreadsheetApp.getActiveSpreadsheet().toast(message, title, duration);
 }
+
+/**
+ * Creates and shows an HTML dialog from a template file
+ * @param {string} filename - Name of the HTML template file (without .html extension)
+ * @param {Object} [options] - Configuration options
+ * @param {number} [options.width=500] - Dialog width in pixels
+ * @param {number} [options.height=500] - Dialog height in pixels
+ * @param {string} [options.title=''] - Dialog title
+ * @param {string} [options.modalTitle=''] - Title shown in the modal header
+ * @param {Object} [options.templateData={}] - Data to pass to the template
+ * @param {boolean} [options.showAsSidebar=false] - Whether to show as sidebar
+ */
+function showHtmlDialog(filename, options = {}) {
+  const {
+    width = 500,
+    height = 500,
+    title = "",
+    modalTitle = "",
+    templateData = {},
+    showAsSidebar = false,
+  } = options;
+
+  try {
+    const html = createHtmlOutput(filename, templateData);
+    const htmlOutput = configureHtmlOutput(html, filename, title);
+    showDialog(htmlOutput, width, height, modalTitle, showAsSidebar);
+  } catch (error) {
+    handleError(error, {
+      context: "Showing HTML dialog",
+      filename,
+      options,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Creates HTML output from template or file
+ * @private
+ */
+function createHtmlOutput(filename, templateData) {
+  if (Object.keys(templateData).length > 0) {
+    const template = HtmlService.createTemplateFromFile(filename);
+    Object.assign(template, templateData);
+    return template.evaluate();
+  }
+  return HtmlService.createHtmlOutputFromFile(filename);
+}
+
+/**
+ * Configures HTML output with standard settings
+ * @private
+ */
+function configureHtmlOutput(html, filename, title) {
+  return html
+    .setTitle(title || filename)
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME);
+}
+
+/**
+ * Shows the configured dialog
+ * @private
+ */
+function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
+  const ui = SpreadsheetApp.getUi();
+  if (showAsSidebar) {
+    htmlOutput.setWidth(width);
+    ui.showSidebar(htmlOutput);
+  } else {
+    htmlOutput.setWidth(width).setHeight(height);
+    ui.showModalDialog(htmlOutput, modalTitle || htmlOutput.getTitle());
+  }
+}
+
+// -----------------
+// Weight Management
+// -----------------
+
+/**
+ * Logs a weight entry with user input
+ * @throws {Error} If weight value is invalid or sheet operations fail
+ */
+function logWeight() {
+  try {
+    const weight = promptForWeight();
+    if (weight === null) return;
+
+    const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
+    const sheet = manager.sheet;
+
+    appendWeightEntry(sheet, weight);
+    manager.formatSheet();
+
+    showProgress(
+      `Weight of ${weight}kg logged successfully!`,
+      "Success",
+      TOAST_DURATION.NORMAL
+    );
+  } catch (error) {
+    handleError(error, "Logging weight");
+  }
+}
+
+/**
+ * Prompts user for weight input
+ * @private
+ * @returns {number|null} Weight value or null if canceled/invalid
+ */
+function promptForWeight() {
+  const ui = SpreadsheetApp.getUi();
+  const result = ui.prompt(
+    "Log Weight",
+    "Enter weight in kg:",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (result.getSelectedButton() !== ui.Button.OK) return null;
+
+  const weight = parseFloat(result.getResponseText().replace(",", "."));
+  if (!isValidWeight(weight)) {
+    ui.alert(
+      "Invalid weight value. Please enter a number between 0 and 500 kg."
+    );
+    return null;
+  }
+
+  return weight;
+}
+
+/**
+ * Validates weight value
+ * @private
+ */
+function isValidWeight(weight) {
+  return !isNaN(weight) && weight > 0 && weight <= 500;
+}
+
+/**
+ * Appends weight entry to sheet
+ * @private
+ */
+function appendWeightEntry(sheet, weight) {
+  const lastRow = Math.max(1, sheet.getLastRow());
+  sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
+}
+
+/**
+ * Transfers weight history from template
+ * @param {boolean} [showMessages=true] Whether to show progress messages
+ * @returns {boolean} Whether the transfer was authorized and attempted
+ */
+function transferWeightHistory(showMessages = true) {
+  try {
+    if (!authorizeTransfer()) return false;
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    cleanupTempSheet(ss);
+
+    const sourceSheet = ss.getSheetByName("My Weight History");
+    if (!sourceSheet) return true;
+
+    if (isTransferComplete(ss)) return true;
+
+    const result = processWeightTransfer(sourceSheet);
+    if (result.success) {
+      markTransferComplete(ss);
+      showTransferComplete(result.count, showMessages);
+    }
+
+    return true;
+  } catch (error) {
+    handleError(error, "Transferring weight history");
+    return false;
+  }
+}
+
+/**
+ * Authorizes weight transfer
+ * @private
+ */
+function authorizeTransfer() {
+  const properties = getUserProperties();
+  if (!properties) {
+    throw new ConfigurationError("Unable to access user properties");
+  }
+
+  const currentKey = properties.getProperty("HEVY_API_KEY");
+  return (
+    currentKey &&
+    currentKey === Config._AUTHORIZED_API_KEY &&
+    Config.isAuthorized()
+  );
+}
+
+/**
+ * Checks if transfer is already complete
+ * @private
+ */
+function isTransferComplete(spreadsheet) {
+  const properties = getUserProperties();
+  const transferKey = `WEIGHT_TRANSFER_${spreadsheet.getId()}`;
+  return properties.getProperty(transferKey);
+}
+
+/**
+ * Marks transfer as complete
+ * @private
+ */
+function markTransferComplete(spreadsheet) {
+  const properties = getUserProperties();
+  const transferKey = `WEIGHT_TRANSFER_${spreadsheet.getId()}`;
+  properties.setProperty(transferKey, "true");
+}
+
+/**
+ * Shows transfer completion message
+ * @private
+ */
+function showTransferComplete(count, showMessages) {
+  if (showMessages && count > 0) {
+    showProgress(
+      `Successfully transferred ${count} weight records and removed the source sheet!`,
+      "Transfer Complete",
+      TOAST_DURATION.NORMAL
+    );
+  }
+}
+
+/**
+ * Processes the weight transfer
+ * @private
+ */
+function processWeightTransfer(sourceSheet) {
+  const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
+  const targetSheet = targetManager.sheet;
+  const sourceData = sourceSheet.getDataRange().getValues();
+  let transferCount = 0;
+
+  if (sourceData.length > 1) {
+    sourceData.shift(); // Remove header row
+    transferCount = sourceData.length;
+
+    const lastRow = Math.max(1, targetSheet.getLastRow());
+    targetSheet
+      .getRange(lastRow + 1, 1, sourceData.length, 2)
+      .setValues(sourceData);
+
+    targetManager.formatSheet();
+  }
+
+  cleanupSourceSheet(sourceSheet);
+  return { success: true, count: transferCount };
+}
+
+/**
+ * Cleans up temporary sheet
+ * @private
+ */
+function cleanupTempSheet(spreadsheet) {
+  try {
+    const tempSheet = spreadsheet.getSheetByName("TempSheet");
+    if (tempSheet) {
+      spreadsheet.deleteSheet(tempSheet);
+    }
+  } catch (e) {
+    Logger.debug("Error cleaning up existing temp sheet", e);
+  }
+}
+
+/**
+ * Cleans up source sheet and form
+ * @private
+ */
+function cleanupSourceSheet(sourceSheet) {
+  try {
+    const formUrl = sourceSheet.getFormUrl();
+    if (formUrl) {
+      const form = FormApp.openByUrl(formUrl);
+      const formResponses = form.getResponses();
+      formResponses.forEach((response) =>
+        form.deleteResponse(response.getId())
+      );
+      form.removeDestination();
+
+      const spreadsheet = sourceSheet.getParent();
+      spreadsheet.deleteSheet(sourceSheet);
+
+      const formFile = DriveApp.getFileById(form.getId());
+      formFile.setTrashed(true);
+    }
+  } catch (e) {
+    Logger.debug("Error during form/sheet cleanup", e);
+    throw e;
+  }
+}
+
+// -----------------
+// Template Management
+// -----------------
+
+/**
+ * Creates a copy of the template spreadsheet
+ * @return {Object} Object containing the new spreadsheet URL
+ */
+function makeTemplateCopy() {
+  try {
+    const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+    const templateFile = DriveApp.getFileById(TEMPLATE_ID);
+    const newFile = templateFile.makeCopy("Hevy Tracker - My Workouts");
+    const newSpreadsheet = SpreadsheetApp.open(newFile);
+
+    return { url: newSpreadsheet.getUrl() };
+  } catch (error) {
+    handleError(error, "Creating template spreadsheet");
+    throw error;
+  }
+}
+
+// -----------------
+// Data Formatting
+// -----------------
 
 /**
  * Formats a date string consistently accounting for timezone
@@ -241,9 +399,9 @@ function normalizeNumber(value) {
 }
 
 /**
- * Converts column number to letter reference (e.g., 1 -> A, 27 -> AA)
+ * Converts column number to letter reference
  * @param {number} column - Column number (1-based)
- * @returns {string} Column letter reference
+ * @returns {string} Column letter reference (e.g., 1 -> A, 27 -> AA)
  */
 function columnToLetter(column) {
   let letter = "";
@@ -258,51 +416,9 @@ function columnToLetter(column) {
   return letter;
 }
 
-/**
- * Function for logging and managing weight data
- * Prompts user for weight input and stores it in the Weight History sheet
- * @throws {Error} If weight value is invalid or sheet operations fail
- */
-function logWeight() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-    const result = ui.prompt(
-      "Log Weight",
-      "Enter weight in kg:",
-      ui.ButtonSet.OK_CANCEL
-    );
-
-    if (result.getSelectedButton() === ui.Button.OK) {
-      const weightStr = result.getResponseText().replace(",", ".");
-      const weight = parseFloat(weightStr);
-
-      if (isNaN(weight) || weight <= 0 || weight > 500) {
-        ui.alert(
-          "Invalid weight value. Please enter a number between 0 and 500 kg."
-        );
-        return;
-      }
-
-      const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
-      const sheet = manager.sheet;
-
-      const lastRow = Math.max(1, sheet.getLastRow());
-      const nextRow = lastRow + 1;
-
-      sheet.getRange(nextRow, 1, 1, 2).setValues([[new Date(), weight]]);
-
-      manager.formatSheet();
-
-      showProgress(
-        `Weight of ${weight}kg logged successfully!`,
-        "Success",
-        TOAST_DURATION.NORMAL
-      );
-    }
-  } catch (error) {
-    handleError(error, "Logging weight");
-  }
-}
+// -----------------
+// API Key Management
+// -----------------
 
 /**
  * Global function to save Hevy API key, callable from dialog
