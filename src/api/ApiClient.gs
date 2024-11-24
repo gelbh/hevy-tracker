@@ -16,6 +16,36 @@ class ApiClient {
   }
 
   /**
+   * Gets API key or prompts user to set one if not found
+   * @private
+   * @returns {string|null} The API key if found or set, null if user cancels
+   */
+  getOrPromptApiKey() {
+    const properties = getUserProperties();
+    if (!properties) {
+      throw new ConfigurationError("Unable to access user properties");
+    }
+
+    const key = properties.getProperty("HEVY_API_KEY");
+    if (!key) {
+      // Show prompt to set API key
+      const ui = SpreadsheetApp.getUi();
+      const response = ui.alert(
+        "Hevy API Key Required",
+        "An API key is required. Would you like to set it now?",
+        ui.ButtonSet.YES_NO
+      );
+
+      if (response === ui.Button.YES) {
+        this.manageHevyApiKey();
+      }
+      return null;
+    }
+
+    return key;
+  }
+
+  /**
    * Shows the API key management dialog
    * Allows users to set or reset their Hevy API key
    */
@@ -105,10 +135,12 @@ class ApiClient {
 
   /**
    * Runs initial data import sequence for new API key setup
-   * @throws {Error} If any import step fails
    */
   runInitialImport() {
     try {
+      const apiKey = this.getOrPromptApiKey();
+      if (!apiKey) return;
+
       const properties = getUserProperties();
       if (!properties) {
         throw new ConfigurationError("Unable to access user properties");
@@ -158,7 +190,9 @@ class ApiClient {
     dataKey,
     additionalParams = {}
   ) {
-    const apiKey = this.getApiKey();
+    const apiKey = this.getOrPromptApiKey();
+    if (!apiKey) return 0;
+
     let page = 1;
     let totalProcessed = 0;
     let hasMore = true;
