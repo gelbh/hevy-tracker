@@ -21,22 +21,26 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App.
 ### Installation
 
 1. Install clasp globally:
+
 ```bash
 npm install -g @google/clasp
 ```
 
 2. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/hevy-tracker.git
 cd hevy-tracker
 ```
 
 3. Login to Google:
+
 ```bash
 clasp login
 ```
 
 4. Push to your Apps Script project:
+
 ```bash
 clasp push
 ```
@@ -48,6 +52,44 @@ clasp push
 3. Start importing your workout data
 
 ## Development
+
+### Commands
+
+- `npm run push:github` - Push to both GitHub and Apps Script
+- `npm run version` - Create new version in Apps Script
+- `npm run deploy` - Deploy current version
+- `npm run deployments` - List all deployments
+
+### Deployment
+
+The project uses GitHub Actions to automatically push changes to Apps Script when you push to the main branch. The workflow:
+
+1. Triggers on push to main branch
+2. Installs necessary dependencies
+3. Sets up clasp with secure credentials
+4. Pushes changes to Apps Script
+
+### Manual Deployment
+
+For manual deployments:
+
+1. Push changes:
+
+```bash
+npm run push:github
+```
+
+2. Create new version:
+
+```bash
+npm run version "Version description"
+```
+
+3. Deploy:
+
+```bash
+npm run deploy
+```
 
 ### Project Structure
 
@@ -80,15 +122,6 @@ src/
 - `clasp open`: Open script in Apps Script editor
 - `clasp version`: Create a new version
 - `clasp deploy`: Deploy a version
-
-### Development Workflow
-
-1. Make changes to local files
-2. Test changes locally when possible
-3. Push changes to Apps Script: `clasp push`
-4. Test in the Google Sheets environment
-5. Commit and push to GitHub
-6. Create new version when ready: `clasp version 'Version description'`
 
 ## Contributing
 

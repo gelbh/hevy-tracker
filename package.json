@@ -6,8 +6,12 @@
     "setup": "node scripts/setup.js",
     "pull": "node pull.js",
     "push": "clasp push",
+    "push:github": "git push && clasp push",
     "status": "clasp status",
-    "open": "clasp open"
+    "open": "clasp open",
+    "version": "clasp version",
+    "deploy": "clasp deploy",
+    "deployments": "clasp deployments"
   },
   "keywords": [
     "google-apps-script",
