@@ -58,14 +58,6 @@ cd hevy-tracker
 clasp login
 ```
 
-5. Create configuration:
-
-```bash
-# Create local config
-cp src/utils/config.template.gs src/utils/config.local.gs
-# Edit config.local.gs with your values
-```
-
 ## Development
 
 ### Project Structure
@@ -77,18 +69,18 @@ src/
 ├── sheets/
 │   ├── SheetManager.gs      # Sheet management
 │   ├── Exercises.gs         # Exercise tracking
-│   ├── Routines.gs         # Routine management
-│   ├── RoutineFolders.gs   # Folder organization
-│   └── Workouts.gs         # Workout tracking
+│   ├── Routines.gs          # Routine management
+│   ├── RoutineFolders.gs    # Folder organization
+│   └── Workouts.gs          # Workout tracking
 ├── ui/
-│   ├── Menu.gs             # Menu interface
-│   └── dialogs/            # HTML dialogs
+│   ├── Menu.gs              # Menu interface
+│   └── dialogs/             # HTML dialogs
 ├── utils/
-│   ├── Config.gs           # Configuration management
-│   ├── ErrorHandler.gs     # Error management
-│   ├── Logger.gs           # Logging utility
-│   └── Utils.gs            # Common utilities
-└── Constants.gs            # Global constants
+│   ├── 0_Config.gs          # Configuration management
+│   ├── ErrorHandler.gs      # Error management
+│   ├── Logger.gs            # Logging utility
+│   └── Utils.gs             # Common utilities
+└── Constants.gs             # Global constants
 ```
 
 ### Commands
