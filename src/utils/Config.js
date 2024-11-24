@@ -1,17 +1,11 @@
-// Config management and initialization
+/**
+ * Secure configuration management
+ */
 class Config {
-  static initialize() {
-    const scriptProps = PropertiesService.getScriptProperties();
-    const requiredProps = ["AUTHORIZED_API_KEY"];
+  // This will be overwritten by config.local.gs
+  static AUTHORIZED_API_KEY = "";
 
-    if (!scriptProps.getProperty("AUTHORIZED_API_KEY")) {
-      scriptProps.setProperty("AUTHORIZED_API_KEY", "");
-    }
-  }
-
-  static get AUTHORIZED_API_KEY() {
-    return PropertiesService.getScriptProperties().getProperty(
-      "AUTHORIZED_API_KEY"
-    );
+  static get isAuthorized() {
+    return Config.AUTHORIZED_API_KEY !== "";
   }
 }

@@ -19,10 +19,16 @@ yarn-error.log*
 pids
 *.pid
 *.seed
-*.pid.lock" > .gitignore# Sensitive configuration
+*.pid.lock
+
+# Sensitive configuration
 src/config.local.js
 .env
 *.local.js
+
 # Ignore local GitHub Actions testing
 .act/
 .github/workflows/.env
+
+# Local configuration
+src/utils/config.local.gs
