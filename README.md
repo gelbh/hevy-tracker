@@ -157,6 +157,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-1. Check the [Setup Guide](SETUP.md)
-2. [Open an issue](https://github.com/gelbh/hevy-tracker/issues)
-3. Ask in the [Google Workspace Developer Community](https://developers.google.com/apps-script/community)
+1. [Open an issue](https://github.com/gelbh/hevy-tracker/issues)
+2. Ask in the [Google Workspace Developer Community](https://developers.google.com/apps-script/community)
