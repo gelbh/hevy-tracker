@@ -11,7 +11,7 @@ class ApiClient {
     this.retryConfig = {
       maxRetries: 3,
       baseDelay: 1000,
-      maxDelay: 10000
+      maxDelay: 10000,
     };
   }
 
@@ -22,28 +22,28 @@ class ApiClient {
   manageHevyApiKey() {
     const properties = getUserProperties();
     if (!properties) {
-      throw new ConfigurationError('Unable to access user properties');
+      throw new ConfigurationError("Unable to access user properties");
     }
-    
-    const currentKey = properties.getProperty('HEVY_API_KEY');
-    
+
+    const currentKey = properties.getProperty("HEVY_API_KEY");
+
     if (currentKey) {
       const ui = SpreadsheetApp.getUi();
       const response = ui.alert(
-        'Hevy API Key Management',
-        'A Hevy API key is already set. Would you like to reset it?',
+        "Hevy API Key Management",
+        "A Hevy API key is already set. Would you like to reset it?",
         ui.ButtonSet.YES_NO
       );
-      
+
       if (response !== ui.Button.YES) {
         return;
       }
     }
 
-    showHtmlDialog('src/ui/dialogs/ApiKeyDialog', {
+    showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
       width: 450,
       height: 250,
-      title: 'Hevy API Key Setup'
+      title: "Hevy API Key Setup",
     });
   }
 
@@ -55,16 +55,16 @@ class ApiClient {
   getApiKey() {
     const properties = getUserProperties();
     if (!properties) {
-      throw new ConfigurationError('Unable to access user properties');
+      throw new ConfigurationError("Unable to access user properties");
     }
-    
-    const key = properties.getProperty('HEVY_API_KEY');
+
+    const key = properties.getProperty("HEVY_API_KEY");
     if (!key) {
       throw new ConfigurationError(
         'HEVY API key not found. Please set it up using the "Set Hevy API Key" menu option.'
       );
     }
-    
+
     return key;
   }
 
@@ -77,21 +77,28 @@ class ApiClient {
     try {
       const properties = getUserProperties();
       if (!properties) {
-        throw new ConfigurationError('Unable to access user properties');
+        throw new ConfigurationError("Unable to access user properties");
       }
-      
-      const currentKey = properties.getProperty('HEVY_API_KEY');
-      properties.setProperty('HEVY_API_KEY', apiKey);
-      
+
+      const currentKey = properties.getProperty("HEVY_API_KEY");
+      properties.setProperty("HEVY_API_KEY", apiKey);
+
       if (!currentKey) {
-        showProgress('API key set successfully. Starting initial data import...', 'Setup Progress', TOAST_DURATION.NORMAL);
+        showProgress(
+          "API key set successfully. Starting initial data import...",
+          "Setup Progress",
+          TOAST_DURATION.NORMAL
+        );
         this.runInitialImport();
       } else {
-        showProgress('API key updated successfully!', 'Success', TOAST_DURATION.NORMAL);
+        showProgress(
+          "API key updated successfully!",
+          "Success",
+          TOAST_DURATION.NORMAL
+        );
       }
-      
     } catch (error) {
-      handleError(error, 'Saving Hevy API key');
+      handleError(error, "Saving Hevy API key");
       throw error;
     }
   }
@@ -104,32 +111,32 @@ class ApiClient {
     try {
       const properties = getUserProperties();
       if (!properties) {
-        throw new ConfigurationError('Unable to access user properties');
+        throw new ConfigurationError("Unable to access user properties");
       }
-      
-      properties.deleteProperty('LAST_WORKOUT_UPDATE');
-      
+
+      properties.deleteProperty("LAST_WORKOUT_UPDATE");
+
       transferWeightHistory(false);
-      
-      properties.setProperty('WEIGHT_TRANSFER_IN_PROGRESS', 'true');
-      
+
+      properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
+
       importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-      
+
       importAllExercises();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-      
+
       importAllRoutines();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-      
+
       importAllWorkouts();
-      
-      properties.deleteProperty('WEIGHT_TRANSFER_IN_PROGRESS');
+
+      properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
     } catch (error) {
       if (properties) {
-        properties.deleteProperty('WEIGHT_TRANSFER_IN_PROGRESS');
+        properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
       }
-      handleError(error, 'Running initial import');
+      handleError(error, "Running initial import");
     }
   }
 
@@ -144,7 +151,13 @@ class ApiClient {
    * @returns {Promise<number>} Total number of processed items
    * @throws {ApiError} If API request fails
    */
-  async fetchPaginatedData(endpoint, pageSize, processFn, dataKey, additionalParams = {}) {
+  async fetchPaginatedData(
+    endpoint,
+    pageSize,
+    processFn,
+    dataKey,
+    additionalParams = {}
+  ) {
     const apiKey = this.getApiKey();
     let page = 1;
     let totalProcessed = 0;
@@ -155,9 +168,9 @@ class ApiClient {
         const queryParams = {
           page,
           page_size: pageSize,
-          ...additionalParams
+          ...additionalParams,
         };
-        
+
         const response = await this.makeRequest(
           endpoint,
           this.createRequestOptions(apiKey),
@@ -168,10 +181,11 @@ class ApiClient {
         if (items.length > 0) {
           await processFn(items);
           totalProcessed += items.length;
-          
-          hasMore = items.length === pageSize && 
-                    (!response.page_count || page < response.page_count);
-          
+
+          hasMore =
+            items.length === pageSize &&
+            (!response.page_count || page < response.page_count);
+
           page++;
         } else {
           hasMore = false;
@@ -182,7 +196,7 @@ class ApiClient {
         }
       } catch (error) {
         if (error instanceof ApiError && error.statusCode === 404) {
-          Logger.debug('Reached end of pagination (404)', { page });
+          Logger.debug("Reached end of pagination (404)", { page });
           hasMore = false;
           break;
         }
@@ -190,11 +204,11 @@ class ApiClient {
       }
     }
 
-    Logger.debug('Completed paginated fetch', { 
+    Logger.debug("Completed paginated fetch", {
       totalProcessed,
-      totalPages: page - 1 
+      totalPages: page - 1,
     });
-    
+
     return totalProcessed;
   }
 
@@ -218,13 +232,16 @@ class ApiClient {
         return this.handleResponse(response);
       } catch (error) {
         lastError = error;
-        
-        if (!(error instanceof ApiError) || !error.isRetryable() || 
-            attempt === this.retryConfig.maxRetries - 1) {
+
+        if (
+          !(error instanceof ApiError) ||
+          !error.isRetryable() ||
+          attempt === this.retryConfig.maxRetries - 1
+        ) {
           handleError(error, {
             endpoint,
             queryParams,
-            attempt
+            attempt,
           });
         }
 
@@ -233,11 +250,11 @@ class ApiClient {
         attempt++;
       }
     }
-    
+
     handleError(lastError, {
       endpoint,
       queryParams,
-      attempt: this.retryConfig.maxRetries
+      attempt: this.retryConfig.maxRetries,
     });
   }
 
@@ -248,18 +265,18 @@ class ApiClient {
    * @param {Object} [additionalHeaders={}] - Additional HTTP headers
    * @returns {Object} Request options object for UrlFetchApp
    */
-  createRequestOptions(apiKey, method = 'get', additionalHeaders = {}) {
+  createRequestOptions(apiKey, method = "get", additionalHeaders = {}) {
     return {
       method: method.toUpperCase(),
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Api-Key': apiKey,
-        ...additionalHeaders
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "Api-Key": apiKey,
+        ...additionalHeaders,
       },
       muteHttpExceptions: true,
       validateHttpsCertificates: true,
-      followRedirects: true
+      followRedirects: true,
     };
   }
 
@@ -306,7 +323,7 @@ class ApiClient {
         return JSON.parse(responseText);
       } catch (e) {
         throw new ApiError(
-          'Invalid JSON response from API',
+          "Invalid JSON response from API",
           statusCode,
           responseText
         );
@@ -314,15 +331,16 @@ class ApiClient {
     }
 
     const errorMessages = {
-      400: 'Invalid request parameters',
-      401: 'Invalid API key',
-      403: 'Access forbidden',
-      404: 'Resource not found',
-      429: 'Rate limit exceeded'
+      400: "Invalid request parameters",
+      401: "Invalid API key",
+      403: "Access forbidden",
+      404: "Resource not found",
+      429: "Rate limit exceeded",
     };
 
     throw new ApiError(
-      errorMessages[statusCode] || `API request failed with status ${statusCode}`,
+      errorMessages[statusCode] ||
+        `API request failed with status ${statusCode}`,
       statusCode,
       responseText
     );
@@ -336,9 +354,9 @@ class ApiClient {
    */
   buildUrl(endpoint, queryParams) {
     const baseUrl = `${API_ENDPOINTS.BASE}${endpoint}`;
-    return Object.keys(queryParams).length === 0 ? 
-      baseUrl : 
-      `${baseUrl}?${this.buildQueryString(queryParams)}`;
+    return Object.keys(queryParams).length === 0
+      ? baseUrl
+      : `${baseUrl}?${this.buildQueryString(queryParams)}`;
   }
 
   /**
@@ -349,10 +367,11 @@ class ApiClient {
   buildQueryString(params) {
     return Object.entries(params)
       .filter(([_, value]) => value != null)
-      .map(([key, value]) => 
-        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+      .map(
+        ([key, value]) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
       )
-      .join('&');
+      .join("&");
   }
 }
 
