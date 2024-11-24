@@ -1,0 +1,19 @@
+{
+  "name": "hevy-tracker",
+  "version": "1.0.0",
+  "description": "Google Sheets Add-on for Hevy workout tracking",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "pull": "node pull.js",
+    "push": "clasp push",
+    "status": "clasp status",
+    "open": "clasp open"
+  },
+  "keywords": [
+    "google-apps-script",
+    "hevy",
+    "workout-tracking"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

@@ -11,55 +11,55 @@
  */
 function transferWeightHistory(showMessages = true) {
   try {
-    const AUTHORIZED_API_KEY = 'ef663bd0-9338-47c4-a4c9-a0d01069af66';
-    
     const properties = getUserProperties();
     if (!properties) {
-      throw new ConfigurationError('Unable to access user properties');
+      throw new ConfigurationError("Unable to access user properties");
     }
-    
-    const currentKey = properties.getProperty('HEVY_API_KEY');
-    if (!currentKey || currentKey !== AUTHORIZED_API_KEY) {
+
+    const currentKey = properties.getProperty("HEVY_API_KEY");
+    if (!currentKey || currentKey !== Config.AUTHORIZED_API_KEY) {
       return false;
     }
-    
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    
+
     try {
-      const existingTempSheet = ss.getSheetByName('TempSheet');
+      const existingTempSheet = ss.getSheetByName("TempSheet");
       if (existingTempSheet) {
         ss.deleteSheet(existingTempSheet);
       }
     } catch (e) {
-      Logger.debug('Error cleaning up existing temp sheet', e);
+      Logger.debug("Error cleaning up existing temp sheet", e);
     }
-    
-    const sourceSheet = ss.getSheetByName('My Weight History');
+
+    const sourceSheet = ss.getSheetByName("My Weight History");
     if (!sourceSheet) {
       return true;
     }
-    
+
     const transferKey = `WEIGHT_TRANSFER_${ss.getId()}`;
     if (properties.getProperty(transferKey)) {
       return true;
     }
-    
+
     const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const targetSheet = targetManager.sheet;
-    
+
     const sourceData = sourceSheet.getDataRange().getValues();
     let transferCount = 0;
-    
+
     if (sourceData.length > 1) {
       sourceData.shift();
       transferCount = sourceData.length;
-      
+
       const lastRow = Math.max(1, targetSheet.getLastRow());
-      targetSheet.getRange(lastRow + 1, 1, sourceData.length, 2).setValues(sourceData);
-      
+      targetSheet
+        .getRange(lastRow + 1, 1, sourceData.length, 2)
+        .setValues(sourceData);
+
       targetManager.formatSheet();
     }
-    
+
     try {
       const formUrl = sourceSheet.getFormUrl();
       if (formUrl) {
@@ -68,32 +68,32 @@ function transferWeightHistory(showMessages = true) {
         for (const response of formResponses) {
           form.deleteResponse(response.getId());
         }
-        
+
         form.removeDestination();
-        
+
         ss.deleteSheet(sourceSheet);
-        
+
         const formFile = DriveApp.getFileById(form.getId());
         formFile.setTrashed(true);
       }
     } catch (e) {
-      Logger.debug('Error during form/sheet cleanup', e);
+      Logger.debug("Error during form/sheet cleanup", e);
       throw e;
     }
-    
-    properties.setProperty(transferKey, 'true');
-    
+
+    properties.setProperty(transferKey, "true");
+
     if (showMessages && transferCount > 0) {
       showProgress(
         `Successfully transferred ${transferCount} weight records and removed the source sheet!`,
-        'Transfer Complete',
+        "Transfer Complete",
         TOAST_DURATION.NORMAL
       );
     }
-    
+
     return true;
   } catch (error) {
-    handleError(error, 'Transferring weight history');
+    handleError(error, "Transferring weight history");
     return false;
   }
 }
@@ -104,17 +104,17 @@ function transferWeightHistory(showMessages = true) {
  */
 function makeTemplateCopy() {
   try {
-    const TEMPLATE_ID = '1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk';
-    
+    const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
     const templateFile = DriveApp.getFileById(TEMPLATE_ID);
-    const newFile = templateFile.makeCopy('Hevy Tracker - My Workouts');
+    const newFile = templateFile.makeCopy("Hevy Tracker - My Workouts");
     const newSpreadsheet = SpreadsheetApp.open(newFile);
-    
+
     return {
-      url: newSpreadsheet.getUrl()
+      url: newSpreadsheet.getUrl(),
     };
   } catch (error) {
-    handleError(error, 'Creating template spreadsheet');
+    handleError(error, "Creating template spreadsheet");
     throw error;
   }
 }
@@ -134,10 +134,10 @@ function showHtmlDialog(filename, options = {}) {
   const {
     width = 500,
     height = 500,
-    title = '',
-    modalTitle = '',
+    title = "",
+    modalTitle = "",
     templateData = {},
-    showAsSidebar = false
+    showAsSidebar = false,
   } = options;
 
   try {
@@ -157,7 +157,7 @@ function showHtmlDialog(filename, options = {}) {
     if (!showAsSidebar) {
       htmlOutput.setWidth(width).setHeight(height);
       SpreadsheetApp.getUi().showModalDialog(
-        htmlOutput, 
+        htmlOutput,
         modalTitle || title || filename
       );
     } else {
@@ -166,9 +166,9 @@ function showHtmlDialog(filename, options = {}) {
     }
   } catch (error) {
     handleError(error, {
-      context: 'Showing HTML dialog',
+      context: "Showing HTML dialog",
       filename,
-      options
+      options,
     });
     throw error;
   }
@@ -178,7 +178,7 @@ function getUserProperties() {
   try {
     return PropertiesService.getUserProperties();
   } catch (error) {
-    console.error('Failed to get user properties:', error);
+    console.error("Failed to get user properties:", error);
     return null;
   }
 }
@@ -189,7 +189,11 @@ function getUserProperties() {
  * @param {string} [title='Progress'] - Toast title
  * @param {number} [duration=TOAST_DURATION.SHORT] - Duration to show toast
  */
-function showProgress(message, title = 'Progress', duration = TOAST_DURATION.SHORT) {
+function showProgress(
+  message,
+  title = "Progress",
+  duration = TOAST_DURATION.SHORT
+) {
   SpreadsheetApp.getActiveSpreadsheet().toast(message, title, duration);
 }
 
@@ -199,14 +203,16 @@ function showProgress(message, title = 'Progress', duration = TOAST_DURATION.SHO
  * @returns {Date|string} Formatted date or empty string if invalid
  */
 function formatDate(dateString) {
-  if (!dateString) return '';
+  if (!dateString) return "";
   try {
     const date = new Date(dateString);
-    const adjustedDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    const adjustedDate = new Date(
+      date.getTime() - date.getTimezoneOffset() * 60000
+    );
     return adjustedDate;
   } catch (error) {
-    Logger.error('Error formatting date', { dateString }, error);
-    return '';
+    Logger.error("Error formatting date", { dateString }, error);
+    return "";
   }
 }
 
@@ -216,7 +222,7 @@ function formatDate(dateString) {
  * @returns {number|string} Normalized weight value rounded to 2 decimal places or empty string
  */
 function normalizeWeight(weight) {
-  if (weight === null || weight === undefined) return '';
+  if (weight === null || weight === undefined) return "";
   return Math.round(weight * 100) / 100;
 }
 
@@ -226,7 +232,7 @@ function normalizeWeight(weight) {
  * @returns {number|string} Normalized value or empty string if null/undefined
  */
 function normalizeNumber(value) {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) return "";
   return value;
 }
 
@@ -236,15 +242,15 @@ function normalizeNumber(value) {
  * @returns {string} Column letter reference
  */
 function columnToLetter(column) {
-  let letter = '';
+  let letter = "";
   let temp = column;
-  
+
   while (temp > 0) {
     temp--;
     letter = String.fromCharCode(65 + (temp % 26)) + letter;
     temp = Math.floor(temp / 26);
   }
-  
+
   return letter;
 }
 
@@ -257,17 +263,19 @@ function logWeight() {
   try {
     const ui = SpreadsheetApp.getUi();
     const result = ui.prompt(
-      'Log Weight',
-      'Enter weight in kg:',
+      "Log Weight",
+      "Enter weight in kg:",
       ui.ButtonSet.OK_CANCEL
     );
 
     if (result.getSelectedButton() === ui.Button.OK) {
-      const weightStr = result.getResponseText().replace(',', '.');
+      const weightStr = result.getResponseText().replace(",", ".");
       const weight = parseFloat(weightStr);
 
       if (isNaN(weight) || weight <= 0 || weight > 500) {
-        ui.alert('Invalid weight value. Please enter a number between 0 and 500 kg.');
+        ui.alert(
+          "Invalid weight value. Please enter a number between 0 and 500 kg."
+        );
         return;
       }
 
@@ -283,12 +291,12 @@ function logWeight() {
 
       showProgress(
         `Weight of ${weight}kg logged successfully!`,
-        'Success',
+        "Success",
         TOAST_DURATION.NORMAL
       );
     }
   } catch (error) {
-    handleError(error, 'Logging weight');
+    handleError(error, "Logging weight");
   }
 }
 
