@@ -27,10 +27,17 @@ jobs:
         run: |
           echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
 
-      - name: Set Authorized API Key
+      - name: Update Constants
         run: |
-          echo "// This file is auto-generated during deployment
-          Config._AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/1_set_config.gs
+          # Create temporary file
+          echo "// Generated Constants - Do not edit manually
+          const CONSTANTS = {
+            ...$(cat src/Constants.gs | grep -v '^const CONSTANTS = {' | grep -v '^};$'),
+            AUTHORIZED_API_KEY: '${{ secrets.AUTHORIZED_API_KEY }}'
+          };" > src/Constants.tmp.gs
+
+          # Replace original file
+          mv src/Constants.tmp.gs src/Constants.gs
 
       - name: Push to Apps Script
         run: clasp push --force

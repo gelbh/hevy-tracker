@@ -224,11 +224,7 @@ function authorizeTransfer() {
   }
 
   const currentKey = properties.getProperty("HEVY_API_KEY");
-  return (
-    currentKey &&
-    currentKey === Config._AUTHORIZED_API_KEY &&
-    Config.isAuthorized()
-  );
+  return currentKey && currentKey === AUTHORIZED_API_KEY;
 }
 
 /**
