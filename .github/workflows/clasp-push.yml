@@ -27,9 +27,9 @@ jobs:
         run: |
           echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
 
-      - name: Create production config
+      - name: Set Authorized API Key
         run: |
-          echo "Config.AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/config.local.gs
+          echo "Config._AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/1_set_config.gs
 
       - name: Push to Apps Script
         run: clasp push --force
