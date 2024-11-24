@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_blank">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      color: #333;
+    }
+    
+    .section {
+      margin-bottom: 24px;
+    }
+    
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 8px;
+      padding: 0 8px;
+    }
+    
+    .button {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 8px 16px;
+      margin-bottom: 4px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      cursor: pointer;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      transition: background-color 0.2s;
+    }
+    
+    .button:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .button.primary {
+      background-color: #4285f4;
+      color: white;
+    }
+    
+    .button.primary:hover {
+      background-color: #3b78e7;
+    }
+    
+    .button.secondary {
+      background-color: #f1f3f4;
+      color: #333;
+    }
+    
+    .button.secondary:hover {
+      background-color: #e8eaed;
+    }
+    
+    .icon {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    
+    .alert {
+      background-color: #e8f0fe;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .alert-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .alert-description {
+      font-size: 13px;
+      color: #555;
+    }
+    
+    .version {
+      font-size: 12px;
+      color: #666;
+      padding: 8px 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <script>
+      function createIconSVG(pathD) {
+        return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="' + pathD + '"></path></svg>';
+      }
+      
+      const icons = {
+        key: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
+        upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7l-5-5-5 5m5-5v12",
+        dumbbell: "M6.5 6.5h11m-11 11h11M7 20l1.5-1.5M16 20l-1.5-1.5M7 4l1.5 1.5M16 4l-1.5 1.5M18.5 18.5v-13M5.5 18.5v-13",
+        folder: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z",
+        scale: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+        copy: "M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2z",
+        help: "M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0 0v-2m0-4v.01M12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"
+      };
+
+      function createButton(icon, text, onClick, variant = '') {
+        const button = document.createElement('button');
+        button.className = 'button ' + variant;
+        button.innerHTML = createIconSVG(icons[icon]) + text;
+        button.onclick = onClick;
+        return button;
+      }
+
+      function createSection(title, buttons) {
+        const section = document.createElement('div');
+        section.className = 'section';
+        
+        if (title) {
+          const titleEl = document.createElement('div');
+          titleEl.className = 'section-title';
+          titleEl.textContent = title;
+          section.appendChild(titleEl);
+        }
+        
+        buttons.forEach(button => section.appendChild(button));
+        return section;
+      }
+
+      const isTemplate = <?= isTemplate ?>;
+      
+      if (isTemplate) {
+        const alert = document.createElement('div');
+        alert.className = 'alert';
+        alert.innerHTML = '<div class="alert-title">Template Spreadsheet</div>' +
+                         '<div class="alert-description">This is the Hevy Tracker template spreadsheet. Create your own copy to get started.</div>';
+        sidebar.appendChild(alert);
+
+        sidebar.appendChild(createSection('', [
+          createButton('copy', 'Create New Spreadsheet', () => google.script.run.showTemplateDialog(), 'primary'),
+          createButton('help', 'View Setup Guide', () => google.script.run.showSetupInstructions(), 'secondary')
+        ]));
+      } else {
+        // Quick Actions
+        sidebar.appendChild(createSection('Quick Actions', [
+          createButton('key', 'Set API Key', () => google.script.run.apiClient.manageHevyApiKey(), 'primary'),
+          createButton('upload', 'Import All Data', () => google.script.run.apiClient.runInitialImport(), 'primary')
+        ]));
+
+        // Import Options
+        sidebar.appendChild(createSection('Import Options', [
+          createButton('dumbbell', 'Import Workouts', () => google.script.run.importAllWorkouts()),
+          createButton('dumbbell', 'Import Exercises', () => google.script.run.importAllExercises()),
+          createButton('folder', 'Import Routines', () => google.script.run.importAllRoutines()),
+          createButton('scale', 'Log Weight', () => google.script.run.logWeight())
+        ]));
+
+        // Template
+        sidebar.appendChild(createSection('Template', [
+          createButton('copy', 'Create New Spreadsheet', () => google.script.run.showTemplateDialog(), 'secondary')
+        ]));
+
+        // Help
+        sidebar.appendChild(createSection('Help', [
+          createButton('help', 'View Setup Guide', () => google.script.run.showSetupInstructions())
+        ]));
+
+        const version = document.createElement('div');
+        version.className = 'version';
+        version.textContent = 'Version 1.0.0';
+        sidebar.appendChild(version);
+      }
+    </script>
+  </div>
+</body>
+</html>

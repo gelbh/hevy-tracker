@@ -1,0 +1,48 @@
+{
+  "timeZone": "Europe/Zurich",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/script.scriptapp",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/forms"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Hevy Tracker",
+      "logoUrl": "https://gelbhart.dev/hevy-tracker-logo.png",
+      "useLocaleFromApp": true,
+      "layoutProperties": {
+        "primaryColor": "#4285f4",
+        "secondaryColor": "#0f9d58"
+      },
+      "openLinkUrlPrefixes": [
+        "https://hevy.com/",
+        "https://gelbhart.dev/",
+        "https://bit.ly/"
+      ]
+    },
+    "sheets": {
+      "homepageTrigger": {
+        "enabled": true,
+        "runFunction": "onHomepage"
+      },
+      "onFileScopeGrantedTrigger": {
+        "runFunction": "onOpen"
+      }
+    }
+  },
+  "urlFetchWhitelist": [
+    "https://api.hevyapp.com/",
+    "https://api.hevyapp.com/v1/workouts",
+    "https://api.hevyapp.com/v1/workouts/events",
+    "https://api.hevyapp.com/v1/routines",
+    "https://api.hevyapp.com/v1/exercise_templates",
+    "https://api.hevyapp.com/v1/routine_folders"
+  ]
+}
