@@ -1,140 +1,162 @@
 # Hevy Tracker
 
-A Google Sheets Add-on for importing and analyzing workout data from Hevy App.
+A Google Sheets Add-on for importing and analyzing workout data from Hevy App. Automatically syncs your workouts, exercises, routines, and weight measurements to a structured spreadsheet for advanced analysis and tracking.
 
 ## Features
 
-- Import workout data from Hevy API
-- Track exercises and routines
-- Analyze workout progress
-- Manage routine folders
-- Log weight measurements
+- 🔄 Automatic data syncing from Hevy
+  - Workouts with full exercise details
+  - Custom and preset exercises
+  - Workout routines and folders
+  - Weight measurements
+- 📊 Comprehensive data organization
+  - Exercise categorization by muscle groups
+  - Workout history tracking
+  - Set-by-set performance data
+  - Progress tracking
+- ⚡ Performance optimized
+  - Efficient batch processing
+  - Rate limiting protection
+  - Automatic error recovery
+  - Progress indicators
+- 🔒 Secure configuration
+  - Safe API key management
+  - Secure authorization handling
+  - Protected user data
 
-## Setup
+## Installation
 
-### Prerequisites
+### For Users
 
-- Node.js and npm installed
-- Google account with access to Google Apps Script
-- Hevy account with API access
+1. Open the [Hevy Tracker Template](https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/)
+2. Click Extensions → Hevy Tracker → Create New Spreadsheet From Template
+3. Open your new spreadsheet using the provided link
+4. Get your Hevy API key from [Hevy Developer Settings](https://hevy.com/settings?developer)
+5. In your spreadsheet, click Extensions → Hevy Tracker → Set Hevy API Key
+6. Enter your API key when prompted
+7. Initial data import will begin automatically
 
-### Installation
+### For Developers
 
-1. Install clasp globally:
+1. Install Node.js and npm
+2. Install clasp globally:
 
 ```bash
 npm install -g @google/clasp
 ```
 
-2. Clone the repository:
+3. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/hevy-tracker.git
+git clone https://github.com/gelbh/hevy-tracker.git
 cd hevy-tracker
 ```
 
-3. Login to Google:
+4. Login to Google:
 
 ```bash
 clasp login
 ```
 
-4. Push to your Apps Script project:
+5. Create configuration:
 
 ```bash
-clasp push
+# Create local config
+cp src/utils/config.template.gs src/utils/config.local.gs
+# Edit config.local.gs with your values
 ```
-
-### Configuration
-
-1. Get your Hevy API key from [Hevy Developer Settings](https://hevy.com/settings?developer)
-2. Set up the API key in the add-on settings
-3. Start importing your workout data
 
 ## Development
-
-### Commands
-
-- `npm run push:github` - Push to both GitHub and Apps Script
-- `npm run version` - Create new version in Apps Script
-- `npm run deploy` - Deploy current version
-- `npm run deployments` - List all deployments
-
-### Deployment
-
-The project uses GitHub Actions to automatically push changes to Apps Script when you push to the main branch. The workflow:
-
-1. Triggers on push to main branch
-2. Installs necessary dependencies
-3. Sets up clasp with secure credentials
-4. Pushes changes to Apps Script
-
-### Manual Deployment
-
-For manual deployments:
-
-1. Push changes:
-
-```bash
-npm run push:github
-```
-
-2. Create new version:
-
-```bash
-npm run version "Version description"
-```
-
-3. Deploy:
-
-```bash
-npm run deploy
-```
 
 ### Project Structure
 
 ```
 src/
 ├── api/
-│   └── ApiClient.js       # API client implementation
+│   └── ApiClient.gs         # API client implementation
 ├── sheets/
-│   ├── SheetManager.js    # Sheet management
-│   ├── Exercises.js       # Exercise tracking
-│   ├── Routines.js       # Routine management
-│   ├── RoutineFolders.js # Folder organization
-│   └── Workouts.js       # Workout tracking
+│   ├── SheetManager.gs      # Sheet management
+│   ├── Exercises.gs         # Exercise tracking
+│   ├── Routines.gs         # Routine management
+│   ├── RoutineFolders.gs   # Folder organization
+│   └── Workouts.gs         # Workout tracking
 ├── ui/
-│   ├── Menu.js           # Menu interface
-│   └── dialogs/          # HTML dialogs
+│   ├── Menu.gs             # Menu interface
+│   └── dialogs/            # HTML dialogs
 ├── utils/
-│   ├── ErrorHandler.js   # Error management
-│   ├── Logger.js         # Logging utility
-│   └── Utils.js          # Common utilities
-└── Constants.js          # Global constants
-
+│   ├── Config.gs           # Configuration management
+│   ├── ErrorHandler.gs     # Error management
+│   ├── Logger.gs           # Logging utility
+│   └── Utils.gs            # Common utilities
+└── Constants.gs            # Global constants
 ```
 
 ### Commands
 
-- `clasp push`: Push changes to Apps Script
-- `clasp pull`: Pull changes from Apps Script
-- `clasp status`: Check file sync status
-- `clasp open`: Open script in Apps Script editor
-- `clasp version`: Create a new version
-- `clasp deploy`: Deploy a version
+- `npm run push` - Push to Apps Script
+- `npm run push:github` - Push to both GitHub and Apps Script
+- `npm run pull` - Pull from Apps Script
+- `npm run status` - Check sync status
+- `npm run open` - Open in Apps Script editor
+- `npm run version` - Create new version
+- `npm run deploy` - Deploy current version
+
+### Development Workflow
+
+1. Make changes to local files
+2. Test changes:
+   ```bash
+   npm run push
+   ```
+3. Commit and push to GitHub:
+   ```bash
+   git add .
+   git commit -m "type: description"
+   git push
+   ```
+4. GitHub Actions will automatically deploy to Apps Script
+
+### Best Practices
+
+- Follow [Google Apps Script Best Practices](https://developers.google.com/apps-script/practices)
+- Use conventional commits format for commit messages
+- Keep sensitive data in `config.local.gs`
+- Test all changes in the Apps Script environment
+- Update documentation when adding features
+
+## Security
+
+- API keys are stored securely in Apps Script's Properties Service
+- User data is processed only in the user's spreadsheet
+- No external data storage
+- All API requests are made using HTTPS
+- Authorization is required for sensitive operations
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch:
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+3. Commit your changes:
+   ```bash
+   git commit -m 'feat: Add some AmazingFeature'
+   ```
+4. Push to the branch:
+   ```bash
+   git push origin feature/AmazingFeature
+   ```
 5. Open a Pull Request
 
 ## License
 
-[MIT License](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
 ## Support
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/yourusername/hevy-tracker/issues).
+If you encounter any issues or have questions:
+
+1. Check the [Setup Guide](SETUP.md)
+2. [Open an issue](https://github.com/gelbh/hevy-tracker/issues)
+3. Ask in the [Google Workspace Developer Community](https://developers.google.com/apps-script/community)

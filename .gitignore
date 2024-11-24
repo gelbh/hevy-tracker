@@ -1,8 +1,7 @@
-echo "# Dependencies
+# Dependencies
 node_modules/
 
 # Environment
-.clasp.json
 .DS_Store
 
 # IDE
@@ -22,13 +21,9 @@ pids
 *.pid.lock
 
 # Sensitive configuration
-src/config.local.js
-.env
-*.local.js
+src/utils/config.local.gs
+*.local.gs
 
-# Ignore local GitHub Actions testing
+# Local testing
 .act/
 .github/workflows/.env
-
-# Local configuration
-src/utils/config.local.gs

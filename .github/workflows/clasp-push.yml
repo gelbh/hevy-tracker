@@ -23,10 +23,13 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      - name: Create clasp config
+      - name: Setup clasp credentials
         run: |
           echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          echo '{"scriptId":"${{ secrets.SCRIPT_ID }}"}' > .clasp.json
+
+      - name: Create production config
+        run: |
+          echo "Config.AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/config.local.gs
 
       - name: Push to Apps Script
         run: clasp push --force
