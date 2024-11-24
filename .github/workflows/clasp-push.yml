@@ -29,7 +29,8 @@ jobs:
 
       - name: Set Authorized API Key
         run: |
-          echo "Config._AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/1_set_config.gs
+          echo "// This file is auto-generated during deployment
+          Config._AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" > src/utils/1_set_config.gs
 
       - name: Push to Apps Script
         run: clasp push --force

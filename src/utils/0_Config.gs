@@ -2,10 +2,18 @@
  * Secure configuration management
  */
 class Config {
-  // Will be set by set_config.gs during deployment
-  static _AUTHORIZED_API_KEY = "";
+  static _AUTHORIZED_API_KEY = null;
 
-  static get isAuthorized() {
-    return this._AUTHORIZED_API_KEY !== "";
+  static initialize() {
+    if (!this._AUTHORIZED_API_KEY) {
+      this._AUTHORIZED_API_KEY = "";
+    }
+  }
+
+  static isAuthorized() {
+    return this._AUTHORIZED_API_KEY !== "" && this._AUTHORIZED_API_KEY !== null;
   }
 }
+
+// Initialize on load
+Config.initialize();
