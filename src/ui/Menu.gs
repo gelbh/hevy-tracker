@@ -27,12 +27,11 @@ function onOpen(e) {
       .addItem("❓ View Setup Guide", "showGuideDialog");
 
     if (authMode !== ScriptApp.AuthMode.NONE) {
-      addAuthorizedMenuItems(menu);
+      addAuthorizedMenuItems(menu, ui);
     }
 
     menu.addToUi();
   } catch (error) {
-    // Only log error, don't show to user as this is a startup function
     Logger.error("Error creating menu", { error, authMode: e?.authMode });
   }
 }
@@ -40,7 +39,6 @@ function onOpen(e) {
 /**
  * Function that runs when the add-on opens in the sidebar
  * @param {Object} e The event object
- * @return {CardService.Card} The card to show to the user
  */
 function onHomepage(e) {
   const isTemplate =
@@ -79,55 +77,63 @@ function showInitialSetup() {
 
 /**
  * Adds menu items that require authorization
- * @param {GoogleAppsScript.Base.Menu} menu
+ * @param {GoogleAppsScript.Base.Menu} menu - The menu to add items to
+ * @param {GoogleAppsScript.Base.Ui} ui - The UI instance
  * @private
  */
-function addAuthorizedMenuItems(menu) {
-  const currentId = SpreadsheetApp.getActive().getId();
-  const isTemplate =
-    currentId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+function addAuthorizedMenuItems(menu, ui) {
+  try {
+    const currentId = SpreadsheetApp.getActive().getId();
+    const isTemplate =
+      currentId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-  if (isTemplate) {
-    menu
-      .addItem(
-        "📋 Create New Spreadsheet From Template",
-        "showCreateSpreadsheetDialog"
-      )
-      .addSeparator()
-      .addItem("💪 Import Exercises", "importAllExercises");
-  } else {
-    menu
-      .addSubMenu(
-        ui
-          .createMenu("📥 Import Data")
-          .addItem("📥 Import All", "startFullImport")
-          .addSeparator()
-          .addItem("🏋️ Import Workouts", "importAllWorkouts")
-          .addItem("💪 Import Exercises", "importAllExercises")
-          .addItem("📋 Import Routines", "importAllRoutines")
-          .addItem("📁 Import Routine Folders", "importAllRoutineFolders")
-      )
-      .addSeparator()
-      .addItem("⚖️ Log Weight", "logWeight")
-      .addSeparator()
-      .addItem("📋 Create New Spreadsheet", "showCreateSpreadsheetDialog");
+    if (isTemplate) {
+      menu
+        .addItem(
+          "📋 Create New Spreadsheet From Template",
+          "showCreateSpreadsheetDialog"
+        )
+        .addSeparator()
+        .addItem("💪 Import Exercises", "importAllExercises");
+    } else {
+      const importSubmenu = ui
+        .createMenu("📥 Import Data")
+        .addItem("📥 Import All", "startFullImport")
+        .addSeparator()
+        .addItem("🏋️ Import Workouts", "importAllWorkouts")
+        .addItem("💪 Import Exercises", "importAllExercises")
+        .addItem("📋 Import Routines", "importAllRoutines")
+        .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
+
+      menu
+        .addSubMenu(importSubmenu)
+        .addSeparator()
+        .addItem("⚖️ Log Weight", "logWeight")
+        .addSeparator()
+        .addItem("📋 Create New Spreadsheet", "showCreateSpreadsheetDialog");
+    }
+  } catch (error) {
+    Logger.error("Error adding authorized menu items", { error });
   }
 }
 
 /**
  * Starts the full import process after user interaction
- * This function is separate from runInitialImport to ensure proper auth context
  */
 function startFullImport() {
-  const ui = SpreadsheetApp.getUi();
-  const response = ui.alert(
-    "Start Full Import",
-    "This will import all your Hevy data. Continue?",
-    ui.ButtonSet.YES_NO
-  );
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      "Start Full Import",
+      "This will import all your Hevy data. Continue?",
+      ui.ButtonSet.YES_NO
+    );
 
-  if (response === ui.Button.YES) {
-    apiClient.runInitialImport();
+    if (response === ui.Button.YES) {
+      apiClient.runInitialImport();
+    }
+  } catch (error) {
+    handleError(error, "Starting full import");
   }
 }
 
