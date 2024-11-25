@@ -12,95 +12,29 @@ function onInstall(e) {
 
 /**
  * Creates a custom menu in the Google Sheets UI when the spreadsheet is opened
- * or the add-on is installed.
  * @param {Object} e The event object
  */
 function onOpen(e) {
   try {
     const ui = SpreadsheetApp.getUi();
-    const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.LIMITED;
+    const menu = ui.createAddonMenu();
 
-    if (
-      authMode === ScriptApp.AuthMode.NONE ||
-      authMode === ScriptApp.AuthMode.LIMITED
-    ) {
-      ui.createAddonMenu()
-        .addItem("⚙️ Initialize Hevy Tracker", "requestAuthorization")
-        .addToUi();
-      return;
+    const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
+
+    menu
+      .addItem("🔑 Configure Hevy Tracker", "showInitialSetup")
+      .addSeparator()
+      .addItem("❓ View Setup Guide", "showGuideDialog");
+
+    if (authMode !== ScriptApp.AuthMode.NONE) {
+      addAuthorizedMenuItems(menu);
     }
 
-    let menu = ui.createAddonMenu();
-    const currentId = SpreadsheetApp.getActive().getId();
-    const isTemplate =
-      currentId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-
-    if (isTemplate) {
-      menu
-        .addItem(
-          "📋 Create New Spreadsheet From Template",
-          "showCreateSpreadsheetDialog"
-        )
-        .addSeparator()
-        .addItem("💪 Import Exercises", "importAllExercises")
-        .addSeparator()
-        .addItem("❓ View Setup Guide", "showGuideDialog")
-        .addToUi();
-    } else {
-      menu
-        .addItem("🔑 Set Hevy API Key", "apiClient.manageHevyApiKey")
-        .addSeparator()
-        .addSubMenu(
-          ui
-            .createMenu("📥 Import Data")
-            .addItem("📥 Import All", "apiClient.runInitialImport")
-            .addSeparator()
-            .addItem("🏋️ Import Workouts", "importAllWorkouts")
-            .addItem("💪 Import Exercises", "importAllExercises")
-            .addItem("📋 Import Routines", "importAllRoutines")
-            .addItem("📁 Import Routine Folders", "importAllRoutineFolders")
-        )
-        .addSeparator()
-        .addItem("⚖️ Log Weight", "logWeight")
-        .addSeparator()
-        .addItem(
-          "📋 Create New Spreadsheet From Template",
-          "showCreateSpreadsheetDialog"
-        )
-        .addSeparator()
-        .addItem("❓ View Setup Guide", "showGuideDialog")
-        .addToUi();
-
-      const properties = getUserProperties();
-      if (properties && !properties.getProperty("WELCOMED")) {
-        properties.deleteAllProperties();
-        ui.alert(
-          "Welcome to Hevy Tracker!",
-          "Please set up your Hevy API key to get started.\n\n" +
-            "Click Extensions → Hevy Tracker → Set Hevy API Key",
-          ui.ButtonSet.OK
-        );
-        properties.setProperty("WELCOMED", "true");
-      }
-    }
+    menu.addToUi();
   } catch (error) {
-    Logger.error("Error creating menu", { error });
+    // Only log error, don't show to user as this is a startup function
+    Logger.error("Error creating menu", { error, authMode: e?.authMode });
   }
-}
-
-/**
- * Requests authorization from the user
- */
-function requestAuthorization() {
-  const ui = SpreadsheetApp.getUi();
-  ui.alert(
-    "Authorization Required",
-    "Hevy Tracker needs authorization to access your spreadsheet and make API requests. " +
-      "The add-on will reload after you authorize it.",
-    ui.ButtonSet.OK
-  );
-
-  onOpen();
 }
 
 /**
@@ -119,6 +53,104 @@ function onHomepage(e) {
     templateData: { isTemplate },
     showAsSidebar: true,
   });
+}
+
+/**
+ * Shows initial setup dialog and handles authorization
+ */
+function showInitialSetup() {
+  try {
+    const properties = getUserProperties();
+    const hasApiKey = properties && properties.getProperty("HEVY_API_KEY");
+
+    if (hasApiKey) {
+      apiClient.manageHevyApiKey();
+    } else {
+      showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
+        width: 450,
+        height: 250,
+        title: "Hevy Tracker Setup",
+      });
+    }
+  } catch (error) {
+    handleError(error, "Showing initial setup");
+  }
+}
+
+/**
+ * Adds menu items that require authorization
+ * @param {GoogleAppsScript.Base.Menu} menu
+ * @private
+ */
+function addAuthorizedMenuItems(menu) {
+  const currentId = SpreadsheetApp.getActive().getId();
+  const isTemplate =
+    currentId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
+  if (isTemplate) {
+    menu
+      .addItem(
+        "📋 Create New Spreadsheet From Template",
+        "showCreateSpreadsheetDialog"
+      )
+      .addSeparator()
+      .addItem("💪 Import Exercises", "importAllExercises");
+  } else {
+    menu
+      .addSubMenu(
+        ui
+          .createMenu("📥 Import Data")
+          .addItem("📥 Import All", "startFullImport")
+          .addSeparator()
+          .addItem("🏋️ Import Workouts", "importAllWorkouts")
+          .addItem("💪 Import Exercises", "importAllExercises")
+          .addItem("📋 Import Routines", "importAllRoutines")
+          .addItem("📁 Import Routine Folders", "importAllRoutineFolders")
+      )
+      .addSeparator()
+      .addItem("⚖️ Log Weight", "logWeight")
+      .addSeparator()
+      .addItem("📋 Create New Spreadsheet", "showCreateSpreadsheetDialog");
+  }
+}
+
+/**
+ * Starts the full import process after user interaction
+ * This function is separate from runInitialImport to ensure proper auth context
+ */
+function startFullImport() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    "Start Full Import",
+    "This will import all your Hevy data. Continue?",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response === ui.Button.YES) {
+    apiClient.runInitialImport();
+  }
+}
+
+/**
+ * Shows the first-time welcome message if needed
+ * This should be called from a user-triggered action to ensure proper auth
+ */
+function showWelcomeIfNeeded() {
+  try {
+    const properties = getUserProperties();
+    if (properties && !properties.getProperty("WELCOMED")) {
+      const ui = SpreadsheetApp.getUi();
+      ui.alert(
+        "Welcome to Hevy Tracker!",
+        "Please set up your Hevy API key to get started.\n\n" +
+          "Click Extensions → Hevy Tracker → Configure Hevy Tracker",
+        ui.ButtonSet.OK
+      );
+      properties.setProperty("WELCOMED", "true");
+    }
+  } catch (error) {
+    Logger.error("Error showing welcome message", { error });
+  }
 }
 
 /**
