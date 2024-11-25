@@ -145,6 +145,3 @@ const SHEET_THEMES = {
   [ROUTINE_FOLDERS_SHEET_NAME]: TEAL_THEME,
   [WEIGHT_SHEET_NAME]: PURPLE_THEME,
 };
-
-// Authorized API Key (set by deployment)
-const AUTHORIZED_API_KEY = "";
