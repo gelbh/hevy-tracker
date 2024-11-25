@@ -67,6 +67,12 @@ class ApiClient {
   /**
    * Makes a paginated API request
    * @async
+   * @param {string} endpoint - API endpoint to request
+   * @param {number} pageSize - Number of items per page
+   * @param {Function} processFn - Function to process each page of data
+   * @param {string} dataKey - Key in response containing the data array
+   * @param {Object} [additionalParams={}] - Additional query parameters
+   * @returns {Promise<number>} Total number of processed items
    */
   async fetchPaginatedData(
     endpoint,
@@ -91,7 +97,14 @@ class ApiClient {
           pageSize,
           additionalParams
         );
-        const result = await this.processPageData(response, dataKey, processFn);
+
+        const result = await this.processPageData(
+          response,
+          dataKey,
+          processFn,
+          pageSize,
+          page
+        );
 
         totalProcessed += result.processedCount;
         hasMore = result.hasMore;
@@ -174,6 +187,44 @@ class ApiClient {
   }
 
   /**
+   * Runs initial data import sequence for new API key setup
+   */
+  runInitialImport() {
+    try {
+      const apiKey = this.getOrPromptApiKey();
+      if (!apiKey) return;
+
+      const properties = this.getProperties();
+
+      properties.deleteProperty("LAST_WORKOUT_UPDATE");
+
+      transferWeightHistory(false);
+
+      properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
+
+      importAllRoutineFolders();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+
+      importAllExercises();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+
+      importAllRoutines();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+
+      importAllWorkouts();
+
+      properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
+    } catch (error) {
+      const properties = this.getProperties();
+      if (properties) {
+        properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
+      }
+
+      handleError(error, "Running initial import");
+    }
+  }
+
+  /**
    * Handles successful API key save
    * @private
    */
@@ -237,10 +288,16 @@ class ApiClient {
   }
 
   /**
-   * Processes page data and determines if more pages exist
+   * Process page data and determines if more pages exist
    * @private
+   * @param {Object} response - API response
+   * @param {string} dataKey - Key in response containing data array
+   * @param {Function} processFn - Function to process data
+   * @param {number} pageSize - Size of each page
+   * @param {number} page - Current page number
+   * @returns {Promise<{processedCount: number, hasMore: boolean}>}
    */
-  async processPageData(response, dataKey, processFn) {
+  async processPageData(response, dataKey, processFn, pageSize, page) {
     const items = response[dataKey] || [];
     if (items.length === 0) {
       return { processedCount: 0, hasMore: false };

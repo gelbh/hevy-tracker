@@ -24,7 +24,8 @@ function onOpen(e) {
     menu
       .addItem("🔑 Configure Hevy Tracker", "showInitialSetup")
       .addSeparator()
-      .addItem("❓ View Setup Guide", "showGuideDialog");
+      .addItem("❓ View Setup Guide", "showGuideDialog")
+      .addSeparator();
 
     if (authMode !== ScriptApp.AuthMode.NONE) {
       addAuthorizedMenuItems(menu, ui);
