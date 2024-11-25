@@ -1,12 +1,7 @@
 /**
  * Enhanced API utility functions with better type handling and resilience.
  */
-
 class ApiClient {
-  /**
-   * Creates a new ApiClient instance with default retry configuration
-   * @constructor
-   */
   constructor() {
     this.retryConfig = {
       maxRetries: 3,
@@ -18,27 +13,15 @@ class ApiClient {
   /**
    * Gets API key or prompts user to set one if not found
    * @private
-   * @returns {string|null} The API key if found or set, null if user cancels
    */
   getOrPromptApiKey() {
-    const properties = getUserProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access user properties");
-    }
-
+    const properties = this.getProperties();
     const key = properties.getProperty("HEVY_API_KEY");
-    if (!key) {
-      // Show prompt to set API key
-      const ui = SpreadsheetApp.getUi();
-      const response = ui.alert(
-        "Hevy API Key Required",
-        "An API key is required. Would you like to set it now?",
-        ui.ButtonSet.YES_NO
-      );
 
-      if (response === ui.Button.YES) {
-        this.manageHevyApiKey();
-      }
+    if (!key) {
+      this.promptForApiKey(
+        "An API key is required. Would you like to set it now?"
+      );
       return null;
     }
 
@@ -47,27 +30,13 @@ class ApiClient {
 
   /**
    * Shows the API key management dialog
-   * Allows users to set or reset their Hevy API key
    */
   manageHevyApiKey() {
-    const properties = getUserProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access user properties");
-    }
-
+    const properties = this.getProperties();
     const currentKey = properties.getProperty("HEVY_API_KEY");
 
-    if (currentKey) {
-      const ui = SpreadsheetApp.getUi();
-      const response = ui.alert(
-        "Hevy API Key Management",
-        "A Hevy API key is already set. Would you like to reset it?",
-        ui.ButtonSet.YES_NO
-      );
-
-      if (response !== ui.Button.YES) {
-        return;
-      }
+    if (currentKey && !this.confirmKeyReset()) {
+      return;
     }
 
     showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
@@ -78,112 +47,26 @@ class ApiClient {
   }
 
   /**
-   * Retrieves the stored HEVY API key
-   * @returns {string} The stored API key
-   * @throws {ConfigurationError} If API key is not found
-   */
-  getApiKey() {
-    const properties = getUserProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access user properties");
-    }
-
-    const key = properties.getProperty("HEVY_API_KEY");
-    if (!key) {
-      throw new ConfigurationError(
-        'HEVY API key not found. Please set it up using the "Set Hevy API Key" menu option.'
-      );
-    }
-
-    return key;
-  }
-
-  /**
    * Saves the API key and initiates initial data import if needed
    * @param {string} apiKey - The API key to save
-   * @throws {Error} If saving fails or import fails
    */
-  saveHevyApiKey(apiKey) {
+  async saveHevyApiKey(apiKey) {
     try {
-      const properties = getUserProperties();
-      if (!properties) {
-        throw new ConfigurationError("Unable to access user properties");
-      }
+      await this.validateApiKey(apiKey);
 
+      const properties = this.getProperties();
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
-      if (!currentKey) {
-        setTimeout(() => {
-          showProgress(
-            "API key set successfully. Starting initial data import...",
-            "Setup Progress",
-            TOAST_DURATION.NORMAL
-          );
-          this.runInitialImport();
-        }, 0);
-      } else {
-        showProgress(
-          "API key updated successfully!",
-          "Success",
-          TOAST_DURATION.NORMAL
-        );
-      }
+      this.handleSuccessfulSave(currentKey);
     } catch (error) {
-      handleError(error, "Saving Hevy API key");
-      throw error;
+      this.handleSaveError(error);
     }
   }
 
   /**
-   * Runs initial data import sequence for new API key setup
-   */
-  runInitialImport() {
-    try {
-      const apiKey = this.getOrPromptApiKey();
-      if (!apiKey) return;
-
-      const properties = getUserProperties();
-      if (!properties) {
-        throw new ConfigurationError("Unable to access user properties");
-      }
-
-      properties.deleteProperty("LAST_WORKOUT_UPDATE");
-
-      transferWeightHistory(false);
-
-      properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
-
-      importAllRoutineFolders();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-      importAllExercises();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-      importAllRoutines();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-      importAllWorkouts();
-
-      properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
-    } catch (error) {
-      if (properties) {
-        properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
-      }
-      handleError(error, "Running initial import");
-    }
-  }
-
-  /**
-   * Makes a paginated API request with improved batching and progress tracking
+   * Makes a paginated API request
    * @async
-   * @param {string} endpoint - API endpoint to request
-   * @param {number} pageSize - Number of items per page
-   * @param {Function} processFn - Function to process each page of data
-   * @param {string} dataKey - Key in response containing the data array
-   * @param {Object} [additionalParams={}] - Additional query parameters
-   * @returns {Promise<number>} Total number of processed items
-   * @throws {ApiError} If API request fails
    */
   async fetchPaginatedData(
     endpoint,
@@ -201,39 +84,24 @@ class ApiClient {
 
     while (hasMore) {
       try {
-        const queryParams = {
-          page,
-          page_size: pageSize,
-          ...additionalParams,
-        };
-
-        const response = await this.makeRequest(
+        const response = await this.fetchPage(
           endpoint,
-          this.createRequestOptions(apiKey),
-          queryParams
+          apiKey,
+          page,
+          pageSize,
+          additionalParams
         );
+        const result = await this.processPageData(response, dataKey, processFn);
 
-        const items = response[dataKey] || [];
-        if (items.length > 0) {
-          await processFn(items);
-          totalProcessed += items.length;
-
-          hasMore =
-            items.length === pageSize &&
-            (!response.page_count || page < response.page_count);
-
-          page++;
-        } else {
-          hasMore = false;
-        }
+        totalProcessed += result.processedCount;
+        hasMore = result.hasMore;
 
         if (hasMore) {
+          page++;
           Utilities.sleep(RATE_LIMIT.API_DELAY);
         }
       } catch (error) {
-        if (error instanceof ApiError && error.statusCode === 404) {
-          Logger.debug("Reached end of pagination (404)", { page });
-          hasMore = false;
+        if (this.isPaginationComplete(error)) {
           break;
         }
         throw error;
@@ -244,8 +112,156 @@ class ApiClient {
       totalProcessed,
       totalPages: page - 1,
     });
-
     return totalProcessed;
+  }
+
+  // Private helper methods
+
+  /**
+   * Gets properties service with error handling
+   * @private
+   */
+  getProperties() {
+    const properties = getUserProperties();
+    if (!properties) {
+      throw new ConfigurationError("Unable to access user properties");
+    }
+    return properties;
+  }
+
+  /**
+   * Shows a prompt to set or reset the API key
+   * @private
+   */
+  promptForApiKey(message) {
+    const ui = SpreadsheetApp.getUi();
+    if (
+      ui.alert("Hevy API Key Required", message, ui.ButtonSet.YES_NO) ===
+      ui.Button.YES
+    ) {
+      this.manageHevyApiKey();
+    }
+  }
+
+  /**
+   * Confirms with user about resetting API key
+   * @private
+   */
+  confirmKeyReset() {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      "Hevy API Key Management",
+      "A Hevy API key is already set. Would you like to reset it?",
+      ui.ButtonSet.YES_NO
+    );
+    return response === ui.Button.YES;
+  }
+
+  /**
+   * Validates the API key by making a test request
+   * @private
+   */
+  async validateApiKey(apiKey) {
+    const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.EXERCISES}?page=1&page_size=1`;
+    const options = this.createRequestOptions(apiKey);
+    const response = await this.executeRequest(url, options);
+
+    if (response.getResponseCode() === 401) {
+      throw new InvalidApiKeyError("Invalid or revoked API key");
+    }
+
+    return true;
+  }
+
+  /**
+   * Handles successful API key save
+   * @private
+   */
+  handleSuccessfulSave(currentKey) {
+    if (!currentKey) {
+      setTimeout(() => {
+        showProgress(
+          "API key set successfully. Starting initial data import...",
+          "Setup Progress",
+          TOAST_DURATION.NORMAL
+        );
+        this.runInitialImport();
+      }, 0);
+    } else {
+      showProgress(
+        "API key updated successfully!",
+        "Success",
+        TOAST_DURATION.NORMAL
+      );
+    }
+  }
+
+  /**
+   * Handles API key save errors
+   * @private
+   */
+  handleSaveError(error) {
+    if (error instanceof InvalidApiKeyError) {
+      const properties = this.getProperties();
+      properties.deleteProperty("HEVY_API_KEY");
+
+      const ui = SpreadsheetApp.getUi();
+      ui.alert(
+        "Invalid API Key",
+        "The provided API key appears to be invalid or revoked. Please check your Hevy Developer Settings and try again.",
+        ui.ButtonSet.OK
+      );
+
+      this.promptForApiKey("Would you like to set a new API key?");
+    }
+
+    throw error;
+  }
+
+  /**
+   * Fetches a single page of data
+   * @private
+   */
+  async fetchPage(endpoint, apiKey, page, pageSize, additionalParams) {
+    const queryParams = {
+      page,
+      page_size: pageSize,
+      ...additionalParams,
+    };
+
+    return await this.makeRequest(
+      endpoint,
+      this.createRequestOptions(apiKey),
+      queryParams
+    );
+  }
+
+  /**
+   * Processes page data and determines if more pages exist
+   * @private
+   */
+  async processPageData(response, dataKey, processFn) {
+    const items = response[dataKey] || [];
+    if (items.length === 0) {
+      return { processedCount: 0, hasMore: false };
+    }
+
+    await processFn(items);
+
+    return {
+      processedCount: items.length,
+      hasMore:
+        items.length === pageSize &&
+        (!response.page_count || page < response.page_count),
+    };
+  }
+
+  /**
+   * Checks if pagination is complete based on error
+   * @private
+   */
+  isPaginationComplete(error) {
+    return error instanceof ApiError && error.statusCode === 404;
   }
 
   /**
