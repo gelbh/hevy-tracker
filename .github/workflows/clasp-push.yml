@@ -29,7 +29,20 @@ jobs:
 
       - name: Update Constants
         run: |
-          sed -i "s/const AUTHORIZED_API_KEY = '';/const AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';/" src/Constants.gs
+          # Create a backup of the original file
+          cp src/Constants.gs src/Constants.gs.bak
+
+          # Remove the last line (empty AUTHORIZED_API_KEY)
+          sed -i '$ d' src/Constants.gs
+
+          # Add the new AUTHORIZED_API_KEY with the secret
+          echo -e "\n// Authorized API Key (set by deployment)\nconst AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" >> src/Constants.gs
 
       - name: Push to Apps Script
         run: clasp push --force
+
+      # Restore original Constants.gs for git
+      - name: Restore Constants
+        run: |
+          mv src/Constants.gs.bak src/Constants.gs
+        if: always()
