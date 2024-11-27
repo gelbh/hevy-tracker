@@ -134,7 +134,7 @@ function processExercises(exerciseData) {
 
       // Add set to current exercise
       if (currentExercise) {
-        currentExercise.sets.push(createSet(processedValues));
+        currentExercise.sets.push(createSet(setType, processedValues));
       }
     });
 
@@ -197,6 +197,10 @@ function validateRoutineData(title, exercises) {
  */
 async function getOrCreateRoutineFolder(folderName) {
   try {
+    if (folderName == "(No Folder)") {
+      return null;
+    }
+
     const existingFolder = await findRoutineFolder(folderName);
     if (existingFolder) {
       return existingFolder;
@@ -324,7 +328,7 @@ async function createNewRoutineFolder(folderName) {
  * @private
  */
 function validateAndProcessNumericValues(row) {
-  const [_, rest, setType, weight, reps, __, supersetId] = row;
+  const [_, rest, __, weight, reps, ___, supersetId] = row;
 
   const processed = {
     weight: weight ? Number(weight) : null,
@@ -364,9 +368,9 @@ function createNewExercise(templateId, values, notes) {
  * Creates a set object from processed values
  * @private
  */
-function createSet(values) {
+function createSet(setType, values) {
   return {
-    type: "normal",
+    type: setType || "normal",
     weight_kg: values.weight,
     reps: values.reps,
     distance_meters: null,
