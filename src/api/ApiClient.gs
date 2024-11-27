@@ -1,6 +1,7 @@
 /**
  * Enhanced API utility functions with better type handling and resilience.
  */
+
 class ApiClient {
   constructor() {
     this.retryConfig = {
@@ -32,18 +33,22 @@ class ApiClient {
    * Shows the API key management dialog
    */
   manageHevyApiKey() {
-    const properties = this.getProperties();
-    const currentKey = properties.getProperty("HEVY_API_KEY");
+    try {
+      const properties = this.getProperties();
+      const currentKey = properties.getProperty("HEVY_API_KEY");
 
-    if (currentKey && !this.confirmKeyReset()) {
-      return;
+      if (currentKey && !this.confirmKeyReset()) {
+        return;
+      }
+
+      showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
+        width: 450,
+        height: 250,
+        title: "Hevy API Key Setup",
+      });
+    } catch (error) {
+      throw ErrorHandler.handle(error, "Managing API key");
     }
-
-    showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
-      width: 450,
-      height: 250,
-      title: "Hevy API Key Setup",
-    });
   }
 
   /**
@@ -58,21 +63,42 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
-      this.handleSuccessfulSave(currentKey);
+      if (!currentKey) {
+        showProgress(
+          "API key set successfully. Starting initial data import...",
+          "Setup Progress",
+          TOAST_DURATION.NORMAL
+        );
+        await this.runInitialImport();
+      } else {
+        showProgress(
+          "API key updated successfully!",
+          "Success",
+          TOAST_DURATION.NORMAL
+        );
+      }
     } catch (error) {
-      this.handleSaveError(error);
+      if (error instanceof InvalidApiKeyError) {
+        const properties = this.getProperties();
+        properties.deleteProperty("HEVY_API_KEY");
+
+        const ui = SpreadsheetApp.getUi();
+        ui.alert(
+          "Invalid API Key",
+          "The provided API key appears to be invalid or revoked. Please check your Hevy Developer Settings and try again.",
+          ui.ButtonSet.OK
+        );
+
+        this.promptForApiKey("Would you like to set a new API key?");
+      }
+      throw ErrorHandler.handle(error, {
+        operation: "Saving API key",
+      });
     }
   }
 
   /**
    * Makes a paginated API request
-   * @async
-   * @param {string} endpoint - API endpoint to request
-   * @param {number} pageSize - Number of items per page
-   * @param {Function} processFn - Function to process each page of data
-   * @param {string} dataKey - Key in response containing the data array
-   * @param {Object} [additionalParams={}] - Additional query parameters
-   * @returns {Promise<number>} Total number of processed items
    */
   async fetchPaginatedData(
     endpoint,
@@ -97,7 +123,6 @@ class ApiClient {
           pageSize,
           additionalParams
         );
-
         const result = await this.processPageData(
           response,
           dataKey,
@@ -117,14 +142,14 @@ class ApiClient {
         if (this.isPaginationComplete(error)) {
           break;
         }
-        throw error;
+        throw ErrorHandler.handle(error, {
+          endpoint,
+          page,
+          operation: "Fetching paginated data",
+        });
       }
     }
 
-    Logger.debug("Completed paginated fetch", {
-      totalProcessed,
-      totalPages: page - 1,
-    });
     return totalProcessed;
   }
 
@@ -189,29 +214,27 @@ class ApiClient {
   /**
    * Runs initial data import sequence for new API key setup
    */
-  runInitialImport() {
+  async runInitialImport() {
     try {
       const apiKey = this.getOrPromptApiKey();
       if (!apiKey) return;
 
       const properties = this.getProperties();
-
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
-      transferWeightHistory(false);
-
+      await transferWeightHistory(false);
       properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
 
-      importAllRoutineFolders();
+      await importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
 
-      importAllExercises();
+      await importAllExercises();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
 
-      importAllRoutines();
+      await importAllRoutines();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
 
-      importAllWorkouts();
+      await importAllWorkouts();
 
       properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
     } catch (error) {
@@ -219,8 +242,9 @@ class ApiClient {
       if (properties) {
         properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
       }
-
-      handleError(error, "Running initial import");
+      throw ErrorHandler.handle(error, {
+        operation: "Initial data import",
+      });
     }
   }
 
@@ -338,25 +362,14 @@ class ApiClient {
 
     while (attempt < this.retryConfig.maxRetries) {
       try {
-        // If we have a payload, add it directly to the request options
         if (payload) {
-          if (typeof payload === "string") {
-            options.payload = payload;
-          } else if (payload.body) {
-            // If payload has a body property, use that
-            options.payload = payload.body;
-          } else {
-            // Otherwise stringify the entire payload
-            options.payload = JSON.stringify(payload);
-          }
+          options.payload =
+            typeof payload === "string"
+              ? payload
+              : payload.body
+              ? payload.body
+              : JSON.stringify(payload);
         }
-
-        Logger.debug("Making request:", {
-          url,
-          method: options.method,
-          headers: options.headers,
-          payload: options.payload,
-        });
 
         const response = await this.executeRequest(url, options);
         return this.handleResponse(response);
@@ -368,10 +381,11 @@ class ApiClient {
           !error.isRetryable() ||
           attempt === this.retryConfig.maxRetries - 1
         ) {
-          handleError(error, {
+          throw ErrorHandler.handle(error, {
             endpoint,
             queryParams,
             attempt,
+            operation: "API request",
           });
         }
 
@@ -381,10 +395,11 @@ class ApiClient {
       }
     }
 
-    handleError(lastError, {
+    throw ErrorHandler.handle(lastError, {
       endpoint,
       queryParams,
       attempt: this.retryConfig.maxRetries,
+      operation: "API request max retries exceeded",
     });
   }
 
@@ -444,18 +459,21 @@ class ApiClient {
     const statusCode = response.getResponseCode();
     const responseText = response.getContentText();
 
-    if (statusCode === 204) {
-      return null;
-    }
+    if (statusCode === 204) return null;
 
     if (statusCode >= 200 && statusCode < 300) {
       try {
         return JSON.parse(responseText);
-      } catch (e) {
-        throw new ApiError(
-          "Invalid JSON response from API",
-          statusCode,
-          responseText
+      } catch (error) {
+        throw ErrorHandler.handle(
+          new ApiError(
+            "Invalid JSON response from API",
+            statusCode,
+            responseText
+          ),
+          {
+            operation: "Parsing API response",
+          }
         );
       }
     }
@@ -468,11 +486,16 @@ class ApiClient {
       429: "Rate limit exceeded",
     };
 
-    throw new ApiError(
-      errorMessages[statusCode] ||
-        `API request failed with status ${statusCode}`,
-      statusCode,
-      responseText
+    throw ErrorHandler.handle(
+      new ApiError(
+        errorMessages[statusCode] ||
+          `API request failed with status ${statusCode}`,
+        statusCode,
+        responseText
+      ),
+      {
+        operation: "API response error",
+      }
     );
   }
 

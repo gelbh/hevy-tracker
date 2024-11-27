@@ -23,6 +23,7 @@ async function importAllRoutines() {
       );
     };
 
+    // Fetch and process routines
     const totalRoutines = await apiClient.fetchPaginatedData(
       API_ENDPOINTS.ROUTINES,
       PAGE_SIZE.ROUTINES,
@@ -30,21 +31,9 @@ async function importAllRoutines() {
       "routines"
     );
 
+    // Update sheet with processed data
     if (processedRoutines.length > 0) {
-      const batchSize = RATE_LIMIT.BATCH_SIZE;
-      for (let i = 0; i < processedRoutines.length; i += batchSize) {
-        const batch = processedRoutines.slice(i, i + batchSize);
-        const startRow = i + 2;
-
-        sheet
-          .getRange(startRow, 1, batch.length, batch[0].length)
-          .setValues(batch);
-
-        if (i % (batchSize * 5) === 0) {
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
-        }
-      }
-
+      await updateRoutinesInSheet(sheet, processedRoutines);
       showProgress(
         `Imported ${totalRoutines} routines with ${processedRoutines.length} total entries!`,
         "Import Complete",
@@ -60,60 +49,119 @@ async function importAllRoutines() {
 
     manager.formatSheet();
   } catch (error) {
-    handleError(error, "Importing routines");
+    throw ErrorHandler.handle(error, {
+      operation: "Importing routines",
+      sheetName: ROUTINES_SHEET_NAME,
+    });
   }
 }
 
 /**
- * Processes routines data into a format suitable for sheet insertion
+ * Updates the sheet with processed routine data in batches
+ * @private
+ */
+async function updateRoutinesInSheet(sheet, processedRoutines) {
+  try {
+    const batchSize = RATE_LIMIT.BATCH_SIZE;
+    for (let i = 0; i < processedRoutines.length; i += batchSize) {
+      const batch = processedRoutines.slice(i, i + batchSize);
+      const startRow = i + 2;
+
+      sheet
+        .getRange(startRow, 1, batch.length, batch[0].length)
+        .setValues(batch);
+
+      if (i % (batchSize * 5) === 0) {
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+      }
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Updating routines in sheet",
+      sheetName: sheet.getName(),
+      totalEntries: processedRoutines.length,
+    });
+  }
+}
+
+/**
+ * Processes routine data into sheet format
+ * @private
  */
 function processRoutine(routine) {
-  if (!routine.exercises || routine.exercises.length === 0) {
-    return [
-      [
-        routine.id,
-        routine.title,
-        assignRoutineFolder(routine),
-        "", // Exercise
-        "", // Set Type
-        "", // Weight
-        "", // Reps
-      ],
-    ];
-  }
+  try {
+    if (!routine.exercises || routine.exercises.length === 0) {
+      return [
+        [
+          routine.id,
+          routine.title,
+          assignRoutineFolder(routine),
+          "", // Exercise
+          "", // Set Type
+          "", // Weight
+          "", // Reps
+        ],
+      ];
+    }
 
-  return routine.exercises.flatMap((exercise) =>
-    processRoutineExercise(exercise, routine)
-  );
+    return routine.exercises.flatMap((exercise) =>
+      processRoutineExercise(exercise, routine)
+    );
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Processing routine",
+      routineId: routine.id,
+      routineTitle: routine.title,
+    });
+  }
 }
 
 /**
  * Processes a single exercise within a routine
+ * @private
  */
 function processRoutineExercise(exercise, routine) {
-  return exercise.sets.map((set) => [
-    routine.id,
-    routine.title,
-    assignRoutineFolder(routine),
-    exercise.title,
-    set.set_type || "",
-    normalizeWeight(set.weight_kg),
-    normalizeNumber(set.reps),
-  ]);
+  try {
+    return exercise.sets.map((set) => [
+      routine.id,
+      routine.title,
+      assignRoutineFolder(routine),
+      exercise.title,
+      set.set_type || "",
+      normalizeWeight(set.weight_kg),
+      normalizeNumber(set.reps),
+    ]);
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Processing routine exercise",
+      routineId: routine.id,
+      exerciseTitle: exercise.title,
+    });
+  }
 }
 
 /**
  * Assigns a routine folder based on routine properties
+ * Defaults to Coach folder for push/pull routines
+ * @private
  */
 function assignRoutineFolder(routine) {
-  if (routine.folder_id != null) {
-    return routine.folder_id;
-  }
+  try {
+    if (routine.folder_id != null) {
+      return routine.folder_id;
+    }
 
-  const title = routine.title.toLowerCase();
-  if (title.includes("push") || title.includes("pull")) {
-    return "111111"; // Coach folder ID
-  }
+    const title = routine.title.toLowerCase();
+    if (title.includes("push") || title.includes("pull")) {
+      return "111111"; // Coach folder ID
+    }
 
-  return "";
+    return "";
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Assigning routine folder",
+      routineId: routine.id,
+      routineTitle: routine.title,
+    });
+  }
 }

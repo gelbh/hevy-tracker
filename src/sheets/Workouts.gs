@@ -13,11 +13,10 @@ async function importAllWorkouts() {
     const properties = getUserProperties();
 
     if (!sheet.getRange("A2").getValue()) {
-      resetWorkoutTimestamp();
+      await resetWorkoutTimestamp();
     }
 
     const existingData = getExistingWorkouts(sheet);
-
     const processedWorkouts = [];
     const deletedWorkoutIds = new Set();
 
@@ -25,10 +24,11 @@ async function importAllWorkouts() {
       if (!events) return;
 
       events.forEach((event) => {
-        if (event.type === "updated") {
-          if (!shouldSkipWorkout(event.workout, existingData)) {
-            processedWorkouts.push(event.workout);
-          }
+        if (
+          event.type === "updated" &&
+          !shouldSkipWorkout(event.workout, existingData)
+        ) {
+          processedWorkouts.push(event.workout);
         } else if (event.type === "deleted") {
           deletedWorkoutIds.add(event.id);
         }
@@ -76,34 +76,190 @@ async function importAllWorkouts() {
 
     manager.formatSheet();
   } catch (error) {
-    Logger.error(error);
+    throw ErrorHandler.handle(error, {
+      operation: "Importing workouts",
+      sheetName: WORKOUTS_SHEET_NAME,
+    });
   }
 }
 
 /**
  * Gets existing workouts from the sheet along with their details
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The workout sheet
- * @return {Map<string, Object>} Map of workout IDs to their details
+ * @private
  */
 function getExistingWorkouts(sheet) {
-  const existingData = new Map();
-  if (sheet.getLastRow() > 1) {
+  try {
+    const existingData = new Map();
+    if (sheet.getLastRow() > 1) {
+      const data = sheet.getDataRange().getValues();
+      const headers = data.shift();
+      const workoutIdIndex = headers.indexOf("ID");
+
+      data.forEach((row) => {
+        if (row[workoutIdIndex]) {
+          existingData.set(row[workoutIdIndex], {
+            id: row[workoutIdIndex],
+            startTime: row[headers.indexOf("Start Time")],
+            endTime: row[headers.indexOf("End Time")],
+          });
+        }
+      });
+    }
+    return existingData;
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Getting existing workouts",
+      sheetName: sheet.getName(),
+    });
+  }
+}
+
+/**
+ * Deletes workout rows from the sheet
+ * @private
+ */
+function deleteWorkoutRows(sheet, workoutIds) {
+  try {
     const data = sheet.getDataRange().getValues();
     const headers = data.shift();
     const workoutIdIndex = headers.indexOf("ID");
 
-    data.forEach((row) => {
-      if (row[workoutIdIndex]) {
-        existingData.set(row[workoutIdIndex], {
-          id: row[workoutIdIndex],
-          startTime: row[headers.indexOf("Start Time")],
-          endTime: row[headers.indexOf("End Time")],
-        });
+    const rowsToDelete = [];
+    data.forEach((row, index) => {
+      if (workoutIds.has(row[workoutIdIndex])) {
+        rowsToDelete.unshift(index + 2);
       }
     });
-  }
 
-  return existingData;
+    if (rowsToDelete.length > 0) {
+      rowsToDelete.forEach((row) => sheet.deleteRow(row));
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Deleting workout rows",
+      sheetName: sheet.getName(),
+      affectedIds: Array.from(workoutIds),
+    });
+  }
+}
+
+/**
+ * Updates workout data in the sheet
+ * @private
+ */
+function updateWorkoutData(sheet, processedData) {
+  try {
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+    const workoutIdIndex = headers.indexOf("ID");
+    const workoutRows = new Map();
+
+    data.forEach((row, index) => {
+      if (row[workoutIdIndex]) {
+        workoutRows.set(row[workoutIdIndex], index + 2);
+      }
+    });
+
+    const updates = [];
+    const additions = [];
+
+    processedData.forEach((row) => {
+      const workoutId = row[0];
+      if (workoutRows.has(workoutId)) {
+        updates.push({ row: workoutRows.get(workoutId), data: row });
+      } else {
+        additions.push(row);
+      }
+    });
+
+    if (updates.length > 0) {
+      updates.forEach(({ row, data }) => {
+        sheet.getRange(row, 1, 1, data.length).setValues([data]);
+      });
+    }
+
+    if (additions.length > 0) {
+      sheet.insertRowsBefore(2, additions.length);
+      sheet
+        .getRange(2, 1, additions.length, additions[0].length)
+        .setValues(additions);
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Updating workout data",
+      sheetName: sheet.getName(),
+      updateCount: updates?.length || 0,
+      additionCount: additions?.length || 0,
+    });
+  }
+}
+
+/**
+ * Resets the workout timestamp for full refresh
+ */
+async function resetWorkoutTimestamp() {
+  try {
+    const properties = getUserProperties();
+    properties.deleteProperty("LAST_WORKOUT_UPDATE");
+    showProgress(
+      "Workout timestamp reset successfully.",
+      "Reset Complete",
+      TOAST_DURATION.NORMAL
+    );
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Resetting workout timestamp",
+    });
+  }
+}
+
+/**
+ * Processes workout data into a format suitable for the sheet
+ * @private
+ */
+function processWorkoutsData(workouts) {
+  try {
+    return workouts.flatMap((workout) => {
+      if (!workout.exercises || workout.exercises.length === 0) {
+        return [
+          [
+            workout.id,
+            workout.title,
+            formatDate(workout.start_time),
+            formatDate(workout.end_time),
+            "", // Exercise
+            "", // Set Type
+            "", // Weight
+            "", // Reps
+            "", // Distance
+            "", // Duration
+            "", // RPE
+          ],
+        ];
+      }
+
+      return workout.exercises.flatMap((exercise) =>
+        exercise.sets.map((set) => [
+          workout.id,
+          workout.title,
+          formatDate(workout.start_time),
+          formatDate(workout.end_time),
+          exercise.title,
+          set.set_type || "",
+          normalizeWeight(set.weight_kg),
+          normalizeNumber(set.reps),
+          normalizeNumber(set.distance_meters),
+          normalizeNumber(set.duration_seconds),
+          normalizeNumber(set.rpe),
+        ])
+      );
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Processing workout data",
+      workoutCount: workouts.length,
+    });
+  }
 }
 
 /**
@@ -123,133 +279,4 @@ function shouldSkipWorkout(workout, existingData) {
     startTime === existingWorkout.startTime &&
     endTime === existingWorkout.endTime
   );
-}
-
-/**
- * Deletes workout rows from the sheet
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The workout sheet
- * @param {Set<string>} workoutIds - Set of workout IDs to delete
- */
-function deleteWorkoutRows(sheet, workoutIds) {
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  const workoutIdIndex = headers.indexOf("ID");
-
-  const rowsToDelete = [];
-  data.forEach((row, index) => {
-    if (workoutIds.has(row[workoutIdIndex])) {
-      rowsToDelete.unshift(index + 2);
-    }
-  });
-
-  if (rowsToDelete.length > 0) {
-    for (let i = 0; i < rowsToDelete.length; i++) {
-      sheet.deleteRow(rowsToDelete[i]);
-    }
-  }
-}
-
-/**
- * Updates workout data in the sheet
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The workout sheet
- * @param {Array[]} processedData - Processed workout data
- */
-function updateWorkoutData(sheet, processedData) {
-  const data = sheet.getDataRange().getValues();
-  const headers = data.shift();
-  const workoutIdIndex = headers.indexOf("ID");
-  const workoutRows = new Map();
-
-  data.forEach((row, index) => {
-    if (row[workoutIdIndex]) {
-      workoutRows.set(row[workoutIdIndex], index + 2);
-    }
-  });
-
-  const updates = [];
-  const additions = [];
-
-  processedData.forEach((row) => {
-    const workoutId = row[0];
-    if (workoutRows.has(workoutId)) {
-      updates.push({ row: workoutRows.get(workoutId), data: row });
-    } else {
-      additions.push(row);
-    }
-  });
-
-  // Handle updates
-  if (updates.length > 0) {
-    updates.forEach(({ row, data }) => {
-      sheet.getRange(row, 1, 1, data.length).setValues([data]);
-    });
-  }
-
-  // Handle new additions
-  if (additions.length > 0) {
-    sheet.insertRowsBefore(2, additions.length);
-    sheet
-      .getRange(2, 1, additions.length, additions[0].length)
-      .setValues(additions);
-  }
-}
-
-/**
- * Processes workout data into a format suitable for the sheet
- * @param {Object[]} workouts - Array of workout objects from API
- * @return {Array[]} Processed data ready for sheet insertion
- */
-function processWorkoutsData(workouts) {
-  return workouts.flatMap((workout) => {
-    if (!workout.exercises || workout.exercises.length === 0) {
-      return [
-        [
-          workout.id,
-          workout.title,
-          formatDate(workout.start_time),
-          formatDate(workout.end_time),
-          "", // Exercise
-          "", // Set Type
-          "", // Weight
-          "", // Reps
-          "", // Distance
-          "", // Duration
-          "", // RPE
-        ],
-      ];
-    }
-
-    return workout.exercises.flatMap((exercise) =>
-      exercise.sets.map((set) => [
-        workout.id,
-        workout.title,
-        formatDate(workout.start_time),
-        formatDate(workout.end_time),
-        exercise.title,
-        set.set_type || "",
-        normalizeWeight(set.weight_kg),
-        normalizeNumber(set.reps),
-        normalizeNumber(set.distance_meters),
-        normalizeNumber(set.duration_seconds),
-        normalizeNumber(set.rpe),
-      ])
-    );
-  });
-}
-
-/**
- * Resets the workout timestamp for full refresh
- */
-function resetWorkoutTimestamp() {
-  try {
-    const properties = getUserProperties();
-    properties.deleteProperty("LAST_WORKOUT_UPDATE");
-    showProgress(
-      "Workout timestamp reset successfully.",
-      "Reset Complete",
-      TOAST_DURATION.NORMAL
-    );
-  } catch (error) {
-    handleError(error, "Resetting workout timestamp");
-  }
 }

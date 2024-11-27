@@ -303,7 +303,7 @@ function cleanupTempSheet(spreadsheet) {
       spreadsheet.deleteSheet(tempSheet);
     }
   } catch (e) {
-    Logger.debug("Error cleaning up existing temp sheet", e);
+    ErrorHandler.handle(e, "Cleaning up temporary sheet");
   }
 }
 
@@ -329,7 +329,6 @@ function cleanupSourceSheet(sourceSheet) {
       formFile.setTrashed(true);
     }
   } catch (e) {
-    Logger.debug("Error during form/sheet cleanup", e);
     throw e;
   }
 }

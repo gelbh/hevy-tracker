@@ -10,16 +10,23 @@ class SheetManager {
    * @param {string} sheetName - Name of the sheet (must match Constants.gs SHEET_HEADERS key)
    */
   constructor(sheet, sheetName) {
-    this.sheet = sheet;
-    this.sheetName = sheetName;
-    this.theme = SHEET_THEMES[sheetName];
-    this.headers = SHEET_HEADERS[sheetName];
+    try {
+      this.sheet = sheet;
+      this.sheetName = sheetName;
+      this.theme = SHEET_THEMES[sheetName];
+      this.headers = SHEET_HEADERS[sheetName];
 
-    if (!this.headers) {
-      throw new ValidationError(`No headers defined for sheet: ${sheetName}`);
-    }
-    if (!this.theme) {
-      throw new ValidationError(`No theme defined for sheet: ${sheetName}`);
+      if (!this.headers) {
+        throw new ValidationError(`No headers defined for sheet: ${sheetName}`);
+      }
+      if (!this.theme) {
+        throw new ValidationError(`No theme defined for sheet: ${sheetName}`);
+      }
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "SheetManager initialization",
+        sheetName: sheetName,
+      });
     }
   }
 
@@ -29,47 +36,104 @@ class SheetManager {
    * @return {SheetManager} manager instance
    */
   static getOrCreate(sheetName) {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(sheetName);
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let sheet = ss.getSheetByName(sheetName);
 
-    if (!sheet) {
-      try {
+      if (!sheet) {
         sheet = ss.insertSheet(sheetName);
-      } catch (error) {
-        throw new ConfigurationError(
-          `Failed to create sheet ${sheetName}: ${error.message}`
-        );
       }
+
+      return new SheetManager(sheet, sheetName);
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Creating/getting sheet",
+        sheetName: sheetName,
+      });
     }
-
-    const manager = new SheetManager(sheet, sheetName);
-
-    return manager;
   }
 
   /**
    * Applies all formatting to the sheet
    */
-  formatSheet() {
+  async formatSheet() {
     try {
-      this.ensureHeaders();
+      await this.ensureHeaders();
 
       if (this.sheet.getLastRow() > 1) {
-        this.formatData();
-        this.removeEmptyRowsAndColumns();
-        this.setAlternatingColors();
+        await this.formatData();
+        await this.removeEmptyRowsAndColumns();
+        await this.setAlternatingColors();
       }
     } catch (error) {
-      handleError(error, `Formatting sheet ${this.sheetName}`);
+      throw ErrorHandler.handle(error, {
+        operation: "Formatting sheet",
+        sheetName: this.sheetName,
+      });
+    }
+  }
+
+  /**
+   * Ensures headers are present and correct
+   * @private
+   */
+  async ensureHeaders() {
+    try {
+      if (!(await this.validateHeaders())) {
+        // Clear any existing content
+        if (this.sheet.getLastRow() > 0) {
+          this.sheet.clear();
+        }
+
+        const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
+
+        // Set headers and formatting
+        headerRange
+          .setValues([this.headers])
+          .setFontWeight("bold")
+          .setBackground(this.theme.evenRowColor)
+          .setFontColor(this.theme.fontColor);
+
+        // Freeze the header row
+        this.sheet.setFrozenRows(1);
+      }
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Ensuring headers",
+        sheetName: this.sheetName,
+      });
+    }
+  }
+
+  /**
+   * Validates existing headers against expected headers
+   * @private
+   * @returns {Promise<boolean>} True if headers are valid
+   */
+  async validateHeaders() {
+    try {
+      if (this.sheet.getLastRow() === 0) return false;
+
+      const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
+      const existingHeaders = headerRange.getValues()[0];
+
+      return this.headers.every(
+        (header, index) => existingHeaders[index] === header
+      );
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Validating headers",
+        sheetName: this.sheetName,
+      });
     }
   }
 
   /**
    * Formats data with consistent styling
+   * @private
    */
-  formatData(startRow, numRows) {
+  async formatData(startRow = 2, numRows) {
     try {
-      if (!startRow) startRow = 2;
       if (!numRows) {
         numRows = Math.max(0, this.sheet.getLastRow() - startRow + 1);
       }
@@ -98,79 +162,49 @@ class SheetManager {
           SpreadsheetApp.BorderStyle.SOLID
         );
     } catch (error) {
-      Logger.error(`Formatting data in sheet ${this.sheetName}`, error);
+      throw ErrorHandler.handle(error, {
+        operation: "Formatting data",
+        sheetName: this.sheetName,
+        startRow: startRow,
+        numRows: numRows,
+      });
     }
-  }
-
-  /**
-   * Ensures headers are present and correct
-   */
-  ensureHeaders() {
-    if (!this.validateHeaders()) {
-      // Clear any existing content
-      if (this.sheet.getLastRow() > 0) {
-        this.sheet.clear();
-      }
-
-      // Set headers in first row
-      this.sheet
-        .getRange(1, 1, 1, this.headers.length)
-        .setValues([this.headers])
-        .setFontWeight("bold")
-        .setBackground(this.theme.evenRowColor)
-        .setFontColor(this.theme.fontColor);
-
-      // Freeze the header row
-      this.sheet.setFrozenRows(1);
-    }
-  }
-
-  /**
-   * Checks if headers are present and match expected headers
-   * @returns {boolean} True if headers are present and correct
-   */
-  validateHeaders() {
-    if (this.sheet.getLastRow() === 0) return false;
-
-    const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
-    const existingHeaders = headerRange.getValues()[0];
-
-    return this.headers.every(
-      (header, index) => existingHeaders[index] === header
-    );
   }
 
   /**
    * Removes empty rows and columns from the sheet
+   * @private
    */
-  removeEmptyRowsAndColumns() {
+  async removeEmptyRowsAndColumns() {
     try {
       const maxRows = this.sheet.getMaxRows();
       const maxCols = this.sheet.getMaxColumns();
       const lastRow = this.sheet.getLastRow();
       const lastCol = this.sheet.getLastColumn();
 
-      // Only delete rows if we have more than the header row
       if (lastRow > 1 && lastRow < maxRows) {
         this.sheet.deleteRows(lastRow + 1, maxRows - lastRow);
       }
 
-      // Only delete columns if we have some data
       if (lastCol > 0 && lastCol < maxCols) {
         this.sheet.deleteColumns(lastCol + 1, maxCols - lastCol);
       }
     } catch (error) {
-      handleError(error, "Removing empty rows and columns");
+      throw ErrorHandler.handle(error, {
+        operation: "Removing empty rows and columns",
+        sheetName: this.sheetName,
+      });
     }
   }
 
   /**
    * Sets alternating row colors for the entire sheet
+   * @private
    */
-  setAlternatingColors() {
+  async setAlternatingColors() {
     try {
       const lastRow = this.sheet.getLastRow();
-      if (lastRow <= 1) return; // Don't set colors if we only have headers
+      if (lastRow <= 1) return;
 
       const range = this.sheet.getRange(
         2,
@@ -195,7 +229,10 @@ class SheetManager {
 
       this.sheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
     } catch (error) {
-      handleError(error, "Updating alternating colors");
+      throw ErrorHandler.handle(error, {
+        operation: "Setting alternating colors",
+        sheetName: this.sheetName,
+      });
     }
   }
 }

@@ -1,118 +1,113 @@
-/**
- * Centralized error handling system for consistent error management across the application
- */
+class ErrorHandler {
+  /**
+   * Handles errors consistently across the application with logging and user feedback
+   * @param {Error} error - The error to handle
+   * @param {string|Object} context - Context where the error occurred
+   * @param {boolean} [showToast=true] - Whether to show a toast notification
+   * @throws {Error} Enhanced error with ID and context
+   */
+  static handle(error, context, showToast = true) {
+    const errorId = Utilities.getUuid();
+    const contextObj =
+      typeof context === "string" ? { description: context } : context;
 
-/**
- * Enhanced error handler with logging and user feedback
- * @param {Error} error - The error to handle
- * @param {string|Object} context - Context where the error occurred
- * @param {boolean} [showToast=true] - Whether to show a toast notification
- * @throws {Error} Enhanced error with ID
- */
-function handleError(error, context, showToast = true) {
-  const errorId = Utilities.getUuid();
-  const contextObj =
-    typeof context === "string" ? { description: context } : context;
+    // Enhance error with standard properties
+    let enhancedError = this.enhanceError(error, contextObj);
+    enhancedError.errorId = errorId;
 
-  // Enhance the error with additional context
-  let enhancedError = error;
+    // Log the error
+    console.error(`Error [${errorId}]:`, {
+      message: enhancedError.message,
+      context: contextObj,
+      stack: error.stack,
+      user: Session.getActiveUser().getEmail(),
+    });
 
-  // Only enhance if not already an enhanced error type
-  if (!isEnhancedErrorType(error)) {
+    // Show user feedback if requested
+    if (showToast) {
+      const userMessage = this.getUserMessage(enhancedError);
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        userMessage,
+        "Error",
+        TOAST_DURATION.NORMAL
+      );
+    }
+
+    return enhancedError;
+  }
+
+  /**
+   * Enhances error with appropriate type and context
+   * @private
+   */
+  static enhanceError(error, context) {
+    if (this.isEnhancedErrorType(error)) {
+      error.context = { ...error.context, ...context };
+      return error;
+    }
+
     if (error.statusCode === 401) {
-      enhancedError = new InvalidApiKeyError(
+      return new InvalidApiKeyError(
         error.message || "Invalid or revoked API key"
       );
-    } else if (error.statusCode || contextObj.endpoint) {
-      enhancedError = new ApiError(
+    }
+
+    if (error.statusCode || context.endpoint) {
+      return new ApiError(
         error.message || "API request failed",
         error.statusCode || 0,
         error.response
       );
-    } else if (contextObj.sheetName) {
-      enhancedError = new SheetError(
-        error.message || "Sheet operation failed",
-        contextObj.sheetName
-      );
-    } else if (error instanceof TypeError || contextObj.validation) {
-      enhancedError = new ValidationError(error.message || "Validation failed");
     }
+
+    if (context.sheetName) {
+      return new SheetError(
+        error.message || "Sheet operation failed",
+        context.sheetName
+      );
+    }
+
+    if (error instanceof TypeError || context.validation) {
+      return new ValidationError(error.message || "Validation failed");
+    }
+
+    return error;
   }
 
-  // Add context and ID to the enhanced error
-  enhancedError.context = contextObj;
-  enhancedError.errorId = errorId;
+  /**
+   * Gets user-friendly error message
+   * @private
+   */
+  static getUserMessage(error) {
+    if (error instanceof InvalidApiKeyError) {
+      return "Invalid API key. Please check your Hevy Developer Settings and reset your API key.";
+    }
 
-  // Log the error
-  Logger.error(`Error [${errorId}]: ${enhancedError.message}`, {
-    context: contextObj,
-    function: getCaller(),
-    user: Session.getActiveUser().getEmail(),
-    originalError: error,
-    stack: error.stack,
-  });
+    if (error instanceof ApiError && error.statusCode === 401) {
+      return "API key validation failed. Please reset your API key.";
+    }
 
-  // Show user feedback if requested
-  if (showToast) {
-    const userMessage = getUserMessage(enhancedError);
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      userMessage,
-      "Error",
-      TOAST_DURATION.NORMAL
+    return DEBUG_MODE
+      ? `Error: ${error.message}\nID: ${error.errorId}`
+      : `An error occurred. Reference ID: ${error.errorId}`;
+  }
+
+  /**
+   * Checks if error is already an enhanced type
+   * @private
+   */
+  static isEnhancedErrorType(error) {
+    return (
+      error instanceof ApiError ||
+      error instanceof ValidationError ||
+      error instanceof ConfigurationError ||
+      error instanceof SheetError ||
+      error instanceof InvalidApiKeyError
     );
   }
-
-  return enhancedError;
 }
 
-/**
- * Checks if an error is already an enhanced type
- * @private
- */
-function isEnhancedErrorType(error) {
-  return (
-    error instanceof ApiError ||
-    error instanceof ValidationError ||
-    error instanceof ConfigurationError ||
-    error instanceof SheetError ||
-    error instanceof InvalidApiKeyError
-  );
-}
-
-/**
- * Gets user-friendly error message
- * @private
- */
-function getUserMessage(error) {
-  if (error instanceof InvalidApiKeyError) {
-    return "Invalid API key. Please check your Hevy Developer Settings and reset your API key.";
-  }
-
-  if (error instanceof ApiError && error.statusCode === 401) {
-    return "API key validation failed. Please reset your API key.";
-  }
-
-  return DEBUG_MODE
-    ? `Error: ${error.message}\nID: ${error.errorId}`
-    : `An error occurred. Reference ID: ${error.errorId}`;
-}
-
-/**
- * Gets the name of the calling function
- * @private
- */
-function getCaller() {
-  try {
-    const stack = new Error().stack;
-    const caller = stack.split("\n")[3];
-    const match = caller.match(/at (.+?) /);
-    return match ? match[1] : "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
-// Custom error types
+// Error Types
 class ValidationError extends Error {
   constructor(message, context = {}) {
     super(message);
@@ -130,13 +125,8 @@ class ApiError extends Error {
     this.context = context;
   }
 
-  isStatus(code) {
-    return this.statusCode === code;
-  }
-
   isRetryable() {
-    const retryableCodes = [408, 429, 500, 502, 503, 504];
-    return retryableCodes.includes(this.statusCode);
+    return [408, 429, 500, 502, 503, 504].includes(this.statusCode);
   }
 }
 
