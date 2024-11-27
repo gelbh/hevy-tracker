@@ -2,155 +2,152 @@
 <html>
   <head>
     <base target="_top" />
-    <meta charset="UTF-8" />
-    <title>Hevy Tracker</title>
-    <style>
-      body {
-        padding: 12px;
-        font-family: Arial, sans-serif;
-      }
-      .menu-section {
-        margin-bottom: 20px;
-      }
-      .menu-title {
-        color: #5f6368;
-        font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 8px;
-        padding-left: 8px;
-      }
-      .menu-item {
-        width: 100%;
-        text-align: left;
-        padding: 8px;
-        margin: 2px 0;
-        background: none;
-        border: none;
-        border-radius: 4px;
-        font-size: 14px;
-        color: #3c4043;
-        cursor: pointer;
-      }
-      .menu-item:hover {
-        background-color: #f1f3f4;
-      }
-      .separator {
-        border-top: 1px solid #e8eaed;
-        margin: 8px 0;
-      }
-      /* Prevent content from being hidden on reload */
-      #sidebar-content {
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-      }
-    </style>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+    />
   </head>
-  <body>
-    <div id="sidebar-content">
-      <div class="menu-section">
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).showInitialSetup()"
+  <body class="bg-white">
+    <div class="flex flex-col h-full">
+      <div class="p-4 space-y-4">
+        <? if (data.isTemplate) { ?>
+        <!-- Template Spreadsheet Menu -->
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showCreateSpreadsheetDialog"
         >
-          🔑 Set Hevy API Key
-        </button>
-      </div>
+          <span>📋 Create New Spreadsheet From Template</span>
+        </div>
 
-      <div class="separator"></div>
+        <hr class="my-4" />
 
-      <div class="menu-section">
-        <div class="menu-title">IMPORT DATA</div>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).apiClient.runInitialImport()"
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="importAllExercises"
         >
-          📥 Import All
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).importAllWorkouts()"
-        >
-          🏋️ Import Workouts
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).importAllExercises()"
-        >
-          💪 Import Exercises
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).importAllRoutines()"
-        >
-          📋 Import Routines
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).importAllRoutineFolders()"
-        >
-          📁 Import Routine Folders
-        </button>
-      </div>
+          <span>💪 Import Exercises</span>
+        </div>
 
-      <div class="separator"></div>
+        <hr class="my-4" />
 
-      <div class="menu-section">
-        <div class="menu-title">ROUTINE BUILDER</div>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).createRoutineFromSheet()"
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showGuideDialog"
         >
-          📋 Create Routine from Sheet
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).clearRoutineBuilder()"
+          <span>❓ View Setup Guide</span>
+        </div>
+        <? } else { ?>
+        <!-- Regular Spreadsheet Menu -->
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showInitialSetup"
         >
-          🗑️ Clear Builder Form
-        </button>
-      </div>
+          <span class="text-blue-600">🔑 Set Hevy API Key</span>
+        </div>
 
-      <div class="separator"></div>
+        <hr class="my-4" />
 
-      <div class="menu-section">
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).logWeight()"
-        >
-          ⚖️ Log Weight
-        </button>
-      </div>
+        <div class="space-y-2">
+          <h3 class="font-semibold text-gray-700">IMPORT DATA</h3>
+          <div class="space-y-1">
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="runInitialImport"
+            >
+              <span>📥 Import All</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllWorkouts"
+            >
+              <span>🏋️ Import Workouts</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllExercises"
+            >
+              <span>💪 Import Exercises</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllRoutines"
+            >
+              <span>📋 Import Routines</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllRoutineFolders"
+            >
+              <span>📁 Import Routine Folders</span>
+            </div>
+          </div>
+        </div>
 
-      <div class="separator"></div>
+        <hr class="my-4" />
 
-      <div class="menu-section">
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).showCreateSpreadsheetDialog()"
+        <div class="space-y-2">
+          <h3 class="font-semibold text-gray-700">ROUTINE BUILDER</h3>
+          <div class="space-y-1">
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="createRoutineFromSheet"
+            >
+              <span>📋 Create Routine from Sheet</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="clearRoutineBuilder"
+            >
+              <span>🗑️ Clear Builder Form</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="logWeight"
         >
-          📋 Create New Spreadsheet
-        </button>
-        <button
-          class="menu-item"
-          onclick="google.script.run.withFailureHandler(onError).showGuideDialog()"
+          <span>⚖️ Log Weight</span>
+        </div>
+
+        <hr class="my-4" />
+
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showCreateSpreadsheetDialog"
         >
-          ❓ View Setup Guide
-        </button>
+          <span>📋 Create New Spreadsheet</span>
+        </div>
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showGuideDialog"
+        >
+          <span>❓ View Setup Guide</span>
+        </div>
+        <? } ?>
       </div>
     </div>
 
     <script>
-      // Error handler for all button clicks
-      function onError(error) {
-        console.error("Operation failed:", error);
-        // Optionally show error to user
-      }
-
-      // Make sure the content is visible when loaded
-      window.onload = function () {
-        document.getElementById("sidebar-content").style.display = "block";
-      };
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".menu-item").forEach(function (item) {
+          item.addEventListener("click", function () {
+            const action = this.getAttribute("data-action");
+            if (action) {
+              google.script.run
+                .withSuccessHandler(function (response) {
+                  console.log("Action completed:", response);
+                })
+                .withFailureHandler(function (error) {
+                  console.error("Action failed:", error);
+                })
+                .runMenuAction(action);
+            }
+          });
+        });
+      });
     </script>
   </body>
 </html>

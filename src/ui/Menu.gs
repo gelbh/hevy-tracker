@@ -52,17 +52,98 @@ function onHomepage(e) {
     const isTemplate =
       spreadsheet.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    showHtmlDialog("src/ui/dialogs/Sidebar", {
-      width: 300,
-      title: "Hevy Tracker",
-      templateData: { isTemplate },
-      showAsSidebar: true,
-    });
+    const template = HtmlService.createTemplateFromFile(
+      "src/ui/dialogs/Sidebar"
+    );
+    template.data = { isTemplate };
+
+    const htmlOutput = template
+      .evaluate()
+      .setTitle("Hevy Tracker")
+      .setWidth(300);
+
+    SpreadsheetApp.getUi().showSidebar(htmlOutput);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Opening homepage",
       eventType: e?.type,
     });
+  }
+}
+
+/**
+ * Handles sidebar menu actions with improved response handling
+ * @param {string} action - The action to perform
+ * @returns {Object} Response object with status and message
+ */
+function runMenuAction(action) {
+  try {
+    const actionMap = {
+      showInitialSetup: () => ({
+        handler: showInitialSetup,
+        successMessage: "API key setup initiated",
+      }),
+      runInitialImport: () => ({
+        handler: apiClient.runInitialImport,
+        successMessage: "Import started",
+      }),
+      importAllWorkouts: () => ({
+        handler: importAllWorkouts,
+        successMessage: "Workouts import initiated",
+      }),
+      importAllExercises: () => ({
+        handler: importAllExercises,
+        successMessage: "Exercises import initiated",
+      }),
+      importAllRoutines: () => ({
+        handler: importAllRoutines,
+        successMessage: "Routines import initiated",
+      }),
+      importAllRoutineFolders: () => ({
+        handler: importAllRoutineFolders,
+        successMessage: "Folders import initiated",
+      }),
+      createRoutineFromSheet: () => ({
+        handler: createRoutineFromSheet,
+        successMessage: "Creating routine",
+      }),
+      clearRoutineBuilder: () => ({
+        handler: clearRoutineBuilder,
+        successMessage: "Form cleared",
+      }),
+      logWeight: () => ({
+        handler: logWeight,
+        successMessage: "Weight logging initiated",
+      }),
+      showCreateSpreadsheetDialog: () => ({
+        handler: showCreateSpreadsheetDialog,
+        successMessage: "Creating spreadsheet",
+      }),
+      showGuideDialog: () => ({
+        handler: showGuideDialog,
+        successMessage: "Opening guide",
+      }),
+    };
+
+    if (action in actionMap) {
+      const { handler, successMessage } = actionMap[action]();
+      handler();
+      return {
+        success: true,
+        message: successMessage,
+      };
+    }
+
+    throw new Error(`Unknown action: ${action}`);
+  } catch (error) {
+    ErrorHandler.handle(error, {
+      operation: "Running menu action",
+      action: action,
+    });
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 }
 
