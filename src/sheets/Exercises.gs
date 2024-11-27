@@ -42,7 +42,6 @@ async function importAllExercises() {
     }
 
     await updateExerciseCounts(sheet);
-    await sortExercises(sheet);
 
     manager.formatSheet();
     addDuplicateHighlighting(manager);
@@ -100,17 +99,24 @@ function getExistingExercises(sheet) {
  * @return {Array[]} Processed data ready for sheet insertion
  */
 function processExercisesData(exercises) {
-  return exercises.map((exercise) => [
-    exercise.id,
-    exercise.title,
-    "", // IMG (left empty for manual entry)
-    exercise.type || "",
-    formatMuscleGroup(exercise.primary_muscle_group),
-    formatMuscleGroups(exercise.secondary_muscle_groups),
-    exercise.is_custom ? "TRUE" : "FALSE",
-    0, // Count (will be updated separately)
-    "", // Rank (left empty for manual entry)
-  ]);
+  try {
+    return exercises.map((exercise) => [
+      exercise.id,
+      exercise.title,
+      "", // IMG
+      exercise.type || "",
+      formatMuscleGroup(exercise.primary_muscle_group),
+      formatMuscleGroups(exercise.secondary_muscle_groups),
+      exercise.is_custom ? "TRUE" : "FALSE",
+      0, // Count
+      "", // Rank
+    ]);
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Processing exercise data",
+      exerciseCount: exercises.length,
+    });
+  }
 }
 
 /**
@@ -193,34 +199,17 @@ async function insertNewExercises(sheet, processedExercises) {
 
 /**
  * Updates exercise counts based on workout data using batched processing
- * @private
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
  */
 async function updateExerciseCounts(exerciseSheet) {
-  try {
-    const workoutSheet =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
+  const workoutSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
 
-    if (!workoutSheet) {
-      throw new SheetError("Workouts sheet not found", WORKOUTS_SHEET_NAME);
-    }
-
-    const { exerciseCounts, processedWorkouts } = await calculateExerciseCounts(
-      workoutSheet
-    );
-    await updateExerciseCountsInSheet(exerciseSheet, exerciseCounts);
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Updating exercise counts",
-      sheetName: exerciseSheet.getName(),
-    });
+  if (!workoutSheet) {
+    Logger.warn("Workouts sheet not found, skipping count update");
+    return;
   }
-}
 
-/**
- * Calculates exercise counts from workout data
- * @private
- */
-async function calculateExerciseCounts(workoutSheet) {
   try {
     const workoutData = workoutSheet.getDataRange().getValues();
     const workoutHeaders = workoutData.shift();
@@ -231,7 +220,8 @@ async function calculateExerciseCounts(workoutSheet) {
 
     const exerciseCounts = new Map();
     const processedWorkouts = new Set();
-    const batchSize = RATE_LIMIT.BATCH_SIZE;
+
+    const batchSize = 1000;
 
     for (let i = 0; i < workoutData.length; i += batchSize) {
       const batch = workoutData.slice(
@@ -245,6 +235,7 @@ async function calculateExerciseCounts(workoutSheet) {
 
         if (exerciseTitle && workoutId) {
           const key = `${workoutId}_${exerciseTitle}`;
+
           if (!processedWorkouts.has(key)) {
             processedWorkouts.add(key);
             exerciseCounts.set(
@@ -260,26 +251,10 @@ async function calculateExerciseCounts(workoutSheet) {
       }
     }
 
-    return { exerciseCounts, processedWorkouts };
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Calculating exercise counts",
-      sheetName: workoutSheet.getName(),
-    });
-  }
-}
-
-/**
- * Updates the count values in the exercise sheet
- * @private
- */
-async function updateExerciseCountsInSheet(exerciseSheet, exerciseCounts) {
-  try {
     const exerciseData = exerciseSheet.getDataRange().getValues();
     const exerciseHeaders = exerciseData.shift();
     const titleIndex = exerciseHeaders.indexOf("Title");
     const countIndex = exerciseHeaders.indexOf("Count");
-    const batchSize = RATE_LIMIT.BATCH_SIZE;
 
     for (let i = 0; i < exerciseData.length; i += batchSize) {
       const batch = exerciseData.slice(
@@ -292,6 +267,7 @@ async function updateExerciseCountsInSheet(exerciseSheet, exerciseCounts) {
         batch.length,
         1
       );
+
       const counts = batch.map((row) => [
         exerciseCounts.get(row[titleIndex]) || 0,
       ]);
@@ -303,78 +279,8 @@ async function updateExerciseCountsInSheet(exerciseSheet, exerciseCounts) {
     }
   } catch (error) {
     throw ErrorHandler.handle(error, {
-      operation: "Updating exercise counts in sheet",
+      operation: "Updating exercise counts",
       sheetName: exerciseSheet.getName(),
-    });
-  }
-}
-
-/**
- * Converts rank to numeric value for sorting
- * @private
- */
-function getRankValue(rank) {
-  if (!rank) return -1; // No rank should be sorted last
-
-  const rankMap = {
-    "S+": 13,
-    S: 12,
-    "A+": 11,
-    A: 10,
-    "B+": 9,
-    B: 8,
-    "C+": 7,
-    C: 6,
-    "D+": 5,
-    D: 4,
-    F: 3,
-  };
-
-  return rankMap[rank.toUpperCase()] || -1;
-}
-
-/**
- * Sorts exercises by rank (S to F) then by count
- * @private
- */
-async function sortExercises(sheet) {
-  try {
-    const finalLastRow = sheet.getLastRow();
-    if (finalLastRow > 1) {
-      const dataRange = sheet.getRange(
-        2,
-        1,
-        finalLastRow - 1,
-        sheet.getLastColumn()
-      );
-      const headers = SHEET_HEADERS[EXERCISES_SHEET_NAME];
-      const rankColumn = headers.indexOf("Rank") + 1;
-      const countColumn = headers.indexOf("Count") + 1;
-
-      // Add helper column for rank sorting
-      const lastCol = sheet.getLastColumn();
-      sheet.insertColumnAfter(lastCol);
-      const helperRange = sheet.getRange(2, lastCol + 1, finalLastRow - 1, 1);
-      const rankRange = sheet.getRange(2, rankColumn, finalLastRow - 1, 1);
-      const rankValues = rankRange.getValues();
-
-      // Set helper values for sorting
-      const helperValues = rankValues.map(([rank]) => [getRankValue(rank)]);
-      helperRange.setValues(helperValues);
-
-      // Sort by rank (helper column) then count
-      dataRange.sort([
-        { column: lastCol + 1, ascending: false }, // Sort by rank value (high to low)
-        { column: countColumn, ascending: false }, // Then by count (high to low)
-      ]);
-
-      // Remove helper column
-      sheet.deleteColumn(lastCol + 1);
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Sorting exercises",
-      sheetName: sheet.getName(),
     });
   }
 }
