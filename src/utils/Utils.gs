@@ -64,12 +64,11 @@ function showHtmlDialog(filename, options = {}) {
     const htmlOutput = configureHtmlOutput(html, filename, title);
     showDialog(htmlOutput, width, height, modalTitle, showAsSidebar);
   } catch (error) {
-    handleError(error, {
+    throw ErrorHandler.handle(error, {
       context: "Showing HTML dialog",
       filename,
       options,
     });
-    throw error;
   }
 }
 
@@ -136,7 +135,7 @@ function logWeight() {
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
-    handleError(error, "Logging weight");
+    throw ErrorHandler.handle(error, "Logging weight");
   }
 }
 
@@ -208,8 +207,7 @@ function transferWeightHistory(showMessages = true) {
 
     return true;
   } catch (error) {
-    handleError(error, "Transferring weight history");
-    return false;
+    throw ErrorHandler.handle(error, "Transferring weight history");
   }
 }
 
@@ -350,8 +348,7 @@ function makeTemplateCopy() {
 
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
-    handleError(error, "Creating template spreadsheet");
-    throw error;
+    throw ErrorHandler.handle(error, "Creating template spreadsheet");
   }
 }
 
