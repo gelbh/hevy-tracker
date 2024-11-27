@@ -75,14 +75,13 @@ src/
 │   ├── Exercises.gs         # Exercise tracking
 │   ├── Routines.gs          # Routine management
 │   ├── RoutineFolders.gs    # Folder organization
+│   ├── RoutineBuilder.gs    # Routine builder
 │   └── Workouts.gs          # Workout tracking
 ├── ui/
 │   ├── Menu.gs              # Menu interface
 │   └── dialogs/             # HTML dialogs
 ├── utils/
-│   ├── 0_Config.gs          # Configuration management
 │   ├── ErrorHandler.gs      # Error management
-│   ├── Logger.gs            # Logging utility
 │   └── Utils.gs             # Common utilities
 └── Constants.gs             # Global constants
 ```

@@ -238,8 +238,10 @@ async function findRoutineFolder(folderName) {
 
     return matchingFolder ? matchingFolder.id : null;
   } catch (error) {
-    Logger.error("Error finding routine folder", { folderName, error });
-    throw error;
+    throw ErrorHandler.handle(error, {
+      operation: "Finding routine folder",
+      folderName: folderName,
+    });
   }
 }
 
@@ -310,8 +312,10 @@ async function createNewRoutineFolder(folderName) {
       throw new ApiError(errorMessage, responseCode, responseText);
     }
   } catch (error) {
-    Logger.error("Error creating routine folder:", { folderName, error });
-    throw error;
+    throw ErrorHandler.handle(error, {
+      operation: "Creating routine folder",
+      folderName: folderName,
+    });
   }
 }
 

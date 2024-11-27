@@ -373,8 +373,10 @@ function formatDate(dateString) {
     );
     return adjustedDate;
   } catch (error) {
-    Logger.error("Error formatting date", { dateString }, error);
-    return "";
+    throw ErrorHandler.handle(error, {
+      context: "Formatting date",
+      dateString,
+    });
   }
 }
 

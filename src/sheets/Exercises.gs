@@ -206,7 +206,6 @@ async function updateExerciseCounts(exerciseSheet) {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
 
   if (!workoutSheet) {
-    Logger.warn("Workouts sheet not found, skipping count update");
     return;
   }
 
