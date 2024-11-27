@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Google Sheets Add-on for Hevy workout tracking",
   "scripts": {
-    "deployments:list": "node manageDeployments.js --list",
-    "deployments:clean": "node manageDeployments.js",
-    "deployments:remove": "node manageDeployments.js --remove"
+    "deployments:list": "node scripts/manageDeployments.js --list",
+    "deployments:clean": "node scripts/manageDeployments.js",
+    "deployments:remove": "node scripts/manageDeployments.js --remove"
   },
   "keywords": [
     "google-apps-script",
