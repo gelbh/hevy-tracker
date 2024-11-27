@@ -106,39 +106,40 @@ function processExercises(exerciseData) {
     let currentTemplateId = null;
 
     exerciseData.forEach((row) => {
-      const [name, rest, setType, weight, reps, notes, supersetId, templateId] =
+      let [name, rest, setType, weight, reps, notes, supersetId, templateId] =
         row;
 
-      // Validate template ID
-      const processedTemplateId = templateId ? String(templateId).trim() : null;
-      if (!processedTemplateId) {
+      templateId = templateId ? String(templateId).trim() : null;
+      if (!templateId) {
         throw new ValidationError(`Missing template ID for exercise: ${name}`);
       }
 
-      // Process numeric values
-      const processedValues = validateAndProcessNumericValues(row);
+      [rest, weight, reps, supersetId] = validateAndProcessNumericValues(
+        rest,
+        weight,
+        reps,
+        supersetId
+      );
 
-      // Handle exercise grouping
-      if (processedTemplateId !== currentTemplateId) {
+      if (templateId !== currentTemplateId) {
         if (currentExercise) {
           exercises.push(currentExercise);
         }
 
         currentExercise = createNewExercise(
-          processedTemplateId,
-          processedValues,
+          templateId,
+          rest,
+          supersetId,
           notes
         );
-        currentTemplateId = processedTemplateId;
+        currentTemplateId = templateId;
       }
 
-      // Add set to current exercise
       if (currentExercise) {
-        currentExercise.sets.push(createSet(setType, processedValues));
+        currentExercise.sets.push(createSet(setType, weight, reps));
       }
     });
 
-    // Add the last exercise
     if (currentExercise) {
       exercises.push(currentExercise);
     }
@@ -268,7 +269,6 @@ async function createNewRoutineFolder(folderName) {
       },
     };
 
-    // Make the request directly using UrlFetchApp
     const response = UrlFetchApp.fetch(
       `${API_ENDPOINTS.BASE}${API_ENDPOINTS.ROUTINE_FOLDERS}`,
       {
@@ -286,7 +286,6 @@ async function createNewRoutineFolder(folderName) {
     if (responseCode === 201) {
       try {
         const responseData = JSON.parse(responseText);
-        // Extract ID from the nested routine_folder object
         const folderId = responseData.routine_folder?.id;
 
         if (!folderId) {
@@ -310,9 +309,7 @@ async function createNewRoutineFolder(folderName) {
       try {
         const errorData = JSON.parse(responseText);
         errorMessage = errorData.error || errorMessage;
-      } catch (parseError) {
-        // Use default error message if parsing fails
-      }
+      } catch (parseError) {}
       throw new ApiError(errorMessage, responseCode, responseText);
     }
   } catch (error) {
@@ -327,39 +324,32 @@ async function createNewRoutineFolder(folderName) {
  * Validates and processes numeric values from row data
  * @private
  */
-function validateAndProcessNumericValues(row) {
-  const [_, rest, __, weight, reps, ___, supersetId] = row;
+function validateAndProcessNumericValues(rest, weight, reps, supersetId) {
+  rest = rest ? Number(rest) : null;
+  weight = weight ? Number(weight) : null;
+  reps = reps ? Number(reps) : null;
+  supersetId = supersetId ? Number(supersetId) : null;
 
-  const processed = {
-    weight: weight ? Number(weight) : null,
-    reps: reps ? Number(reps) : null,
-    rest: rest ? Number(rest) : null,
-    supersetId: supersetId ? Number(supersetId) : null,
-  };
-
-  // Validate conversions
-  if (weight && isNaN(processed.weight))
+  if (isNaN(rest)) throw new ValidationError(`Invalid rest value: ${rest}`);
+  if (isNaN(weight))
     throw new ValidationError(`Invalid weight value: ${weight}`);
-  if (reps && isNaN(processed.reps))
-    throw new ValidationError(`Invalid reps value: ${reps}`);
-  if (rest && isNaN(processed.rest))
-    throw new ValidationError(`Invalid rest value: ${rest}`);
-  if (supersetId && isNaN(processed.supersetId))
+  if (isNaN(reps)) throw new ValidationError(`Invalid reps value: ${reps}`);
+  if (isNaN(supersetId))
     throw new ValidationError(`Invalid superset ID: ${supersetId}`);
 
-  return processed;
+  return [rest, weight, reps, supersetId];
 }
 
 /**
  * Creates a new exercise object
  * @private
  */
-function createNewExercise(templateId, values, notes) {
+function createNewExercise(templateId, rest, supersetId, notes) {
   return {
     exercise_template_id: templateId,
-    superset_id: values.supersetId || null,
+    superset_id: supersetId || null,
     notes: notes?.toString().trim() || null,
-    rest_seconds: values.rest,
+    rest_seconds: rest,
     sets: [],
   };
 }
@@ -368,11 +358,11 @@ function createNewExercise(templateId, values, notes) {
  * Creates a set object from processed values
  * @private
  */
-function createSet(setType, values) {
+function createSet(setType, weight, reps) {
   return {
     type: setType || "normal",
-    weight_kg: values.weight,
-    reps: values.reps,
+    weight_kg: weight,
+    reps: reps,
     distance_meters: null,
     duration_seconds: null,
   };
