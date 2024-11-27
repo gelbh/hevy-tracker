@@ -3,15 +3,9 @@
   "version": "1.0.0",
   "description": "Google Sheets Add-on for Hevy workout tracking",
   "scripts": {
-    "setup": "node scripts/setup.js",
-    "pull": "node pull.js",
-    "push": "clasp push",
-    "push:github": "git push && clasp push",
-    "status": "clasp status",
-    "open": "clasp open",
-    "version": "clasp version",
-    "deploy": "clasp deploy",
-    "deployments": "clasp deployments"
+    "deployments:list": "node manageDeployments.js --list",
+    "deployments:clean": "node manageDeployments.js",
+    "deployments:remove": "node manageDeployments.js --remove"
   },
   "keywords": [
     "google-apps-script",

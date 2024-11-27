@@ -1,6 +1,8 @@
 {
   "timeZone": "Europe/Zurich",
-  "dependencies": {},
+  "dependencies": {
+    "enabledAdvancedServices": []
+  },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "oauthScopes": [
