@@ -26,17 +26,12 @@ function onOpen(e) {
     const menu = ui.createAddonMenu();
     const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
 
-    // Add core menu items
-    menu
-      .addItem("🔑 Set Hevy API Key", "showInitialSetup")
-      .addSeparator()
-      .addItem("❓ View Setup Guide", "showGuideDialog")
-      .addSeparator();
-
     // Add authorized items if appropriate
     if (authMode !== ScriptApp.AuthMode.NONE) {
       addAuthorizedMenuItems(menu, ui);
     }
+
+    menu.addSeparator().addItem("❓ View Setup Guide", "showGuideDialog");
 
     menu.addToUi();
   } catch (error) {
@@ -116,6 +111,8 @@ function addStandardMenuItems(menu, ui) {
   const routineBuilderSubmenu = createRoutineBuilderSubmenu(ui);
 
   menu
+    .addItem("🔑 Set Hevy API Key", "showInitialSetup")
+    .addSeparator()
     .addSubMenu(importSubmenu)
     .addSeparator()
     .addSubMenu(routineBuilderSubmenu)

@@ -115,7 +115,6 @@ src/
 
 - Follow [Google Apps Script Best Practices](https://developers.google.com/apps-script/practices)
 - Use conventional commits format for commit messages
-- Keep sensitive data in `config.local.gs`
 - Test all changes in the Apps Script environment
 - Update documentation when adding features
 
