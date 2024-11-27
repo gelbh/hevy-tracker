@@ -88,25 +88,21 @@ src/
 
 ### Commands
 
-- `npm run push` - Push to Apps Script
-- `npm run push:github` - Push to both GitHub and Apps Script
-- `npm run pull` - Pull from Apps Script
-- `npm run status` - Check sync status
-- `npm run open` - Open in Apps Script editor
-- `npm run version` - Create new version
-- `npm run deploy` - Deploy current version
+- `npm run deployments:list` - List all deployments
+- `npm run deployments:clean` - Remove all deployments except HEAD
+- `npm run deployments:remove -- <ID>` - Remove a specific deployment
 
 ### Development Workflow
 
 1. Make changes to local files
 2. Test changes:
    ```bash
-   npm run push
+   clasp push --watch
    ```
 3. Commit and push to GitHub:
    ```bash
    git add .
-   git commit -m "type: description"
+   git commit -m "type(scope): description"
    git push
    ```
 4. GitHub Actions will automatically deploy to Apps Script
@@ -135,7 +131,7 @@ src/
    ```
 3. Commit your changes:
    ```bash
-   git commit -m 'feat: Add some AmazingFeature'
+   git commit -m 'feat(feature): Add some AmazingFeature'
    ```
 4. Push to the branch:
    ```bash
