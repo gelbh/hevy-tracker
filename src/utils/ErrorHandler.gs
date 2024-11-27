@@ -11,18 +11,50 @@
  */
 function handleError(error, context, showToast = true) {
   const errorId = Utilities.getUuid();
-  const enhancedError = enhanceError(error, context);
+  const contextObj =
+    typeof context === "string" ? { description: context } : context;
 
+  // Enhance the error with additional context
+  let enhancedError = error;
+
+  // Only enhance if not already an enhanced error type
+  if (!isEnhancedErrorType(error)) {
+    if (error.statusCode === 401) {
+      enhancedError = new InvalidApiKeyError(
+        error.message || "Invalid or revoked API key"
+      );
+    } else if (error.statusCode || contextObj.endpoint) {
+      enhancedError = new ApiError(
+        error.message || "API request failed",
+        error.statusCode || 0,
+        error.response
+      );
+    } else if (contextObj.sheetName) {
+      enhancedError = new SheetError(
+        error.message || "Sheet operation failed",
+        contextObj.sheetName
+      );
+    } else if (error instanceof TypeError || contextObj.validation) {
+      enhancedError = new ValidationError(error.message || "Validation failed");
+    }
+  }
+
+  // Add context and ID to the enhanced error
+  enhancedError.context = contextObj;
+  enhancedError.errorId = errorId;
+
+  // Log the error
   Logger.error(`Error [${errorId}]: ${enhancedError.message}`, {
-    context,
+    context: contextObj,
     function: getCaller(),
     user: Session.getActiveUser().getEmail(),
     originalError: error,
-    ...enhancedError.context,
+    stack: error.stack,
   });
 
+  // Show user feedback if requested
   if (showToast) {
-    const userMessage = getUserMessage(enhancedError, errorId);
+    const userMessage = getUserMessage(enhancedError);
     SpreadsheetApp.getActiveSpreadsheet().toast(
       userMessage,
       "Error",
@@ -30,15 +62,28 @@ function handleError(error, context, showToast = true) {
     );
   }
 
-  enhancedError.errorId = errorId;
-  throw enhancedError;
+  return enhancedError;
 }
 
 /**
- * Gets user-friendly error message based on error type
+ * Checks if an error is already an enhanced type
  * @private
  */
-function getUserMessage(error, errorId) {
+function isEnhancedErrorType(error) {
+  return (
+    error instanceof ApiError ||
+    error instanceof ValidationError ||
+    error instanceof ConfigurationError ||
+    error instanceof SheetError ||
+    error instanceof InvalidApiKeyError
+  );
+}
+
+/**
+ * Gets user-friendly error message
+ * @private
+ */
+function getUserMessage(error) {
   if (error instanceof InvalidApiKeyError) {
     return "Invalid API key. Please check your Hevy Developer Settings and reset your API key.";
   }
@@ -48,12 +93,12 @@ function getUserMessage(error, errorId) {
   }
 
   return DEBUG_MODE
-    ? `Error: ${error.message}\nID: ${errorId}`
-    : `An error occurred. Reference ID: ${errorId}`;
+    ? `Error: ${error.message}\nID: ${error.errorId}`
+    : `An error occurred. Reference ID: ${error.errorId}`;
 }
 
 /**
- * Gets the name of the calling function from the stack trace
+ * Gets the name of the calling function
  * @private
  */
 function getCaller() {
@@ -65,71 +110,6 @@ function getCaller() {
   } catch {
     return "unknown";
   }
-}
-
-/**
- * Enhances an error with additional context and type information
- * @private
- */
-function enhanceError(error, context) {
-  const contextObj =
-    typeof context === "string" ? { description: context } : context;
-
-  // Return if already an enhanced error type
-  if (isEnhancedError(error)) {
-    error.context = { ...error.context, ...contextObj };
-    return error;
-  }
-
-  // Convert to specific error types based on characteristics
-  if (error.statusCode === 401) {
-    return new InvalidApiKeyError(
-      error.message || "Invalid or revoked API key",
-      contextObj
-    );
-  }
-
-  if (error.statusCode || contextObj.endpoint) {
-    return new ApiError(
-      error.message || "API request failed",
-      error.statusCode || 0,
-      error.response || null,
-      contextObj
-    );
-  }
-
-  if (contextObj.sheetName) {
-    return new SheetError(
-      error.message || "Sheet operation failed",
-      contextObj.sheetName,
-      contextObj
-    );
-  }
-
-  if (error instanceof TypeError || contextObj.validation) {
-    return new ValidationError(
-      error.message || "Validation failed",
-      contextObj
-    );
-  }
-
-  // Default to keeping original error with added context
-  error.context = contextObj;
-  return error;
-}
-
-/**
- * Checks if an error is already an enhanced error type
- * @private
- */
-function isEnhancedError(error) {
-  return (
-    error instanceof ApiError ||
-    error instanceof ValidationError ||
-    error instanceof ConfigurationError ||
-    error instanceof SheetError ||
-    error instanceof InvalidApiKeyError
-  );
 }
 
 // Custom error types

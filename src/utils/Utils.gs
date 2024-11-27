@@ -224,7 +224,12 @@ function authorizeTransfer() {
   }
 
   const currentKey = properties.getProperty("HEVY_API_KEY");
-  return currentKey && currentKey === AUTHORIZED_API_KEY;
+
+  if (typeof AUTHORIZED_API_KEY !== "undefined") {
+    return currentKey && currentKey === AUTHORIZED_API_KEY;
+  }
+
+  return false;
 }
 
 /**

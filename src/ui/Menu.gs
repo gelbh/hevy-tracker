@@ -22,7 +22,7 @@ function onOpen(e) {
     const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
 
     menu
-      .addItem("🔑 Configure Hevy Tracker", "showInitialSetup")
+      .addItem("🔑 Set Hevy API Key", "showInitialSetup")
       .addSeparator()
       .addItem("❓ View Setup Guide", "showGuideDialog")
       .addSeparator();
@@ -99,15 +99,22 @@ function addAuthorizedMenuItems(menu, ui) {
     } else {
       const importSubmenu = ui
         .createMenu("📥 Import Data")
-        .addItem("📥 Import All", "startFullImport")
+        .addItem("📥 Import All", "apiClient.runInitialImport")
         .addSeparator()
         .addItem("🏋️ Import Workouts", "importAllWorkouts")
         .addItem("💪 Import Exercises", "importAllExercises")
         .addItem("📋 Import Routines", "importAllRoutines")
         .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
 
+      const routineBuilderSubmenu = ui
+        .createMenu("📝 Routine Builder")
+        .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
+        .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
+
       menu
         .addSubMenu(importSubmenu)
+        .addSeparator()
+        .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
         .addItem("⚖️ Log Weight", "logWeight")
         .addSeparator()
@@ -115,48 +122,6 @@ function addAuthorizedMenuItems(menu, ui) {
     }
   } catch (error) {
     Logger.error("Error adding authorized menu items", { error });
-  }
-}
-
-/**
- * Starts the full import process after user interaction
- */
-function startFullImport() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-    const response = ui.alert(
-      "Start Full Import",
-      "This will import all your Hevy data. Continue?",
-      ui.ButtonSet.YES_NO
-    );
-
-    if (response === ui.Button.YES) {
-      apiClient.runInitialImport();
-    }
-  } catch (error) {
-    handleError(error, "Starting full import");
-  }
-}
-
-/**
- * Shows the first-time welcome message if needed
- * This should be called from a user-triggered action to ensure proper auth
- */
-function showWelcomeIfNeeded() {
-  try {
-    const properties = getUserProperties();
-    if (properties && !properties.getProperty("WELCOMED")) {
-      const ui = SpreadsheetApp.getUi();
-      ui.alert(
-        "Welcome to Hevy Tracker!",
-        "Please set up your Hevy API key to get started.\n\n" +
-          "Click Extensions → Hevy Tracker → Configure Hevy Tracker",
-        ui.ButtonSet.OK
-      );
-      properties.setProperty("WELCOMED", "true");
-    }
-  } catch (error) {
-    Logger.error("Error showing welcome message", { error });
   }
 }
 

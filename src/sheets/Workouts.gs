@@ -12,65 +12,71 @@ async function importAllWorkouts() {
     const sheet = manager.sheet;
     const properties = getUserProperties();
 
-    if (!sheet.getRange('A2').getValue()) {
+    if (!sheet.getRange("A2").getValue()) {
       resetWorkoutTimestamp();
     }
-    
+
     const existingData = getExistingWorkouts(sheet);
-    
+
     const processedWorkouts = [];
     const deletedWorkoutIds = new Set();
-    
+
     const processWorkoutPage = async (events) => {
       if (!events) return;
-      
-      events.forEach(event => {
-        if (event.type === 'updated') {
+
+      events.forEach((event) => {
+        if (event.type === "updated") {
           if (!shouldSkipWorkout(event.workout, existingData)) {
             processedWorkouts.push(event.workout);
           }
-        } else if (event.type === 'deleted') {
+        } else if (event.type === "deleted") {
           deletedWorkoutIds.add(event.id);
         }
       });
     };
-    
-    const lastUpdate = properties.getProperty('LAST_WORKOUT_UPDATE') || 
-                      '2000-01-01T00:00:00Z';
-    
+
+    const lastUpdate =
+      properties.getProperty("LAST_WORKOUT_UPDATE") || "2000-01-01T00:00:00Z";
+
     await apiClient.fetchPaginatedData(
       API_ENDPOINTS.WORKOUTS_EVENTS,
       PAGE_SIZE.WORKOUTS,
       processWorkoutPage,
-      'events',
+      "events",
       { since: lastUpdate }
     );
-    
+
     if (deletedWorkoutIds.size > 0) {
       deleteWorkoutRows(sheet, deletedWorkoutIds);
     }
-    
+
     if (processedWorkouts.length > 0) {
       const processedData = processWorkoutsData(processedWorkouts);
       updateWorkoutData(sheet, processedData);
-      
+
       const now = new Date().toISOString();
-      properties.setProperty('LAST_WORKOUT_UPDATE', now);
-      
+      properties.setProperty("LAST_WORKOUT_UPDATE", now);
+
       showProgress(
         `Processed ${processedWorkouts.length} workouts (${deletedWorkoutIds.size} deleted)!`,
-        'Import Complete',
+        "Import Complete",
         TOAST_DURATION.NORMAL
       );
     } else {
-      showProgress('No workout changes found.', 'Import Complete', TOAST_DURATION.NORMAL);
+      showProgress(
+        "No workout changes found.",
+        "Import Complete",
+        TOAST_DURATION.NORMAL
+      );
     }
-    
-    await updateExerciseCounts(SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet);
+
+    await updateExerciseCounts(
+      SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
+    );
 
     manager.formatSheet();
   } catch (error) {
-    handleError(error, 'Importing workouts');
+    Logger.error(error);
   }
 }
 
@@ -84,19 +90,19 @@ function getExistingWorkouts(sheet) {
   if (sheet.getLastRow() > 1) {
     const data = sheet.getDataRange().getValues();
     const headers = data.shift();
-    const workoutIdIndex = headers.indexOf('ID');
-    
-    data.forEach(row => {
+    const workoutIdIndex = headers.indexOf("ID");
+
+    data.forEach((row) => {
       if (row[workoutIdIndex]) {
         existingData.set(row[workoutIdIndex], {
           id: row[workoutIdIndex],
-          startTime: row[headers.indexOf('Start Time')],
-          endTime: row[headers.indexOf('End Time')]
+          startTime: row[headers.indexOf("Start Time")],
+          endTime: row[headers.indexOf("End Time")],
         });
       }
     });
   }
-  
+
   return existingData;
 }
 
@@ -109,12 +115,14 @@ function getExistingWorkouts(sheet) {
 function shouldSkipWorkout(workout, existingData) {
   const existingWorkout = existingData.get(workout.id);
   if (!existingWorkout) return false;
-  
+
   const startTime = formatDate(workout.start_time);
   const endTime = formatDate(workout.end_time);
-  
-  return startTime === existingWorkout.startTime && 
-         endTime === existingWorkout.endTime;
+
+  return (
+    startTime === existingWorkout.startTime &&
+    endTime === existingWorkout.endTime
+  );
 }
 
 /**
@@ -125,15 +133,15 @@ function shouldSkipWorkout(workout, existingData) {
 function deleteWorkoutRows(sheet, workoutIds) {
   const data = sheet.getDataRange().getValues();
   const headers = data.shift();
-  const workoutIdIndex = headers.indexOf('ID');
-  
+  const workoutIdIndex = headers.indexOf("ID");
+
   const rowsToDelete = [];
   data.forEach((row, index) => {
     if (workoutIds.has(row[workoutIdIndex])) {
       rowsToDelete.unshift(index + 2);
     }
   });
-  
+
   if (rowsToDelete.length > 0) {
     for (let i = 0; i < rowsToDelete.length; i++) {
       sheet.deleteRow(rowsToDelete[i]);
@@ -149,19 +157,19 @@ function deleteWorkoutRows(sheet, workoutIds) {
 function updateWorkoutData(sheet, processedData) {
   const data = sheet.getDataRange().getValues();
   const headers = data.shift();
-  const workoutIdIndex = headers.indexOf('ID');
+  const workoutIdIndex = headers.indexOf("ID");
   const workoutRows = new Map();
-  
+
   data.forEach((row, index) => {
     if (row[workoutIdIndex]) {
       workoutRows.set(row[workoutIdIndex], index + 2);
     }
   });
-  
+
   const updates = [];
   const additions = [];
-  
-  processedData.forEach(row => {
+
+  processedData.forEach((row) => {
     const workoutId = row[0];
     if (workoutRows.has(workoutId)) {
       updates.push({ row: workoutRows.get(workoutId), data: row });
@@ -169,19 +177,20 @@ function updateWorkoutData(sheet, processedData) {
       additions.push(row);
     }
   });
-  
+
   // Handle updates
   if (updates.length > 0) {
     updates.forEach(({ row, data }) => {
       sheet.getRange(row, 1, 1, data.length).setValues([data]);
     });
   }
-  
+
   // Handle new additions
   if (additions.length > 0) {
     sheet.insertRowsBefore(2, additions.length);
-    sheet.getRange(2, 1, additions.length, additions[0].length)
-         .setValues(additions);
+    sheet
+      .getRange(2, 1, additions.length, additions[0].length)
+      .setValues(additions);
   }
 }
 
@@ -191,36 +200,38 @@ function updateWorkoutData(sheet, processedData) {
  * @return {Array[]} Processed data ready for sheet insertion
  */
 function processWorkoutsData(workouts) {
-  return workouts.flatMap(workout => {
+  return workouts.flatMap((workout) => {
     if (!workout.exercises || workout.exercises.length === 0) {
-      return [[
-        workout.id,
-        workout.title,
-        formatDate(workout.start_time),
-        formatDate(workout.end_time),
-        '', // Exercise
-        '', // Set Type
-        '', // Weight
-        '', // Reps
-        '', // Distance
-        '', // Duration
-        ''  // RPE
-      ]];
+      return [
+        [
+          workout.id,
+          workout.title,
+          formatDate(workout.start_time),
+          formatDate(workout.end_time),
+          "", // Exercise
+          "", // Set Type
+          "", // Weight
+          "", // Reps
+          "", // Distance
+          "", // Duration
+          "", // RPE
+        ],
+      ];
     }
-    
-    return workout.exercises.flatMap(exercise => 
-      exercise.sets.map(set => [
+
+    return workout.exercises.flatMap((exercise) =>
+      exercise.sets.map((set) => [
         workout.id,
         workout.title,
         formatDate(workout.start_time),
         formatDate(workout.end_time),
         exercise.title,
-        set.set_type || '',
+        set.set_type || "",
         normalizeWeight(set.weight_kg),
         normalizeNumber(set.reps),
         normalizeNumber(set.distance_meters),
         normalizeNumber(set.duration_seconds),
-        normalizeNumber(set.rpe)
+        normalizeNumber(set.rpe),
       ])
     );
   });
@@ -232,13 +243,13 @@ function processWorkoutsData(workouts) {
 function resetWorkoutTimestamp() {
   try {
     const properties = getUserProperties();
-    properties.deleteProperty('LAST_WORKOUT_UPDATE');
+    properties.deleteProperty("LAST_WORKOUT_UPDATE");
     showProgress(
-      'Workout timestamp reset successfully.',
-      'Reset Complete',
+      "Workout timestamp reset successfully.",
+      "Reset Complete",
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
-    handleError(error, 'Resetting workout timestamp');
+    handleError(error, "Resetting workout timestamp");
   }
 }

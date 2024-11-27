@@ -180,7 +180,7 @@ class ApiClient {
     const response = await this.executeRequest(url, options);
 
     if (response.getResponseCode() === 401) {
-      throw new InvalidApiKeyError("Invalid or revoked API key");
+      throw new Error("Invalid or revoked API key");
     }
 
     return true;
@@ -327,16 +327,37 @@ class ApiClient {
    * @param {string} endpoint - The API endpoint to request
    * @param {Object} options - Request options
    * @param {Object} [queryParams={}] - Query parameters
+   * @param {Object} [payload=null] - Request payload for POST/PUT requests
    * @returns {Promise<Object>} Parsed response data
    * @throws {ApiError} If request fails after retries
    */
-  async makeRequest(endpoint, options, queryParams = {}) {
+  async makeRequest(endpoint, options, queryParams = {}, payload = null) {
     const url = this.buildUrl(endpoint, queryParams);
     let attempt = 0;
     let lastError;
 
     while (attempt < this.retryConfig.maxRetries) {
       try {
+        // If we have a payload, add it directly to the request options
+        if (payload) {
+          if (typeof payload === "string") {
+            options.payload = payload;
+          } else if (payload.body) {
+            // If payload has a body property, use that
+            options.payload = payload.body;
+          } else {
+            // Otherwise stringify the entire payload
+            options.payload = JSON.stringify(payload);
+          }
+        }
+
+        Logger.debug("Making request:", {
+          url,
+          method: options.method,
+          headers: options.headers,
+          payload: options.payload,
+        });
+
         const response = await this.executeRequest(url, options);
         return this.handleResponse(response);
       } catch (error) {
