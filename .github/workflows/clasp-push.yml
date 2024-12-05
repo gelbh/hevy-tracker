@@ -1,4 +1,4 @@
-name: Push to Apps Script
+name: Deploy to Apps Script
 
 on:
   push:
@@ -7,53 +7,47 @@ on:
       - "**.md"
       - ".gitignore"
       - "LICENSE"
+      - "package*.json"
+      - ".vscode/**"
 
 jobs:
-  clasp-push:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: "20"
 
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      - name: Setup clasp credentials
-        run: |
-          echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+      - name: Configure clasp
+        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
 
-      - name: Update Constants
+      - name: Update API key constant
         run: |
-          # Create a backup of the original file
           cp src/Constants.gs src/Constants.gs.bak
-
-          # Replace placeholder with secret
           sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
 
       - name: Push to Apps Script
         run: clasp push --force
 
-      - name: Create new deployment
+      - name: Create deployment
         run: |
-          # Create new deployment with timestamp
-          DEPLOY_RESULT=$(clasp deploy --description "Production deployment $(date +'%Y-%m-%d %H:%M:%S')")
-          echo "Deploy result: $DEPLOY_RESULT"
-
-          # Extract and log the deployment ID
+          TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+          DEPLOY_RESULT=$(clasp deploy --description "Production deployment $TIMESTAMP")
           DEPLOYMENT_ID=$(echo "$DEPLOY_RESULT" | grep -o 'AKfycb[a-zA-Z0-9_-]*')
+
           if [ -n "$DEPLOYMENT_ID" ]; then
-            echo "Successfully created deployment: $DEPLOYMENT_ID"
+            echo "Created deployment: $DEPLOYMENT_ID"
           else
-            echo "Warning: Could not extract deployment ID from result"
+            echo "Failed to extract deployment ID"
+            exit 1
           fi
 
-      # Restore original Constants.gs for git
-      - name: Restore Constants
-        run: |
-          mv src/Constants.gs.bak src/Constants.gs
+      - name: Restore Constants.gs
         if: always()
+        run: mv src/Constants.gs.bak src/Constants.gs

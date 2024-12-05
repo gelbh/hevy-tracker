@@ -3,15 +3,12 @@
   "version": "1.0.0",
   "description": "Google Sheets Add-on for Hevy workout tracking",
   "scripts": {
-    "deploy": "bash ./deploy.sh",
     "push": "clasp push",
     "login": "clasp login",
     "create": "clasp create --type sheets --title \"Hevy Tracker\" --rootDir ./src",
     "status": "clasp status",
     "open": "clasp open",
-    "deployments": "clasp deployments",
-    "versions": "clasp versions",
-    "logs": "clasp logs"
+    "deployments": "clasp deployments"
   },
   "keywords": [
     "google-apps-script",
