@@ -9,6 +9,8 @@
 function onInstall(e) {
   try {
     onOpen(e);
+    // Show initial setup dialog after installation
+    showInitialSetup();
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Installing add-on",
@@ -23,7 +25,7 @@ function onInstall(e) {
 function onOpen(e) {
   try {
     const ui = SpreadsheetApp.getUi();
-    const menu = ui.createAddonMenu();
+    const menu = ui.createMenu("Hevy Tracker"); // Changed from createAddonMenu()
     const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
 
     // Add authorized items if appropriate
@@ -32,8 +34,15 @@ function onOpen(e) {
     }
 
     menu.addSeparator().addItem("❓ View Setup Guide", "showGuideDialog");
-
     menu.addToUi();
+
+    // Also ensure the addon shows in the Extensions menu
+    const addonMenu = ui.createAddonMenu();
+    if (authMode !== ScriptApp.AuthMode.NONE) {
+      addAuthorizedMenuItems(addonMenu, ui);
+    }
+    addonMenu.addSeparator().addItem("❓ View Setup Guide", "showGuideDialog");
+    addonMenu.addToUi();
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Creating menu",

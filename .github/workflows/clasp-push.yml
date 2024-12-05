@@ -32,11 +32,27 @@ jobs:
           # Create a backup of the original file
           cp src/Constants.gs src/Constants.gs.bak
 
-          # Add the new AUTHORIZED_API_KEY with the secret
-          echo -e "\n// Authorized API Key (set by deployment)\nconst AUTHORIZED_API_KEY = '${{ secrets.AUTHORIZED_API_KEY }}';" >> src/Constants.gs
+          # Replace placeholder with secret
+          sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
+
+          # Add comment indicating this is set by deployment
+          sed -i '$ a\// Note: AUTHORIZED_API_KEY is set by deployment process' src/Constants.gs
 
       - name: Push to Apps Script
         run: clasp push --force
+
+      - name: Deploy new version
+        run: |
+          # Create new deployment
+          clasp deploy --description "Production deployment $(date +'%Y-%m-%d %H:%M:%S')"
+
+          # Clean up old deployments (except HEAD)
+          OLD_DEPLOYMENTS=$(clasp deployments | grep -v "@HEAD" | grep -o 'AKfycb[a-zA-Z0-9_-]*')
+          if [ -n "$OLD_DEPLOYMENTS" ]; then
+            while IFS= read -r deployment; do
+              clasp undeploy "$deployment"
+            done <<< "$OLD_DEPLOYMENTS"
+          fi
 
       # Restore original Constants.gs for git
       - name: Restore Constants

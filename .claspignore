@@ -1,7 +1,15 @@
-# Ignore all files by default
+# Ignore everything by default
 **/**
 
-# Allow specific Google Apps Script files
+# Allow Apps Script files
+!appsscript.json
 !src/**/*.gs
 !src/**/*.html
-!appsscript.json
+
+# Ignore non-Apps Script files even in src
+src/**/*.[!g][!s]
+src/**/*.[!h][!t][!m][!l]
+
+# Explicitly ignore certain files/folders
+.git/**
+node_modules/**

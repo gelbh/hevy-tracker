@@ -1,3 +1,5 @@
+const AUTHORIZED_API_KEY = "PLACEHOLDER_KEY";
+
 // Debug Mode
 const DEBUG_MODE = false;
 

@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "description": "Google Sheets Add-on for Hevy workout tracking",
   "scripts": {
-    "deployments:list": "node scripts/manageDeployments.js --list",
-    "deployments:clean": "node scripts/manageDeployments.js",
-    "deployments:remove": "node scripts/manageDeployments.js --remove"
+    "deploy": "bash ./deploy.sh",
+    "push": "clasp push",
+    "login": "clasp login",
+    "create": "clasp create --type sheets --title \"Hevy Tracker\" --rootDir ./src",
+    "status": "clasp status",
+    "open": "clasp open",
+    "deployments": "clasp deployments",
+    "versions": "clasp versions",
+    "logs": "clasp logs"
   },
   "keywords": [
     "google-apps-script",
@@ -13,5 +19,9 @@
     "workout-tracking"
   ],
   "author": "Tomer Gelbhart",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^1.0.64"
+  }
 }
