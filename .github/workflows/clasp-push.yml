@@ -35,23 +35,21 @@ jobs:
           # Replace placeholder with secret
           sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
 
-          # Add comment indicating this is set by deployment
-          sed -i '$ a\// Note: AUTHORIZED_API_KEY is set by deployment process' src/Constants.gs
-
       - name: Push to Apps Script
         run: clasp push --force
 
-      - name: Deploy new version
+      - name: Create new deployment
         run: |
-          # Create new deployment
-          clasp deploy --description "Production deployment $(date +'%Y-%m-%d %H:%M:%S')"
+          # Create new deployment with timestamp
+          DEPLOY_RESULT=$(clasp deploy --description "Production deployment $(date +'%Y-%m-%d %H:%M:%S')")
+          echo "Deploy result: $DEPLOY_RESULT"
 
-          # Clean up old deployments (except HEAD)
-          OLD_DEPLOYMENTS=$(clasp deployments | grep -v "@HEAD" | grep -o 'AKfycb[a-zA-Z0-9_-]*')
-          if [ -n "$OLD_DEPLOYMENTS" ]; then
-            while IFS= read -r deployment; do
-              clasp undeploy "$deployment"
-            done <<< "$OLD_DEPLOYMENTS"
+          # Extract and log the deployment ID
+          DEPLOYMENT_ID=$(echo "$DEPLOY_RESULT" | grep -o 'AKfycb[a-zA-Z0-9_-]*')
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            echo "Successfully created deployment: $DEPLOYMENT_ID"
+          else
+            echo "Warning: Could not extract deployment ID from result"
           fi
 
       # Restore original Constants.gs for git
