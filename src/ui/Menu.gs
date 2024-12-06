@@ -58,7 +58,7 @@ function onHomepage(e) {
     const htmlOutput = template
       .evaluate()
       .setTitle("Hevy Tracker")
-      .setWidth(300);
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME);
 
     SpreadsheetApp.getUi().showSidebar(htmlOutput);
   } catch (error) {
