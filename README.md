@@ -45,45 +45,45 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 1. Install Node.js and npm
 2. Install clasp globally:
 
-```bash
-npm install -g @google/clasp
-```
+   ```bash
+   npm install -g @google/clasp
+   ```
 
 3. Clone the repository:
 
-```bash
-git clone https://github.com/gelbh/hevy-tracker.git
-cd hevy-tracker
-```
+   ```bash
+   git clone https://github.com/gelbh/hevy-tracker.git
+   cd hevy-tracker
+   ```
 
 4. Login to Google:
 
-```bash
-clasp login
-```
+   ```bash
+   clasp login
+   ```
 
 ## Development
 
 ### Project Structure
 
-```
-src/
-├── api/
-│   └── ApiClient.gs         # API client implementation
-├── sheets/
-│   ├── SheetManager.gs      # Sheet management
-│   ├── Exercises.gs         # Exercise tracking
-│   ├── Routines.gs          # Routine management
-│   ├── RoutineFolders.gs    # Folder organization
-│   ├── RoutineBuilder.gs    # Routine builder
-│   └── Workouts.gs          # Workout tracking
-├── ui/
-│   ├── Menu.gs              # Menu interface
-│   └── dialogs/             # HTML dialogs
-├── utils/
-│   ├── ErrorHandler.gs      # Error management
-│   └── Utils.gs             # Common utilities
-└── Constants.gs             # Global constants
+```text
+  src/
+  ├── api/
+  │   └── ApiClient.gs         # API client implementation
+  ├── sheets/
+  │   ├── SheetManager.gs      # Sheet management
+  │   ├── Exercises.gs         # Exercise tracking
+  │   ├── Routines.gs          # Routine management
+  │   ├── RoutineFolders.gs    # Folder organization
+  │   ├── RoutineBuilder.gs    # Routine builder
+  │   └── Workouts.gs          # Workout tracking
+  ├── ui/
+  │   ├── Menu.gs              # Menu interface
+  │   └── dialogs/             # HTML dialogs
+  ├── utils/
+  │   ├── ErrorHandler.gs      # Error management
+  │   └── Utils.gs             # Common utilities
+  └── Constants.gs             # Global constants
 ```
 
 ### Commands
@@ -96,15 +96,19 @@ src/
 
 1. Make changes to local files
 2. Test changes:
+
    ```bash
    clasp push --watch
    ```
+
 3. Commit and push to GitHub:
+
    ```bash
    git add .
    git commit -m "type(scope): description"
    git push
    ```
+
 4. GitHub Actions will automatically deploy to Apps Script
 
 ### Best Practices
@@ -126,17 +130,23 @@ src/
 
 1. Fork the repository
 2. Create your feature branch:
+
    ```bash
    git checkout -b feature/AmazingFeature
    ```
+
 3. Commit your changes:
+
    ```bash
    git commit -m 'feat(feature): Add some AmazingFeature'
    ```
+
 4. Push to the branch:
+
    ```bash
    git push origin feature/AmazingFeature
    ```
+
 5. Open a Pull Request
 
 ## License

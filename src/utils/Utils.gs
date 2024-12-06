@@ -126,7 +126,9 @@ function logWeight() {
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const sheet = manager.sheet;
 
-    appendWeightEntry(sheet, weight);
+    const lastRow = Math.max(1, sheet.getLastRow());
+    sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
+
     manager.formatSheet();
 
     showProgress(
@@ -155,7 +157,7 @@ function promptForWeight() {
   if (result.getSelectedButton() !== ui.Button.OK) return null;
 
   const weight = parseFloat(result.getResponseText().replace(",", "."));
-  if (!isValidWeight(weight)) {
+  if (!(!isNaN(weight) && weight > 0 && weight <= 500)) {
     ui.alert(
       "Invalid weight value. Please enter a number between 0 and 500 kg."
     );
@@ -163,23 +165,6 @@ function promptForWeight() {
   }
 
   return weight;
-}
-
-/**
- * Validates weight value
- * @private
- */
-function isValidWeight(weight) {
-  return !isNaN(weight) && weight > 0 && weight <= 500;
-}
-
-/**
- * Appends weight entry to sheet
- * @private
- */
-function appendWeightEntry(sheet, weight) {
-  const lastRow = Math.max(1, sheet.getLastRow());
-  sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
 }
 
 /**

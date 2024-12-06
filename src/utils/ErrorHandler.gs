@@ -41,7 +41,7 @@ class ErrorHandler {
    * @private
    */
   static enhanceError(error, context) {
-    if (this.isEnhancedErrorType(error)) {
+    if (this.isCustomErrorType(error)) {
       error.context = { ...error.context, ...context };
       return error;
     }
@@ -96,7 +96,7 @@ class ErrorHandler {
    * Checks if error is already an enhanced type
    * @private
    */
-  static isEnhancedErrorType(error) {
+  static isCustomErrorType(error) {
     return (
       error instanceof ApiError ||
       error instanceof ValidationError ||

@@ -29,7 +29,6 @@ jobs:
 
       - name: Update API key constant
         run: |
-          cp src/Constants.gs src/Constants.gs.bak
           sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
 
       - name: Push to Apps Script
@@ -47,7 +46,3 @@ jobs:
             echo "Failed to extract deployment ID"
             exit 1
           fi
-
-      - name: Restore Constants.gs
-        if: always()
-        run: mv src/Constants.gs.bak src/Constants.gs
