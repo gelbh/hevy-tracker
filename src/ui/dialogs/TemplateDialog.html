@@ -164,8 +164,6 @@
     </div>
 
     <script>
-      const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-
       /**
        * Creates a new spreadsheet from the template
        */
@@ -173,11 +171,9 @@
         const createButton = document.getElementById("createButton");
         const spinner = document.getElementById("spinner");
 
-        // Disable button and show spinner
         createButton.disabled = true;
         spinner.style.display = "inline-block";
 
-        // Call server-side functions to create the spreadsheet
         google.script.run
           .withSuccessHandler(showSuccess)
           .withFailureHandler(handleError)
@@ -190,10 +186,8 @@
        * @param {Object} result - Result containing the new spreadsheet URL
        */
       function showSuccess(result) {
-        // Hide the creation dialog content
         document.querySelector(".container").style.display = "none";
 
-        // Update and show the success dialog
         const successDialog = document.getElementById("successDialog");
         const spreadsheetLink = document.getElementById("spreadsheetLink");
         spreadsheetLink.href = result.url;
@@ -206,11 +200,9 @@
        * @param {Object} elements - UI elements to reset
        */
       function handleError(error, elements) {
-        // Re-enable button and hide spinner
         elements.createButton.disabled = false;
         elements.spinner.style.display = "none";
 
-        // Show error message
         alert("Error creating spreadsheet: " + error);
       }
 

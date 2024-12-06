@@ -275,7 +275,7 @@ function showGuideDialog() {
   try {
     showHtmlDialog("src/ui/dialogs/SetupInstructions", {
       width: 500,
-      height: 500,
+      height: 800,
       title: "Hevy Tracker Setup Guide",
       modalTitle: "Setup Guide",
     });
