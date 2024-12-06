@@ -1,177 +1,153 @@
 <!DOCTYPE html>
-<html lang="en" xml:lang="en">
+<html>
   <head>
-    <title>Sidebar</title>
     <base target="_top" />
     <link
       rel="stylesheet"
-      href="https://ssl.gstatic.com/docs/script/css/add-ons1.css"
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
     />
-    <!-- Add-on-specific CSS -->
-    <style>
-      .sidebar {
-        padding: 10px;
-      }
-      .section {
-        margin-bottom: 20px;
-      }
-      .section-title {
-        color: #666;
-        font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-      }
-      .button-container {
-        margin-bottom: 15px;
-      }
-      .sidebar-button {
-        width: 100%;
-        margin-bottom: 8px;
-        text-align: left;
-      }
-      .divider {
-        border-top: 1px solid #e0e0e0;
-        margin: 15px 0;
-      }
-    </style>
   </head>
-  <body>
-    <div class="sidebar">
-      <? if (data.isTemplate) { ?>
-      <div class="button-container">
-        <button
-          class="action"
-          onclick="runAction('showCreateSpreadsheetDialog')"
+  <body class="bg-white">
+    <div class="flex flex-col h-full">
+      <div class="p-4 space-y-4">
+        <? if (data.isTemplate) { ?>
+        <!-- Template Spreadsheet Menu -->
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showCreateSpreadsheetDialog"
         >
-          📋 Create New Spreadsheet From Template
-        </button>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="button-container">
-        <button class="action" onclick="runAction('importAllExercises')">
-          💪 Import Exercises
-        </button>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="button-container">
-        <button class="share" onclick="runAction('showGuideDialog')">
-          ❓ View Setup Guide
-        </button>
-      </div>
-
-      <? } else { ?>
-      <div class="button-container">
-        <button class="blue" onclick="runAction('showInitialSetup')">
-          🔑 Set Hevy API Key
-        </button>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="section">
-        <div class="section-title">Import Data</div>
-        <div class="button-container">
-          <button
-            class="action sidebar-button"
-            onclick="runAction('runInitialImport')"
-          >
-            📥 Import All
-          </button>
-          <button
-            class="action sidebar-button"
-            onclick="runAction('importAllWorkouts')"
-          >
-            🏋️ Import Workouts
-          </button>
-          <button
-            class="action sidebar-button"
-            onclick="runAction('importAllExercises')"
-          >
-            💪 Import Exercises
-          </button>
-          <button
-            class="action sidebar-button"
-            onclick="runAction('importAllRoutines')"
-          >
-            📋 Import Routines
-          </button>
-          <button
-            class="action sidebar-button"
-            onclick="runAction('importAllRoutineFolders')"
-          >
-            📁 Import Routine Folders
-          </button>
+          <span>📋 Create New Spreadsheet From Template</span>
         </div>
-      </div>
 
-      <div class="divider"></div>
+        <hr class="my-4" />
 
-      <div class="section">
-        <div class="section-title">Routine Builder</div>
-        <div class="button-container">
-          <button
-            class="action sidebar-button"
-            onclick="runAction('createRoutineFromSheet')"
-          >
-            📋 Create Routine from Sheet
-          </button>
-          <button
-            class="action sidebar-button"
-            onclick="runAction('clearRoutineBuilder')"
-          >
-            🗑️ Clear Builder Form
-          </button>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="button-container">
-        <button class="action" onclick="runAction('logWeight')">
-          ⚖️ Log Weight
-        </button>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="button-container">
-        <button
-          class="create"
-          onclick="runAction('showCreateSpreadsheetDialog')"
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="importAllExercises"
         >
-          📋 Create New Spreadsheet
-        </button>
-        <button class="share" onclick="runAction('showGuideDialog')">
-          ❓ View Setup Guide
-        </button>
+          <span>💪 Import Exercises</span>
+        </div>
+
+        <hr class="my-4" />
+
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showGuideDialog"
+        >
+          <span>❓ View Setup Guide</span>
+        </div>
+        <? } else { ?>
+        <!-- Regular Spreadsheet Menu -->
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showInitialSetup"
+        >
+          <span class="text-blue-600">🔑 Set Hevy API Key</span>
+        </div>
+
+        <hr class="my-4" />
+
+        <div class="space-y-2">
+          <h3 class="font-semibold text-gray-700">IMPORT DATA</h3>
+          <div class="space-y-1">
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="runInitialImport"
+            >
+              <span>📥 Import All</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllWorkouts"
+            >
+              <span>🏋️ Import Workouts</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllExercises"
+            >
+              <span>💪 Import Exercises</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllRoutines"
+            >
+              <span>📋 Import Routines</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="importAllRoutineFolders"
+            >
+              <span>📁 Import Routine Folders</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <div class="space-y-2">
+          <h3 class="font-semibold text-gray-700">ROUTINE BUILDER</h3>
+          <div class="space-y-1">
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="createRoutineFromSheet"
+            >
+              <span>📋 Create Routine from Sheet</span>
+            </div>
+            <div
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+              data-action="clearRoutineBuilder"
+            >
+              <span>🗑️ Clear Builder Form</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="logWeight"
+        >
+          <span>⚖️ Log Weight</span>
+        </div>
+
+        <hr class="my-4" />
+
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showCreateSpreadsheetDialog"
+        >
+          <span>📋 Create New Spreadsheet</span>
+        </div>
+        <div
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+          data-action="showGuideDialog"
+        >
+          <span>❓ View Setup Guide</span>
+        </div>
+        <? } ?>
       </div>
-      <? } ?>
     </div>
 
     <script>
-      function runAction(action) {
-        google.script.run
-          .withSuccessHandler(handleSuccess)
-          .withFailureHandler(handleError)
-          .runMenuAction(action);
-      }
-
-      function handleSuccess(response) {
-        if (response.message) {
-          // You could add a toast/notification system here
-          console.log(response.message);
-        }
-      }
-
-      function handleError(error) {
-        console.error(error);
-        // You could add an error notification system here
-      }
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".menu-item").forEach(function (item) {
+          item.addEventListener("click", function () {
+            const action = this.getAttribute("data-action");
+            if (action) {
+              google.script.run
+                .withSuccessHandler(function (response) {
+                  console.log("Action completed:", response);
+                })
+                .withFailureHandler(function (error) {
+                  console.error("Action failed:", error);
+                })
+                .runMenuAction(action);
+            }
+          });
+        });
+      });
     </script>
   </body>
 </html>
