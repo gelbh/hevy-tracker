@@ -274,8 +274,8 @@ function showCreateSpreadsheetDialog() {
 function showGuideDialog() {
   try {
     showHtmlDialog("src/ui/dialogs/SetupInstructions", {
-      width: 500,
-      height: 800,
+      width: 700,
+      height: 700,
       title: "Hevy Tracker Setup Guide",
       modalTitle: "Setup Guide",
     });
