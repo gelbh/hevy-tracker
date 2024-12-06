@@ -277,7 +277,6 @@ function showGuideDialog() {
       width: 700,
       height: 700,
       title: "Hevy Tracker Setup Guide",
-      modalTitle: "Setup Guide",
     });
   } catch (error) {
     throw ErrorHandler.handle(error, {
