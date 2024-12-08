@@ -86,12 +86,6 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
   └── Constants.gs             # Global constants
 ```
 
-### Commands
-
-- `npm run deployments:list` - List all deployments
-- `npm run deployments:clean` - Remove all deployments except HEAD
-- `npm run deployments:remove -- <ID>` - Remove a specific deployment
-
 ### Development Workflow
 
 1. Make changes to local files
