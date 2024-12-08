@@ -24,3 +24,7 @@ pids
 # Local testing
 .act/
 .github/workflows/.env
+
+# AI Digest
+codebase.md
+.aidigestignore
