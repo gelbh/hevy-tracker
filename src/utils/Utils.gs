@@ -330,13 +330,12 @@ function makeTemplateCopy() {
 
     // Create new spreadsheet directly using Sheets API
     const newSpreadsheet = SpreadsheetApp.create("Hevy Tracker - My Workouts");
-    const defaultSheet = newSpreadsheet.getSheets()[0]; // Get the default sheet
+    const defaultSheet = newSpreadsheet.getSheets()[0];
 
     // Copy template content into new spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
 
-    // Define the order of sheets to copy
-    // Data sheets first, then sheets with formulas
+    // Define the order of sheets to copy (data sheets first)
     const sheetCopyOrder = [
       WORKOUTS_SHEET_NAME,
       EXERCISES_SHEET_NAME,
@@ -345,38 +344,33 @@ function makeTemplateCopy() {
       WEIGHT_SHEET_NAME,
     ];
 
+    // Track sheet name mapping (old name -> new name) for formula updates
+    const sheetNameMap = new Map();
+
     // First copy all sheets in our defined order
     sheetCopyOrder.forEach((sheetName) => {
       const templateSheet = templateSpreadsheet.getSheetByName(sheetName);
       if (templateSheet) {
-        const newSheet = templateSheet.copyTo(newSpreadsheet);
-        newSheet.setName(sheetName);
-
-        // Copy basic formatting
-        newSheet.setFrozenRows(templateSheet.getFrozenRows());
-        newSheet.setFrozenColumns(templateSheet.getFrozenColumns());
-
-        // Apply theme formatting
-        applySheetTheme(newSheet);
+        const newSheet = copySheetWithData(templateSheet, newSpreadsheet);
+        sheetNameMap.set(templateSheet.getName(), newSheet.getName());
       }
     });
 
-    // Then copy any remaining sheets that weren't in our ordered list
+    // Then copy remaining sheets
     templateSpreadsheet.getSheets().forEach((sheet) => {
       if (!sheetCopyOrder.includes(sheet.getName())) {
-        const newSheet = sheet.copyTo(newSpreadsheet);
-        newSheet.setName(sheet.getName());
-
-        // Copy basic formatting
-        newSheet.setFrozenRows(sheet.getFrozenRows());
-        newSheet.setFrozenColumns(sheet.getFrozenColumns());
-
-        // Apply theme formatting
-        applySheetTheme(newSheet);
+        const newSheet = copySheetWithData(sheet, newSpreadsheet);
+        sheetNameMap.set(sheet.getName(), newSheet.getName());
       }
     });
 
-    // Only delete the default sheet after we've copied at least one new sheet
+    // Copy named ranges
+    copyNamedRanges(templateSpreadsheet, newSpreadsheet, sheetNameMap);
+
+    // Convert table references in formulas
+    updateTableReferences(newSpreadsheet);
+
+    // Delete the default sheet after we've copied everything
     if (newSpreadsheet.getSheets().length > 1) {
       newSpreadsheet.deleteSheet(defaultSheet);
     }
@@ -385,6 +379,112 @@ function makeTemplateCopy() {
   } catch (error) {
     throw ErrorHandler.handle(error, "Creating template spreadsheet");
   }
+}
+
+/**
+ * Copies a sheet with all its data and formatting
+ * @private
+ */
+function copySheetWithData(sourceSheet, targetSpreadsheet) {
+  const newSheet = sourceSheet.copyTo(targetSpreadsheet);
+  newSheet.setName(sourceSheet.getName());
+
+  // Copy basic formatting
+  newSheet.setFrozenRows(sourceSheet.getFrozenRows());
+  newSheet.setFrozenColumns(sourceSheet.getFrozenColumns());
+
+  // Apply theme formatting
+  applySheetTheme(newSheet);
+
+  return newSheet;
+}
+
+/**
+ * Copies named ranges from template to new spreadsheet
+ * @private
+ */
+function copyNamedRanges(sourceSpreadsheet, targetSpreadsheet, sheetNameMap) {
+  const namedRanges = sourceSpreadsheet.getNamedRanges();
+
+  namedRanges.forEach((namedRange) => {
+    const range = namedRange.getRange();
+    const sourceName = namedRange.getName();
+    const sourceSheet = range.getSheet();
+
+    // Get corresponding sheet in new spreadsheet
+    const targetSheetName = sheetNameMap.get(sourceSheet.getName());
+    const targetSheet = targetSpreadsheet.getSheetByName(targetSheetName);
+
+    if (targetSheet) {
+      // Create new range with same relative coordinates
+      const newRange = targetSheet.getRange(
+        range.getRow(),
+        range.getColumn(),
+        range.getNumRows(),
+        range.getNumColumns()
+      );
+
+      // Create named range in new spreadsheet
+      targetSpreadsheet.setNamedRange(sourceName, newRange);
+    }
+  });
+}
+
+/**
+ * Updates table references in formulas to use proper syntax
+ * @private
+ */
+function updateTableReferences(spreadsheet) {
+  const sheets = spreadsheet.getSheets();
+  const dataSheets = new Set([
+    WORKOUTS_SHEET_NAME,
+    EXERCISES_SHEET_NAME,
+    ROUTINES_SHEET_NAME,
+    ROUTINE_FOLDERS_SHEET_NAME,
+    WEIGHT_SHEET_NAME,
+  ]);
+
+  sheets.forEach((sheet) => {
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow < 1 || lastCol < 1) return;
+
+    const range = sheet.getRange(1, 1, lastRow, lastCol);
+    const formulas = range.getFormulas();
+
+    let hasChanges = false;
+    for (let r = 0; r < formulas.length; r++) {
+      for (let c = 0; c < formulas[r].length; c++) {
+        let formula = formulas[r][c];
+        if (formula) {
+          // Update table references for each data sheet
+          dataSheets.forEach((sheetName) => {
+            const rangeRef = `${sheetName}!$A$2:$${String.fromCharCode(
+              65 + sheet.getLastColumn()
+            )}`;
+            const pattern = new RegExp(`${sheetName}\\[(.*?)\\]`, "g");
+            formula = formula.replace(pattern, (match, column) => {
+              const colIndex = SHEET_HEADERS[sheetName].indexOf(column);
+              if (colIndex >= 0) {
+                const colLetter = String.fromCharCode(65 + colIndex);
+                return `INDIRECT("${sheetName}!$${colLetter}$2:$${colLetter}")`;
+              }
+              return match;
+            });
+          });
+
+          if (formula !== formulas[r][c]) {
+            formulas[r][c] = formula;
+            hasChanges = true;
+          }
+        }
+      }
+    }
+
+    if (hasChanges) {
+      range.setFormulas(formulas);
+    }
+  });
 }
 
 /**
