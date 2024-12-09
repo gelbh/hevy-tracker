@@ -46,6 +46,16 @@ class ErrorHandler {
       return error;
     }
 
+    if (
+      error.message?.includes("Access denied") ||
+      error.message?.includes("Insufficient permissions")
+    ) {
+      return new DrivePermissionError(
+        "Unable to access file. This may be due to permission restrictions.",
+        context
+      );
+    }
+
     if (error.statusCode === 401) {
       return new InvalidApiKeyError(
         error.message || "Invalid or revoked API key"
@@ -79,6 +89,10 @@ class ErrorHandler {
    * @private
    */
   static getUserMessage(error) {
+    if (error instanceof DrivePermissionError) {
+      return "Unable to access file. Please ensure you have permission and try again.";
+    }
+
     if (error instanceof InvalidApiKeyError) {
       return "Invalid API key. Please check your Hevy Developer Settings and reset your API key.";
     }
@@ -151,6 +165,14 @@ class InvalidApiKeyError extends Error {
   constructor(message, context = {}) {
     super(message);
     this.name = "InvalidApiKeyError";
+    this.context = context;
+  }
+}
+
+class DrivePermissionError extends Error {
+  constructor(message, context = {}) {
+    super(message);
+    this.name = "DrivePermissionError";
     this.context = context;
   }
 }

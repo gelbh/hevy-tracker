@@ -321,15 +321,39 @@ function cleanupSourceSheet(sourceSheet) {
 // -----------------
 
 /**
- * Creates a copy of the template spreadsheet
+ * Creates a copy of the template spreadsheet using drive.file scope
  * @return {Object} Object containing the new spreadsheet URL
  */
 function makeTemplateCopy() {
   try {
     const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-    const templateFile = DriveApp.getFileById(TEMPLATE_ID);
-    const newFile = templateFile.makeCopy("Hevy Tracker - My Workouts");
-    const newSpreadsheet = SpreadsheetApp.open(newFile);
+
+    // Create new spreadsheet directly using Sheets API
+    const newSpreadsheet = SpreadsheetApp.create("Hevy Tracker - My Workouts");
+    const newFile = DriveApp.getFileById(newSpreadsheet.getId());
+
+    // Copy template content into new spreadsheet
+    const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
+    const sheets = templateSpreadsheet.getSheets();
+
+    // Remove default Sheet1
+    if (newSpreadsheet.getSheets().length > 0) {
+      newSpreadsheet.deleteSheet(newSpreadsheet.getSheets()[0]);
+    }
+
+    // Copy each sheet
+    sheets.forEach((sheet) => {
+      const newSheet = sheet.copyTo(newSpreadsheet);
+      newSheet.setName(sheet.getName());
+
+      // Copy sheet formatting
+      newSheet.setFrozenRows(sheet.getFrozenRows());
+      newSheet.setFrozenColumns(sheet.getFrozenColumns());
+
+      // Copy conditional formatting rules
+      const rules = sheet.getConditionalFormatRules();
+      newSheet.setConditionalFormatRules(rules);
+    });
 
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
