@@ -328,34 +328,18 @@ function makeTemplateCopy() {
   try {
     const TEMPLATE_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    // Create new spreadsheet directly using Sheets API
+    // Create new spreadsheet
     const newSpreadsheet = SpreadsheetApp.create("Hevy Tracker - My Workouts");
     const defaultSheet = newSpreadsheet.getSheets()[0];
 
-    // Copy template content into new spreadsheet
+    // Get template spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
 
-    // Copy custom functions from template
-    const customFunctions = templateSpreadsheet.getNamedRanges();
-    customFunctions.forEach((func) => {
-      // Get the original range and formula
-      const range = func.getRange();
-      const formula = range.getFormula();
-      const name = func.getName();
+    // First, get all named functions from template using XLSX export
+    const namedFunctions =
+      getNamedFunctionsFromSpreadsheet(templateSpreadsheet);
 
-      // Create a temporary sheet to hold the function
-      const tempSheet = newSpreadsheet.insertSheet("TempFunctionSheet");
-      const newRange = tempSheet.getRange(1, 1);
-      newRange.setFormula(formula);
-
-      // Create the named range in the new spreadsheet
-      newSpreadsheet.setNamedRange(name, newRange);
-
-      // Log for debugging
-      console.log(`Copying function: ${name} with formula: ${formula}`);
-    });
-
-    // Define the order of sheets to copy (data sheets first)
+    // Copy sheets in specific order
     const sheetCopyOrder = [
       WORKOUTS_SHEET_NAME,
       EXERCISES_SHEET_NAME,
@@ -364,7 +348,7 @@ function makeTemplateCopy() {
       WEIGHT_SHEET_NAME,
     ];
 
-    // Copy sheets in order
+    // Copy main data sheets first
     sheetCopyOrder.forEach((sheetName) => {
       const templateSheet = templateSpreadsheet.getSheetByName(sheetName);
       if (templateSheet) {
@@ -379,19 +363,67 @@ function makeTemplateCopy() {
       }
     });
 
-    // Remove the temporary function sheet and default sheet
-    if (newSpreadsheet.getSheetByName("TempFunctionSheet")) {
-      newSpreadsheet.deleteSheet(
-        newSpreadsheet.getSheetByName("TempFunctionSheet")
-      );
-    }
+    // Delete default sheet
     if (newSpreadsheet.getSheets().length > 1) {
       newSpreadsheet.deleteSheet(defaultSheet);
+    }
+
+    // Create named functions in new spreadsheet by inserting them as LAMBDA functions
+    if (namedFunctions && namedFunctions.length > 0) {
+      const functionSheet = newSpreadsheet.insertSheet("_Functions");
+      namedFunctions.forEach((func, index) => {
+        // Insert each function definition
+        const cell = functionSheet.getRange(index + 1, 1);
+        const formula = `=${func.definedFunction}`;
+        cell.setFormula(formula);
+
+        // Create named range referencing the LAMBDA function
+        newSpreadsheet.setNamedRange(func.definedName, cell);
+      });
+
+      // Hide the functions sheet
+      functionSheet.hideSheet();
     }
 
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
     throw ErrorHandler.handle(error, "Creating template spreadsheet");
+  }
+}
+
+/**
+ * Gets named functions from a spreadsheet by exporting to XLSX
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Source spreadsheet
+ * @return {Array<{definedName: string, definedFunction: string}>} Array of named functions
+ * @private
+ */
+function getNamedFunctionsFromSpreadsheet(spreadsheet) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/export?exportFormat=xlsx&id=${spreadsheet.getId()}`;
+    const response = UrlFetchApp.fetch(url, {
+      headers: { authorization: "Bearer " + ScriptApp.getOAuthToken() },
+    });
+
+    const blobs = Utilities.unzip(response.getBlob());
+    const workbook = blobs.find((b) => b.getName() == "xl/workbook.xml");
+
+    if (!workbook) return [];
+
+    const root = XmlService.parse(workbook.getDataAsString()).getRootElement();
+    const definedNamesElement = root.getChild(
+      "definedNames",
+      root.getNamespace()
+    );
+
+    if (!definedNamesElement) return [];
+
+    return definedNamesElement.getChildren().map((e) => ({
+      definedName: e.getAttribute("name").getValue(),
+      definedFunction: e.getValue(),
+    }));
+  } catch (error) {
+    console.error("Error getting named functions:", error);
+    return [];
   }
 }
 
