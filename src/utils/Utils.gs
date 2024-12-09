@@ -508,63 +508,6 @@ function copyNamedRanges(sourceSpreadsheet, targetSpreadsheet, sheetNameMap) {
   });
 }
 
-/**
- * Updates table references in formulas to use proper syntax
- * @private
- */
-function updateTableReferences(spreadsheet) {
-  const sheets = spreadsheet.getSheets();
-  const dataSheets = new Set([
-    WORKOUTS_SHEET_NAME,
-    EXERCISES_SHEET_NAME,
-    ROUTINES_SHEET_NAME,
-    ROUTINE_FOLDERS_SHEET_NAME,
-    WEIGHT_SHEET_NAME,
-  ]);
-
-  sheets.forEach((sheet) => {
-    const lastRow = sheet.getLastRow();
-    const lastCol = sheet.getLastColumn();
-    if (lastRow < 1 || lastCol < 1) return;
-
-    const range = sheet.getRange(1, 1, lastRow, lastCol);
-    const formulas = range.getFormulas();
-
-    let hasChanges = false;
-    for (let r = 0; r < formulas.length; r++) {
-      for (let c = 0; c < formulas[r].length; c++) {
-        let formula = formulas[r][c];
-        if (formula) {
-          // Update table references for each data sheet
-          dataSheets.forEach((sheetName) => {
-            const rangeRef = `${sheetName}!$A$2:$${String.fromCharCode(
-              65 + sheet.getLastColumn()
-            )}`;
-            const pattern = new RegExp(`${sheetName}\\[(.*?)\\]`, "g");
-            formula = formula.replace(pattern, (match, column) => {
-              const colIndex = SHEET_HEADERS[sheetName].indexOf(column);
-              if (colIndex >= 0) {
-                const colLetter = String.fromCharCode(65 + colIndex);
-                return `INDIRECT("${sheetName}!$${colLetter}$2:$${colLetter}")`;
-              }
-              return match;
-            });
-          });
-
-          if (formula !== formulas[r][c]) {
-            formulas[r][c] = formula;
-            hasChanges = true;
-          }
-        }
-      }
-    }
-
-    if (hasChanges) {
-      range.setFormulas(formulas);
-    }
-  });
-}
-
 // -----------------
 // Data Formatting
 // -----------------
