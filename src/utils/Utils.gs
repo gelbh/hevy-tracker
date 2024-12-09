@@ -335,6 +335,9 @@ function makeTemplateCopy() {
     // Copy template content into new spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
 
+    // First, copy custom functions by recreating them in the new spreadsheet
+    copyCustomFunctions(templateSpreadsheet, newSpreadsheet);
+
     // Define the order of sheets to copy (data sheets first)
     const sheetCopyOrder = [
       WORKOUTS_SHEET_NAME,
@@ -344,31 +347,20 @@ function makeTemplateCopy() {
       WEIGHT_SHEET_NAME,
     ];
 
-    // Track sheet name mapping (old name -> new name) for formula updates
-    const sheetNameMap = new Map();
-
-    // First copy all sheets in our defined order
+    // Copy sheets in order
     sheetCopyOrder.forEach((sheetName) => {
       const templateSheet = templateSpreadsheet.getSheetByName(sheetName);
       if (templateSheet) {
-        const newSheet = copySheetWithData(templateSheet, newSpreadsheet);
-        sheetNameMap.set(templateSheet.getName(), newSheet.getName());
+        copySheetPreservingFormulas(templateSheet, newSpreadsheet);
       }
     });
 
-    // Then copy remaining sheets
+    // Copy remaining sheets
     templateSpreadsheet.getSheets().forEach((sheet) => {
       if (!sheetCopyOrder.includes(sheet.getName())) {
-        const newSheet = copySheetWithData(sheet, newSpreadsheet);
-        sheetNameMap.set(sheet.getName(), newSheet.getName());
+        copySheetPreservingFormulas(sheet, newSpreadsheet);
       }
     });
-
-    // Copy named ranges
-    copyNamedRanges(templateSpreadsheet, newSpreadsheet, sheetNameMap);
-
-    // Convert table references in formulas
-    updateTableReferences(newSpreadsheet);
 
     // Delete the default sheet after we've copied everything
     if (newSpreadsheet.getSheets().length > 1) {
@@ -378,6 +370,92 @@ function makeTemplateCopy() {
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
     throw ErrorHandler.handle(error, "Creating template spreadsheet");
+  }
+}
+
+/**
+ * Copies custom functions from template to new spreadsheet
+ * @private
+ */
+function copyCustomFunctions(sourceSpreadsheet, targetSpreadsheet) {
+  // Get all named functions from the source spreadsheet
+  const functions = sourceSpreadsheet.getNamedRanges();
+
+  functions.forEach((func) => {
+    const formula = func.getRange().getFormula();
+    const name = func.getName();
+
+    // Create the same function in the target spreadsheet
+    targetSpreadsheet.insertNamedRange(name, formula);
+  });
+}
+
+/**
+ * Copies a sheet while preserving formulas and table references
+ * @private
+ */
+function copySheetPreservingFormulas(sourceSheet, targetSpreadsheet) {
+  // First, copy the sheet normally
+  const newSheet = sourceSheet.copyTo(targetSpreadsheet);
+  newSheet.setName(sourceSheet.getName());
+
+  // Copy basic formatting
+  newSheet.setFrozenRows(sourceSheet.getFrozenRows());
+  newSheet.setFrozenColumns(sourceSheet.getFrozenColumns());
+
+  // Get all formulas from source sheet
+  const sourceRange = sourceSheet.getDataRange();
+  const sourceFormulas = sourceRange.getFormulas();
+
+  // If there are any formulas, copy them exactly as they are
+  if (sourceFormulas.some((row) => row.some((cell) => cell !== ""))) {
+    const targetRange = newSheet.getRange(
+      1,
+      1,
+      sourceRange.getNumRows(),
+      sourceRange.getNumColumns()
+    );
+    targetRange.setFormulas(sourceFormulas);
+  }
+
+  // Apply theme formatting
+  applySheetTheme(newSheet);
+
+  return newSheet;
+}
+
+/**
+ * Applies theme formatting to a sheet
+ * @private
+ */
+function applySheetTheme(sheet) {
+  const theme = SHEET_THEMES[sheet.getName()];
+  if (theme) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
+
+      // Create even row rule
+      const evenRowRule = SpreadsheetApp.newConditionalFormatRule()
+        .setRanges([range])
+        .whenFormulaSatisfied("=MOD(ROW(),2)=0")
+        .setBackground(theme.evenRowColor)
+        .build();
+
+      // Create odd row rule
+      const oddRowRule = SpreadsheetApp.newConditionalFormatRule()
+        .setRanges([range])
+        .whenFormulaSatisfied("=MOD(ROW(),2)=1")
+        .setBackground(theme.oddRowColor)
+        .build();
+
+      sheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
+    }
+
+    // Add specific formatting for Exercises sheet
+    if (sheet.getName() === EXERCISES_SHEET_NAME) {
+      addDuplicateHighlighting(new SheetManager(sheet, EXERCISES_SHEET_NAME));
+    }
   }
 }
 
@@ -485,42 +563,6 @@ function updateTableReferences(spreadsheet) {
       range.setFormulas(formulas);
     }
   });
-}
-
-/**
- * Applies theme formatting to a sheet
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to format
- * @private
- */
-function applySheetTheme(sheet) {
-  const theme = SHEET_THEMES[sheet.getName()];
-  if (theme) {
-    const lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      const range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
-
-      // Create even row rule
-      const evenRowRule = SpreadsheetApp.newConditionalFormatRule()
-        .setRanges([range])
-        .whenFormulaSatisfied("=MOD(ROW(),2)=0")
-        .setBackground(theme.evenRowColor)
-        .build();
-
-      // Create odd row rule
-      const oddRowRule = SpreadsheetApp.newConditionalFormatRule()
-        .setRanges([range])
-        .whenFormulaSatisfied("=MOD(ROW(),2)=1")
-        .setBackground(theme.oddRowColor)
-        .build();
-
-      sheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
-    }
-
-    // Add specific formatting for Exercises sheet
-    if (sheet.getName() === EXERCISES_SHEET_NAME) {
-      addDuplicateHighlighting(new SheetManager(sheet, EXERCISES_SHEET_NAME));
-    }
-  }
 }
 
 // -----------------
