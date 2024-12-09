@@ -334,46 +334,45 @@ function makeTemplateCopy() {
 
     // Copy template content into new spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
-    const sheets = templateSpreadsheet.getSheets();
 
-    // Copy each sheet
-    sheets.forEach((sheet) => {
-      const newSheet = sheet.copyTo(newSpreadsheet);
-      newSheet.setName(sheet.getName());
+    // Define the order of sheets to copy
+    // Data sheets first, then sheets with formulas
+    const sheetCopyOrder = [
+      WORKOUTS_SHEET_NAME,
+      EXERCISES_SHEET_NAME,
+      ROUTINES_SHEET_NAME,
+      ROUTINE_FOLDERS_SHEET_NAME,
+      WEIGHT_SHEET_NAME,
+    ];
 
-      // Copy basic formatting
-      newSheet.setFrozenRows(sheet.getFrozenRows());
-      newSheet.setFrozenColumns(sheet.getFrozenColumns());
+    // First copy all sheets in our defined order
+    sheetCopyOrder.forEach((sheetName) => {
+      const templateSheet = templateSpreadsheet.getSheetByName(sheetName);
+      if (templateSheet) {
+        const newSheet = templateSheet.copyTo(newSpreadsheet);
+        newSheet.setName(sheetName);
 
-      // Get the sheet's theme from Constants.gs
-      const theme = SHEET_THEMES[sheet.getName()];
-      if (theme) {
-        // Apply alternating row colors if there's data
-        const lastRow = newSheet.getLastRow();
-        if (lastRow > 1) {
-          const range = newSheet.getRange(
-            2,
-            1,
-            lastRow - 1,
-            newSheet.getLastColumn()
-          );
+        // Copy basic formatting
+        newSheet.setFrozenRows(templateSheet.getFrozenRows());
+        newSheet.setFrozenColumns(templateSheet.getFrozenColumns());
 
-          // Create even row rule
-          const evenRowRule = SpreadsheetApp.newConditionalFormatRule()
-            .setRanges([range])
-            .whenFormulaSatisfied("=MOD(ROW(),2)=0")
-            .setBackground(theme.evenRowColor)
-            .build();
+        // Apply theme formatting
+        applySheetTheme(newSheet);
+      }
+    });
 
-          // Create odd row rule
-          const oddRowRule = SpreadsheetApp.newConditionalFormatRule()
-            .setRanges([range])
-            .whenFormulaSatisfied("=MOD(ROW(),2)=1")
-            .setBackground(theme.oddRowColor)
-            .build();
+    // Then copy any remaining sheets that weren't in our ordered list
+    templateSpreadsheet.getSheets().forEach((sheet) => {
+      if (!sheetCopyOrder.includes(sheet.getName())) {
+        const newSheet = sheet.copyTo(newSpreadsheet);
+        newSheet.setName(sheet.getName());
 
-          newSheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
-        }
+        // Copy basic formatting
+        newSheet.setFrozenRows(sheet.getFrozenRows());
+        newSheet.setFrozenColumns(sheet.getFrozenColumns());
+
+        // Apply theme formatting
+        applySheetTheme(newSheet);
       }
     });
 
@@ -385,6 +384,42 @@ function makeTemplateCopy() {
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
     throw ErrorHandler.handle(error, "Creating template spreadsheet");
+  }
+}
+
+/**
+ * Applies theme formatting to a sheet
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to format
+ * @private
+ */
+function applySheetTheme(sheet) {
+  const theme = SHEET_THEMES[sheet.getName()];
+  if (theme) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
+
+      // Create even row rule
+      const evenRowRule = SpreadsheetApp.newConditionalFormatRule()
+        .setRanges([range])
+        .whenFormulaSatisfied("=MOD(ROW(),2)=0")
+        .setBackground(theme.evenRowColor)
+        .build();
+
+      // Create odd row rule
+      const oddRowRule = SpreadsheetApp.newConditionalFormatRule()
+        .setRanges([range])
+        .whenFormulaSatisfied("=MOD(ROW(),2)=1")
+        .setBackground(theme.oddRowColor)
+        .build();
+
+      sheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
+    }
+
+    // Add specific formatting for Exercises sheet
+    if (sheet.getName() === EXERCISES_SHEET_NAME) {
+      addDuplicateHighlighting(new SheetManager(sheet, EXERCISES_SHEET_NAME));
+    }
   }
 }
 
