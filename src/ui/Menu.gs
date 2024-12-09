@@ -37,8 +37,10 @@ function onOpen(e) {
     if (authMode !== ScriptApp.AuthMode.NONE) {
       if (isTemplate) {
         // Template spreadsheet menu
-        addonMenu.addItem("❓ View Setup Guide", "showGuideDialog");
-        addonMenu.addItem("💪 Import Exercises", "importAllExercises");
+        addonMenu
+          .addItem("❓ View Setup Guide", "showGuideDialog")
+          .addSeparator()
+          .addItem("💪 Import Exercises", "importAllExercises");
       } else {
         // Regular spreadsheet menu
         addAuthorizedMenuItems(addonMenu, ui);
