@@ -25,16 +25,32 @@ function onOpen(e) {
     const ui = SpreadsheetApp.getUi();
     const addonMenu = ui.createAddonMenu();
     const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const isTemplate =
+      ss.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    if (authMode !== ScriptApp.AuthMode.NONE) {
-      addAuthorizedMenuItems(addonMenu, ui);
+    // Clean up template elements if API key is not set
+    if (
+      !isTemplate &&
+      (AUTHORIZED_API_KEY === "PLACEHOLDER_KEY" || !AUTHORIZED_API_KEY)
+    ) {
+      cleanupTemplateElements();
     }
 
-    addonMenu.addSeparator().addItem("❓ View Setup Guide", "showGuideDialog");
+    if (authMode !== ScriptApp.AuthMode.NONE) {
+      if (isTemplate) {
+        // Template spreadsheet menu
+        addonMenu.addItem("❓ View Setup Guide", "showGuideDialog");
+      } else {
+        // Regular spreadsheet menu
+        addAuthorizedMenuItems(addonMenu, ui);
+      }
+    }
+
     addonMenu.addToUi();
   } catch (error) {
     throw ErrorHandler.handle(error, {
-      operation: "Creating menu",
+      operation: "Opening spreadsheet",
       authMode: e?.authMode,
     });
   }
@@ -46,10 +62,14 @@ function onOpen(e) {
  */
 function onHomepage(e) {
   try {
+    const spreadsheet = SpreadsheetApp.getActive();
+    const isTemplate =
+      spreadsheet.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
     const template = HtmlService.createTemplateFromFile(
       "src/ui/dialogs/Sidebar"
     );
-    template.data = {};
+    template.data = { isTemplate };
 
     const htmlOutput = template
       .evaluate()
@@ -136,6 +156,23 @@ function showInitialSetup() {
 }
 
 /**
+ * Shows the setup guide dialog
+ */
+function showGuideDialog() {
+  try {
+    showHtmlDialog("src/ui/dialogs/SetupInstructions", {
+      width: 700,
+      height: 700,
+      title: "Hevy Tracker Setup Guide",
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing guide dialog",
+    });
+  }
+}
+
+/**
  * Handles sidebar menu actions with improved response handling
  * @param {string} action - The action to perform
  * @returns {Object} Response object with status and message
@@ -212,40 +249,6 @@ function runMenuAction(action) {
 }
 
 /**
- * Adds menu items specific to the template spreadsheet
- * @private
- */
-function addTemplateMenuItems(menu) {
-  menu
-    .addItem(
-      "📋 Create New Spreadsheet From Template",
-      "showCreateSpreadsheetDialog"
-    )
-    .addSeparator()
-    .addItem("💪 Import Exercises", "importAllExercises");
-}
-
-/**
- * Adds standard menu items for non-template spreadsheets
- * @private
- */
-function addStandardMenuItems(menu, ui) {
-  const importSubmenu = createImportSubmenu(ui);
-  const routineBuilderSubmenu = createRoutineBuilderSubmenu(ui);
-
-  menu
-    .addItem("🔑 Set Hevy API Key", "showInitialSetup")
-    .addSeparator()
-    .addSubMenu(importSubmenu)
-    .addSeparator()
-    .addSubMenu(routineBuilderSubmenu)
-    .addSeparator()
-    .addItem("⚖️ Log Weight", "logWeight")
-    .addSeparator()
-    .addItem("📋 Create New Spreadsheet", "showCreateSpreadsheetDialog");
-}
-
-/**
  * Shows the create spreadsheet dialog
  */
 function showCreateSpreadsheetDialog() {
@@ -263,18 +266,18 @@ function showCreateSpreadsheetDialog() {
 }
 
 /**
- * Shows the setup guide dialog
+ * Cleans up template-specific elements
+ * @private
  */
-function showGuideDialog() {
+function cleanupTemplateElements() {
   try {
-    showHtmlDialog("src/ui/dialogs/SetupInstructions", {
-      width: 700,
-      height: 700,
-      title: "Hevy Tracker Setup Guide",
-    });
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const weightHistorySheet = ss.getSheetByName("My Weight History");
+    if (weightHistorySheet) {
+      cleanupSourceSheet(weightHistorySheet);
+    }
   } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing guide dialog",
-    });
+    console.error("Error during template cleanup:", error);
+    // Don't throw error to allow spreadsheet to open
   }
 }

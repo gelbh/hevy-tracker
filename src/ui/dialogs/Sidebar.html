@@ -15,24 +15,6 @@
         <!-- Template Spreadsheet Menu -->
         <div
           class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
-          data-action="showCreateSpreadsheetDialog"
-        >
-          <span>📋 Create New Spreadsheet From Template</span>
-        </div>
-
-        <hr class="my-4" />
-
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
-          data-action="importAllExercises"
-        >
-          <span>💪 Import Exercises</span>
-        </div>
-
-        <hr class="my-4" />
-
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
           data-action="showGuideDialog"
         >
           <span>❓ View Setup Guide</span>
@@ -112,27 +94,12 @@
         >
           <span>⚖️ Log Weight</span>
         </div>
-
-        <hr class="my-4" />
-
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
-          data-action="showCreateSpreadsheetDialog"
-        >
-          <span>📋 Create New Spreadsheet</span>
-        </div>
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
-          data-action="showGuideDialog"
-        >
-          <span>❓ View Setup Guide</span>
-        </div>
         <? } ?>
       </div>
     </div>
 
     <script>
-      document.addEventListener("load", function () {
+      document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".menu-item").forEach(function (item) {
           item.addEventListener("click", function () {
             const action = this.getAttribute("data-action");
