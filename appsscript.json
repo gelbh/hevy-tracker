@@ -13,7 +13,6 @@
     "https://www.googleapis.com/auth/script.locale",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/forms"
   ],
   "addOns": {
@@ -47,7 +46,6 @@
     "https://api.hevyapp.com/v1/workouts/events",
     "https://api.hevyapp.com/v1/routines",
     "https://api.hevyapp.com/v1/exercise_templates",
-    "https://api.hevyapp.com/v1/routine_folders",
-    "https://docs.google.com/spreadsheets/export"
+    "https://api.hevyapp.com/v1/routine_folders"
   ]
 }

@@ -13,18 +13,16 @@
         max-width: 600px;
         margin: 0 auto;
       }
-
       h2 {
         color: #333;
         margin-bottom: 12px;
       }
-
       .step {
         background: #fff;
         border-radius: 8px;
         padding: 10px;
+        margin-bottom: 15px;
       }
-
       .note {
         color: #666;
         font-style: italic;
@@ -34,38 +32,53 @@
         margin-top: 5px;
         text-align: center;
       }
-
       h3 {
         margin: 0 0 10px 0;
         color: #4285f4;
         font-size: 16px;
       }
-
       ul {
         margin: 8px 0;
         padding-left: 25px;
       }
-
       li {
         margin: 5px 0;
       }
-
       .divider {
         border-top: 1px solid #eee;
         margin: 15px 0;
       }
-
       strong {
         color: #202124;
       }
-
       a {
         color: #4285f4;
         text-decoration: none;
       }
-
       a:hover {
         text-decoration: underline;
+      }
+      .important {
+        background: #fef3f2;
+        border: 1px solid #fecdca;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 15px 0;
+        color: #b42318;
+      }
+      .template-button {
+        display: inline-block;
+        background-color: #4285f4;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 4px;
+        margin: 10px 0;
+        text-align: center;
+      }
+      .template-button:hover {
+        background-color: #3b78e7;
+        text-decoration: none;
       }
     </style>
   </head>
@@ -73,17 +86,19 @@
     <h2>Getting Started</h2>
 
     <div class="step">
-      <h3>1. Create Your Spreadsheet</h3>
+      <h3>1. Copy Template Spreadsheet</h3>
       <ul>
-        <li>
-          If you're viewing the template, click
-          <strong
-            >Extensions → Hevy Tracker → Create New Spreadsheet From
-            Template</strong
-          >
-        </li>
-        <li>Click <strong>Create Spreadsheet</strong> in the dialog</li>
-        <li>Open your new spreadsheet using the link provided</li>
+        <li>Click the button below to open the template:</li>
+      </ul>
+      <a
+        href="https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy"
+        class="template-button"
+      >
+        Open Template Spreadsheet
+      </a>
+      <ul>
+        <li>Click <strong>Make a copy</strong> in the File menu</li>
+        <li>The new spreadsheet will open automatically</li>
       </ul>
     </div>
 
@@ -104,7 +119,8 @@
       <h3>3. Set Up the Tracker</h3>
       <ul>
         <li>
-          Click <strong>Extensions → Hevy Tracker → Set Hevy API Key</strong>
+          In your new spreadsheet, click
+          <strong>Extensions → Hevy Tracker → Set Hevy API Key</strong>
         </li>
         <li>Paste your API key and click Save</li>
         <li>Initial data import will begin automatically</li>
@@ -114,6 +130,11 @@
     <div class="note">
       Note: The initial import may take a few minutes depending on your workout
       history
+    </div>
+
+    <div class="important">
+      Important: Always use "Make a copy" to create your own version of the
+      template. This ensures all formulas and functions work correctly.
     </div>
   </body>
 </html>

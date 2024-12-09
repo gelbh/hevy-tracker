@@ -46,14 +46,10 @@ function onOpen(e) {
  */
 function onHomepage(e) {
   try {
-    const spreadsheet = SpreadsheetApp.getActive();
-    const isTemplate =
-      spreadsheet.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-
     const template = HtmlService.createTemplateFromFile(
       "src/ui/dialogs/Sidebar"
     );
-    template.data = { isTemplate };
+    template.data = {};
 
     const htmlOutput = template
       .evaluate()
@@ -67,6 +63,74 @@ function onHomepage(e) {
     throw ErrorHandler.handle(error, {
       operation: "Opening homepage",
       eventType: e?.type,
+    });
+  }
+}
+
+/**
+ * Adds menu items that require authorization
+ * @private
+ */
+function addAuthorizedMenuItems(menu, ui) {
+  const importSubmenu = createImportSubmenu(ui);
+  const routineBuilderSubmenu = createRoutineBuilderSubmenu(ui);
+
+  menu
+    .addItem("🔑 Set Hevy API Key", "showInitialSetup")
+    .addSeparator()
+    .addSubMenu(importSubmenu)
+    .addSeparator()
+    .addSubMenu(routineBuilderSubmenu)
+    .addSeparator()
+    .addItem("⚖️ Log Weight", "logWeight");
+}
+
+/**
+ * Creates the import submenu
+ * @private
+ */
+function createImportSubmenu(ui) {
+  return ui
+    .createMenu("📥 Import Data")
+    .addItem("📥 Import All", "apiClient.runInitialImport")
+    .addSeparator()
+    .addItem("🏋️ Import Workouts", "importAllWorkouts")
+    .addItem("💪 Import Exercises", "importAllExercises")
+    .addItem("📋 Import Routines", "importAllRoutines")
+    .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
+}
+
+/**
+ * Creates the routine builder submenu
+ * @private
+ */
+function createRoutineBuilderSubmenu(ui) {
+  return ui
+    .createMenu("📝 Routine Builder")
+    .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
+    .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
+}
+
+/**
+ * Shows initial setup dialog and handles authorization
+ */
+function showInitialSetup() {
+  try {
+    const properties = getUserProperties();
+    const hasApiKey = properties && properties.getProperty("HEVY_API_KEY");
+
+    if (hasApiKey) {
+      apiClient.manageHevyApiKey();
+    } else {
+      showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
+        width: 450,
+        height: 250,
+        title: "Hevy Tracker Setup",
+      });
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing initial setup",
     });
   }
 }
@@ -148,28 +212,6 @@ function runMenuAction(action) {
 }
 
 /**
- * Adds menu items that require authorization
- * @private
- */
-function addAuthorizedMenuItems(menu, ui) {
-  try {
-    const currentId = SpreadsheetApp.getActive().getId();
-    const isTemplate =
-      currentId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
-
-    if (isTemplate) {
-      addTemplateMenuItems(menu);
-    } else {
-      addStandardMenuItems(menu, ui);
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Adding authorized menu items",
-    });
-  }
-}
-
-/**
  * Adds menu items specific to the template spreadsheet
  * @private
  */
@@ -201,56 +243,6 @@ function addStandardMenuItems(menu, ui) {
     .addItem("⚖️ Log Weight", "logWeight")
     .addSeparator()
     .addItem("📋 Create New Spreadsheet", "showCreateSpreadsheetDialog");
-}
-
-/**
- * Creates the import submenu
- * @private
- */
-function createImportSubmenu(ui) {
-  return ui
-    .createMenu("📥 Import Data")
-    .addItem("📥 Import All", "apiClient.runInitialImport")
-    .addSeparator()
-    .addItem("🏋️ Import Workouts", "importAllWorkouts")
-    .addItem("💪 Import Exercises", "importAllExercises")
-    .addItem("📋 Import Routines", "importAllRoutines")
-    .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
-}
-
-/**
- * Creates the routine builder submenu
- * @private
- */
-function createRoutineBuilderSubmenu(ui) {
-  return ui
-    .createMenu("📝 Routine Builder")
-    .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
-    .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
-}
-
-/**
- * Shows initial setup dialog and handles authorization
- */
-function showInitialSetup() {
-  try {
-    const properties = getUserProperties();
-    const hasApiKey = properties && properties.getProperty("HEVY_API_KEY");
-
-    if (hasApiKey) {
-      apiClient.manageHevyApiKey();
-    } else {
-      showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
-        width: 450,
-        height: 250,
-        title: "Hevy Tracker Setup",
-      });
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing initial setup",
-    });
-  }
 }
 
 /**
