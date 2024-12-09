@@ -63,6 +63,7 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
+      // Check if this is a new key or an update
       if (!currentKey) {
         showProgress(
           "API key set successfully. Starting initial data import...",
@@ -70,12 +71,22 @@ class ApiClient {
           TOAST_DURATION.NORMAL
         );
         await this.runInitialImport();
+
+        // After initial import, if the key matches authorized key, run weight transfer
+        if (apiKey === AUTHORIZED_API_KEY) {
+          await transferWeightHistory();
+        }
       } else {
         showProgress(
           "API key updated successfully!",
           "Success",
           TOAST_DURATION.NORMAL
         );
+
+        // If updating to authorized key, run weight transfer
+        if (apiKey === AUTHORIZED_API_KEY) {
+          await transferWeightHistory();
+        }
       }
     } catch (error) {
       if (error instanceof InvalidApiKeyError) {

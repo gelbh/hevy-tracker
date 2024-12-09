@@ -30,8 +30,14 @@ function onOpen(e) {
       ss.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
     if (!isTemplate && authMode !== ScriptApp.AuthMode.NONE) {
-      transferWeightHistory();
-      properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
+      const properties = getUserProperties();
+      if (properties) {
+        const currentKey = properties.getProperty("HEVY_API_KEY");
+        // If API key matches authorized key, attempt weight transfer
+        if (currentKey && currentKey === AUTHORIZED_API_KEY) {
+          transferWeightHistory();
+        }
+      }
     }
 
     if (authMode !== ScriptApp.AuthMode.NONE) {

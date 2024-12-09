@@ -239,25 +239,47 @@ function markTransferComplete(spreadsheet) {
  * @private
  */
 function processWeightTransfer(sourceSheet) {
-  const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
-  const targetSheet = targetManager.sheet;
-  const sourceData = sourceSheet.getDataRange().getValues();
-  let transferCount = 0;
+  try {
+    const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
+    const targetSheet = targetManager.sheet;
+    const sourceData = sourceSheet.getDataRange().getValues();
+    let transferCount = 0;
 
-  if (sourceData.length > 1) {
-    sourceData.shift();
-    transferCount = sourceData.length;
+    if (sourceData.length > 1) {
+      // Clear existing weight data while preserving headers
+      if (targetSheet.getLastRow() > 1) {
+        targetSheet.getRange(2, 1, targetSheet.getLastRow() - 1, 2).clear();
+      }
 
-    const lastRow = Math.max(1, targetSheet.getLastRow());
-    targetSheet
-      .getRange(lastRow + 1, 1, sourceData.length, 2)
-      .setValues(sourceData);
+      // Transfer new data
+      sourceData.shift(); // Remove header row
+      transferCount = sourceData.length;
+      if (transferCount > 0) {
+        targetSheet.getRange(2, 1, sourceData.length, 2).setValues(sourceData);
+        targetManager.formatSheet();
+      }
+    }
 
-    targetManager.formatSheet();
+    // Attempt cleanup but don't let it affect transfer success
+    try {
+      cleanupSourceSheet(sourceSheet);
+    } catch (cleanupError) {
+      console.warn("Cleanup after weight transfer failed:", cleanupError);
+    }
+
+    return {
+      success: true,
+      count: transferCount,
+      cleanupComplete: false,
+    };
+  } catch (error) {
+    console.error("Error in weight transfer:", error);
+    return {
+      success: false,
+      count: 0,
+      error: error.message,
+    };
   }
-
-  cleanupSourceSheet(sourceSheet);
-  return { success: true, count: transferCount };
 }
 
 /**
@@ -283,26 +305,33 @@ function cleanupSourceSheet(sourceSheet) {
   try {
     const formUrl = sourceSheet.getFormUrl();
     if (formUrl) {
-      const form = FormApp.openByUrl(formUrl);
-      // Delete all existing responses
-      const formResponses = form.getResponses();
-      formResponses.forEach((response) =>
-        form.deleteResponse(response.getId())
-      );
+      try {
+        // Attempt to cleanup form if we have permissions
+        const form = FormApp.openByUrl(formUrl);
+        // Delete all existing responses
+        const formResponses = form.getResponses();
+        formResponses.forEach((response) =>
+          form.deleteResponse(response.getId())
+        );
+        // Remove destination and stop accepting responses
+        form.removeDestination();
+        form.setAcceptingResponses(false);
+      } catch (formError) {
+        // Log form cleanup error but continue with sheet deletion
+        console.warn("Unable to cleanup form due to permissions:", formError);
+      }
+    }
 
-      // Remove destination and stop accepting responses
-      form.removeDestination();
-      form.setAcceptingResponses(false);
-
-      // Delete the source sheet
+    // Always try to delete the source sheet, even if form cleanup fails
+    try {
       const spreadsheet = sourceSheet.getParent();
       spreadsheet.deleteSheet(sourceSheet);
+    } catch (sheetError) {
+      console.warn("Unable to delete source sheet:", sheetError);
     }
   } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Cleaning up weight history form",
-      sheetName: sourceSheet.getName(),
-    });
+    // Log error but don't throw to allow rest of functionality to continue
+    console.error("Error in cleanupSourceSheet:", error);
   }
 }
 
