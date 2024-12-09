@@ -172,7 +172,7 @@ function promptForWeight() {
  * @param {boolean} [showMessages=true] Whether to show progress messages
  * @returns {boolean} Whether the transfer was authorized and attempted
  */
-function transferWeightHistory(showMessages = true) {
+function transferWeightHistory() {
   try {
     if (!authorizeTransfer()) return false;
 
@@ -187,7 +187,6 @@ function transferWeightHistory(showMessages = true) {
     const result = processWeightTransfer(sourceSheet);
     if (result.success) {
       markTransferComplete(ss);
-      showTransferComplete(result.count, showMessages);
     }
 
     return true;
@@ -236,20 +235,6 @@ function markTransferComplete(spreadsheet) {
 }
 
 /**
- * Shows transfer completion message
- * @private
- */
-function showTransferComplete(count, showMessages) {
-  if (showMessages && count > 0) {
-    showProgress(
-      `Successfully transferred ${count} weight records and removed the source sheet!`,
-      "Transfer Complete",
-      TOAST_DURATION.NORMAL
-    );
-  }
-}
-
-/**
  * Processes the weight transfer
  * @private
  */
@@ -260,7 +245,7 @@ function processWeightTransfer(sourceSheet) {
   let transferCount = 0;
 
   if (sourceData.length > 1) {
-    sourceData.shift(); // Remove header row
+    sourceData.shift();
     transferCount = sourceData.length;
 
     const lastRow = Math.max(1, targetSheet.getLastRow());
@@ -299,20 +284,25 @@ function cleanupSourceSheet(sourceSheet) {
     const formUrl = sourceSheet.getFormUrl();
     if (formUrl) {
       const form = FormApp.openByUrl(formUrl);
+      // Delete all existing responses
       const formResponses = form.getResponses();
       formResponses.forEach((response) =>
         form.deleteResponse(response.getId())
       );
-      form.removeDestination();
 
+      // Remove destination and stop accepting responses
+      form.removeDestination();
+      form.setAcceptingResponses(false);
+
+      // Delete the source sheet
       const spreadsheet = sourceSheet.getParent();
       spreadsheet.deleteSheet(sourceSheet);
-
-      // const formFile = DriveApp.getFileById(form.getId());
-      // formFile.setTrashed(true);
     }
-  } catch (e) {
-    throw e;
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Cleaning up weight history form",
+      sheetName: sourceSheet.getName(),
+    });
   }
 }
 

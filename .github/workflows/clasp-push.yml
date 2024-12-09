@@ -9,10 +9,19 @@ on:
       - "LICENSE"
       - "package*.json"
       - ".vscode/**"
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Create new deployment"
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      SHOULD_DEPLOY: ${{ github.event.inputs.deploy == 'true' || contains(github.event.head_commit.message, '[deploy]') || contains(github.event.head_commit.message, '--deploy') || contains(github.env.GIT_PUSH_FLAGS, '--deploy') }}
 
     steps:
       - uses: actions/checkout@v3
@@ -34,6 +43,7 @@ jobs:
         run: clasp push --force
 
       - name: Create deployment
+        if: env.SHOULD_DEPLOY == 'true'
         run: |
           TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
           DEPLOY_RESULT=$(clasp deploy --description "Production deployment $TIMESTAMP")

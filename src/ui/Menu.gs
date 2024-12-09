@@ -29,24 +29,21 @@ function onOpen(e) {
     const isTemplate =
       ss.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    // Clean up template elements if API key is not set
-    if (
-      !isTemplate &&
-      (AUTHORIZED_API_KEY === "PLACEHOLDER_KEY" || !AUTHORIZED_API_KEY)
-    ) {
-      cleanupTemplateElements();
+    if (!isTemplate && authMode !== ScriptApp.AuthMode.NONE) {
+      transferWeightHistory();
+      properties.setProperty("WEIGHT_TRANSFER_IN_PROGRESS", "true");
     }
 
     if (authMode !== ScriptApp.AuthMode.NONE) {
       if (isTemplate) {
         // Template spreadsheet menu
         addonMenu.addItem("❓ View Setup Guide", "showGuideDialog");
+        addonMenu.addItem("💪 Import Exercises", "importAllExercises");
       } else {
         // Regular spreadsheet menu
         addAuthorizedMenuItems(addonMenu, ui);
       }
     }
-
     addonMenu.addToUi();
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -216,10 +213,6 @@ function runMenuAction(action) {
         handler: logWeight,
         successMessage: "Weight logging initiated",
       }),
-      showCreateSpreadsheetDialog: () => ({
-        handler: showCreateSpreadsheetDialog,
-        successMessage: "Creating spreadsheet",
-      }),
       showGuideDialog: () => ({
         handler: showGuideDialog,
         successMessage: "Opening guide",
@@ -245,39 +238,5 @@ function runMenuAction(action) {
       success: false,
       error: error.message,
     };
-  }
-}
-
-/**
- * Shows the create spreadsheet dialog
- */
-function showCreateSpreadsheetDialog() {
-  try {
-    showHtmlDialog("src/ui/dialogs/TemplateDialog", {
-      width: 450,
-      height: 250,
-      title: "Create Template Spreadsheet",
-    });
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing create spreadsheet dialog",
-    });
-  }
-}
-
-/**
- * Cleans up template-specific elements
- * @private
- */
-function cleanupTemplateElements() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const weightHistorySheet = ss.getSheetByName("My Weight History");
-    if (weightHistorySheet) {
-      cleanupSourceSheet(weightHistorySheet);
-    }
-  } catch (error) {
-    console.error("Error during template cleanup:", error);
-    // Don't throw error to allow spreadsheet to open
   }
 }
