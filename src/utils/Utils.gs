@@ -335,8 +335,25 @@ function makeTemplateCopy() {
     // Copy template content into new spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
 
-    // First, copy custom functions by recreating them in the new spreadsheet
-    copyCustomFunctions(templateSpreadsheet, newSpreadsheet);
+    // Copy custom functions from template
+    const customFunctions = templateSpreadsheet.getNamedRanges();
+    customFunctions.forEach((func) => {
+      // Get the original range and formula
+      const range = func.getRange();
+      const formula = range.getFormula();
+      const name = func.getName();
+
+      // Create a temporary sheet to hold the function
+      const tempSheet = newSpreadsheet.insertSheet("TempFunctionSheet");
+      const newRange = tempSheet.getRange(1, 1);
+      newRange.setFormula(formula);
+
+      // Create the named range in the new spreadsheet
+      newSpreadsheet.setNamedRange(name, newRange);
+
+      // Log for debugging
+      console.log(`Copying function: ${name} with formula: ${formula}`);
+    });
 
     // Define the order of sheets to copy (data sheets first)
     const sheetCopyOrder = [
@@ -362,7 +379,12 @@ function makeTemplateCopy() {
       }
     });
 
-    // Delete the default sheet after we've copied everything
+    // Remove the temporary function sheet and default sheet
+    if (newSpreadsheet.getSheetByName("TempFunctionSheet")) {
+      newSpreadsheet.deleteSheet(
+        newSpreadsheet.getSheetByName("TempFunctionSheet")
+      );
+    }
     if (newSpreadsheet.getSheets().length > 1) {
       newSpreadsheet.deleteSheet(defaultSheet);
     }
@@ -371,23 +393,6 @@ function makeTemplateCopy() {
   } catch (error) {
     throw ErrorHandler.handle(error, "Creating template spreadsheet");
   }
-}
-
-/**
- * Copies custom functions from template to new spreadsheet
- * @private
- */
-function copyCustomFunctions(sourceSpreadsheet, targetSpreadsheet) {
-  // Get all named functions from the source spreadsheet
-  const functions = sourceSpreadsheet.getNamedRanges();
-
-  functions.forEach((func) => {
-    const formula = func.getRange().getFormula();
-    const name = func.getName();
-
-    // Create the same function in the target spreadsheet
-    targetSpreadsheet.insertNamedRange(name, formula);
-  });
 }
 
 /**
@@ -457,55 +462,6 @@ function applySheetTheme(sheet) {
       addDuplicateHighlighting(new SheetManager(sheet, EXERCISES_SHEET_NAME));
     }
   }
-}
-
-/**
- * Copies a sheet with all its data and formatting
- * @private
- */
-function copySheetWithData(sourceSheet, targetSpreadsheet) {
-  const newSheet = sourceSheet.copyTo(targetSpreadsheet);
-  newSheet.setName(sourceSheet.getName());
-
-  // Copy basic formatting
-  newSheet.setFrozenRows(sourceSheet.getFrozenRows());
-  newSheet.setFrozenColumns(sourceSheet.getFrozenColumns());
-
-  // Apply theme formatting
-  applySheetTheme(newSheet);
-
-  return newSheet;
-}
-
-/**
- * Copies named ranges from template to new spreadsheet
- * @private
- */
-function copyNamedRanges(sourceSpreadsheet, targetSpreadsheet, sheetNameMap) {
-  const namedRanges = sourceSpreadsheet.getNamedRanges();
-
-  namedRanges.forEach((namedRange) => {
-    const range = namedRange.getRange();
-    const sourceName = namedRange.getName();
-    const sourceSheet = range.getSheet();
-
-    // Get corresponding sheet in new spreadsheet
-    const targetSheetName = sheetNameMap.get(sourceSheet.getName());
-    const targetSheet = targetSpreadsheet.getSheetByName(targetSheetName);
-
-    if (targetSheet) {
-      // Create new range with same relative coordinates
-      const newRange = targetSheet.getRange(
-        range.getRow(),
-        range.getColumn(),
-        range.getNumRows(),
-        range.getNumColumns()
-      );
-
-      // Create named range in new spreadsheet
-      targetSpreadsheet.setNamedRange(sourceName, newRange);
-    }
-  });
 }
 
 // -----------------
