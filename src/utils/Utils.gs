@@ -341,13 +341,40 @@ function makeTemplateCopy() {
       const newSheet = sheet.copyTo(newSpreadsheet);
       newSheet.setName(sheet.getName());
 
-      // Copy sheet formatting
+      // Copy basic formatting
       newSheet.setFrozenRows(sheet.getFrozenRows());
       newSheet.setFrozenColumns(sheet.getFrozenColumns());
 
-      // Copy conditional formatting rules
-      const rules = sheet.getConditionalFormatRules();
-      newSheet.setConditionalFormatRules(rules);
+      // Get the sheet's theme from Constants.gs
+      const theme = SHEET_THEMES[sheet.getName()];
+      if (theme) {
+        // Apply alternating row colors if there's data
+        const lastRow = newSheet.getLastRow();
+        if (lastRow > 1) {
+          const range = newSheet.getRange(
+            2,
+            1,
+            lastRow - 1,
+            newSheet.getLastColumn()
+          );
+
+          // Create even row rule
+          const evenRowRule = SpreadsheetApp.newConditionalFormatRule()
+            .setRanges([range])
+            .whenFormulaSatisfied("=MOD(ROW(),2)=0")
+            .setBackground(theme.evenRowColor)
+            .build();
+
+          // Create odd row rule
+          const oddRowRule = SpreadsheetApp.newConditionalFormatRule()
+            .setRanges([range])
+            .whenFormulaSatisfied("=MOD(ROW(),2)=1")
+            .setBackground(theme.oddRowColor)
+            .build();
+
+          newSheet.setConditionalFormatRules([evenRowRule, oddRowRule]);
+        }
+      }
     });
 
     // Only delete the default sheet after we've copied at least one new sheet
