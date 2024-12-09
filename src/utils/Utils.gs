@@ -308,8 +308,8 @@ function cleanupSourceSheet(sourceSheet) {
       const spreadsheet = sourceSheet.getParent();
       spreadsheet.deleteSheet(sourceSheet);
 
-      const formFile = DriveApp.getFileById(form.getId());
-      formFile.setTrashed(true);
+      // const formFile = DriveApp.getFileById(form.getId());
+      // formFile.setTrashed(true);
     }
   } catch (e) {
     throw e;
