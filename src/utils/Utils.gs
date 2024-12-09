@@ -330,16 +330,11 @@ function makeTemplateCopy() {
 
     // Create new spreadsheet directly using Sheets API
     const newSpreadsheet = SpreadsheetApp.create("Hevy Tracker - My Workouts");
-    const newFile = DriveApp.getFileById(newSpreadsheet.getId());
+    const defaultSheet = newSpreadsheet.getSheets()[0]; // Get the default sheet
 
     // Copy template content into new spreadsheet
     const templateSpreadsheet = SpreadsheetApp.openById(TEMPLATE_ID);
     const sheets = templateSpreadsheet.getSheets();
-
-    // Remove default Sheet1
-    if (newSpreadsheet.getSheets().length > 0) {
-      newSpreadsheet.deleteSheet(newSpreadsheet.getSheets()[0]);
-    }
 
     // Copy each sheet
     sheets.forEach((sheet) => {
@@ -354,6 +349,11 @@ function makeTemplateCopy() {
       const rules = sheet.getConditionalFormatRules();
       newSheet.setConditionalFormatRules(rules);
     });
+
+    // Only delete the default sheet after we've copied at least one new sheet
+    if (newSpreadsheet.getSheets().length > 1) {
+      newSpreadsheet.deleteSheet(defaultSheet);
+    }
 
     return { url: newSpreadsheet.getUrl() };
   } catch (error) {
