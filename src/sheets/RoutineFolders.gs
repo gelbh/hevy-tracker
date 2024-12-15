@@ -74,7 +74,12 @@ async function clearExistingContent(sheet) {
  */
 function processFolderData(folders) {
   try {
-    return folders.map((folder) => [folder.id, folder.title]);
+    return folders.map((folder) => [
+      folder.id,
+      folder.title,
+      formatDate(folder.updated_at),
+      formatDate(folder.created_at),
+    ]);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Processing folder data",
@@ -95,7 +100,12 @@ async function updateFoldersInSheet(sheet, processedFolders) {
     // Add other folders if they exist
     if (processedFolders.length > 0) {
       sheet
-        .getRange(3, 1, processedFolders.length, 2)
+        .getRange(
+          3,
+          1,
+          processedFolders.length,
+          SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length
+        )
         .setValues(processedFolders);
     }
   } catch (error) {
