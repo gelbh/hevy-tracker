@@ -168,25 +168,42 @@ function promptForWeight() {
 }
 
 /**
- * Transfers weight history from template
- * @param {boolean} [showMessages=true] Whether to show progress messages
+ * Transfers weight history from external spreadsheet
  * @returns {boolean} Whether the transfer was authorized and attempted
  */
 function transferWeightHistory() {
   try {
     if (!authorizeTransfer()) return false;
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    cleanupTempSheet(ss);
+    const sourceSpreadsheetId = "1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68";
+    let sourceSpreadsheet;
 
-    const sourceSheet = ss.getSheetByName("My Weight History");
-    if (!sourceSheet) return true;
+    try {
+      sourceSpreadsheet = SpreadsheetApp.openById(sourceSpreadsheetId);
+    } catch (e) {
+      console.error("Error opening source spreadsheet:", e);
+      return false;
+    }
 
-    if (isTransferComplete(ss)) return true;
+    const sourceSheet = sourceSpreadsheet.getSheetByName("Weight History");
+    if (!sourceSheet) {
+      throw new SheetError(
+        "Source weight history sheet not found",
+        "Weight History"
+      );
+    }
+
+    const targetSS = SpreadsheetApp.getActiveSpreadsheet();
+    if (isTransferComplete(targetSS)) return true;
 
     const result = processWeightTransfer(sourceSheet);
     if (result.success) {
-      markTransferComplete(ss);
+      markTransferComplete(targetSS);
+      showProgress(
+        `Imported ${result.count} weight entries successfully!`,
+        "Import Complete",
+        TOAST_DURATION.NORMAL
+      );
     }
 
     return true;
@@ -235,50 +252,73 @@ function markTransferComplete(spreadsheet) {
 }
 
 /**
- * Processes the weight transfer
+ * Processes the weight transfer from external source
  * @private
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sourceSheet - The source sheet containing weight data
+ * @returns {Object} Result object with success status and count of transferred entries
  */
 function processWeightTransfer(sourceSheet) {
   try {
     const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const targetSheet = targetManager.sheet;
+
+    // Get existing data to check for duplicates
+    const existingData = new Map();
+    if (targetSheet.getLastRow() > 1) {
+      const existingValues = targetSheet.getDataRange().getValues();
+      existingValues.slice(1).forEach((row) => {
+        const timestamp = row[0].getTime();
+        existingData.set(timestamp, true);
+      });
+    }
+
+    // Get source data
     const sourceData = sourceSheet.getDataRange().getValues();
     let transferCount = 0;
 
     if (sourceData.length > 1) {
-      // Clear existing weight data while preserving headers
-      if (targetSheet.getLastRow() > 1) {
-        targetSheet.getRange(2, 1, targetSheet.getLastRow() - 1, 2).clear();
-      }
+      // Filter out header and prepare new entries
+      const newEntries = sourceData.slice(1).filter((row) => {
+        if (!row[0] || !row[1]) return false; // Skip rows with missing data
+        const timestamp = new Date(row[0]).getTime();
+        return !existingData.has(timestamp) && !isNaN(timestamp);
+      });
 
-      // Transfer new data
-      sourceData.shift(); // Remove header row
-      transferCount = sourceData.length;
-      if (transferCount > 0) {
-        targetSheet.getRange(2, 1, sourceData.length, 2).setValues(sourceData);
+      if (newEntries.length > 0) {
+        transferCount = newEntries.length;
+        const lastRow = Math.max(1, targetSheet.getLastRow());
+
+        // Format dates consistently
+        const formattedEntries = newEntries.map((row) => [
+          new Date(row[0]),
+          normalizeWeight(row[1]),
+        ]);
+
+        targetSheet
+          .getRange(lastRow + 1, 1, formattedEntries.length, 2)
+          .setValues(formattedEntries);
+
+        // Sort the sheet by date after import
+        if (targetSheet.getLastRow() > 2) {
+          const dataRange = targetSheet.getRange(
+            2,
+            1,
+            targetSheet.getLastRow() - 1,
+            2
+          );
+          dataRange.sort(1);
+        }
+
         targetManager.formatSheet();
       }
     }
 
-    // Attempt cleanup but don't let it affect transfer success
-    try {
-      cleanupSourceSheet(sourceSheet);
-    } catch (cleanupError) {
-      console.warn("Cleanup after weight transfer failed:", cleanupError);
-    }
-
-    return {
-      success: true,
-      count: transferCount,
-      cleanupComplete: false,
-    };
+    return { success: true, count: transferCount };
   } catch (error) {
-    console.error("Error in weight transfer:", error);
-    return {
-      success: false,
-      count: 0,
-      error: error.message,
-    };
+    throw ErrorHandler.handle(error, {
+      operation: "Processing weight transfer",
+      sourceSheet: sourceSheet.getName(),
+    });
   }
 }
 

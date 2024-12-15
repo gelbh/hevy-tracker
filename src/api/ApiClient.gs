@@ -71,22 +71,12 @@ class ApiClient {
           TOAST_DURATION.NORMAL
         );
         await this.runInitialImport();
-
-        // After initial import, if the key matches authorized key, run weight transfer
-        if (apiKey === AUTHORIZED_API_KEY) {
-          await transferWeightHistory();
-        }
       } else {
         showProgress(
           "API key updated successfully!",
           "Success",
           TOAST_DURATION.NORMAL
         );
-
-        // If updating to authorized key, run weight transfer
-        if (apiKey === AUTHORIZED_API_KEY) {
-          await transferWeightHistory();
-        }
       }
     } catch (error) {
       if (error instanceof InvalidApiKeyError) {
@@ -244,6 +234,10 @@ class ApiClient {
 
       await importAllWorkouts();
 
+      if (apiKey === AUTHORIZED_API_KEY) {
+        transferWeightHistory();
+      }
+
       properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
     } catch (error) {
       const properties = this.getProperties();
@@ -254,51 +248,6 @@ class ApiClient {
         operation: "Initial data import",
       });
     }
-  }
-
-  /**
-   * Handles successful API key save
-   * @private
-   */
-  handleSuccessfulSave(currentKey) {
-    if (!currentKey) {
-      setTimeout(() => {
-        showProgress(
-          "API key set successfully. Starting initial data import...",
-          "Setup Progress",
-          TOAST_DURATION.NORMAL
-        );
-        this.runInitialImport();
-      }, 0);
-    } else {
-      showProgress(
-        "API key updated successfully!",
-        "Success",
-        TOAST_DURATION.NORMAL
-      );
-    }
-  }
-
-  /**
-   * Handles API key save errors
-   * @private
-   */
-  handleSaveError(error) {
-    if (error instanceof InvalidApiKeyError) {
-      const properties = this.getProperties();
-      properties.deleteProperty("HEVY_API_KEY");
-
-      const ui = SpreadsheetApp.getUi();
-      ui.alert(
-        "Invalid API Key",
-        "The provided API key appears to be invalid or revoked. Please check your Hevy Developer Settings and try again.",
-        ui.ButtonSet.OK
-      );
-
-      this.promptForApiKey("Would you like to set a new API key?");
-    }
-
-    throw error;
   }
 
   /**

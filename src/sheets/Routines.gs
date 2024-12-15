@@ -96,6 +96,8 @@ function processRoutine(routine) {
           routine.id,
           routine.title,
           assignRoutineFolder(routine),
+          formatDate(routine.updated_at),
+          formatDate(routine.created_at),
           "", // Exercise
           "", // Set Type
           "", // Weight
@@ -126,6 +128,8 @@ function processRoutineExercise(exercise, routine) {
       routine.id,
       routine.title,
       assignRoutineFolder(routine),
+      formatDate(routine.updated_at),
+      formatDate(routine.created_at),
       exercise.title,
       set.set_type || "",
       normalizeWeight(set.weight_kg),

@@ -62,6 +62,8 @@ const SHEET_HEADERS = {
     "ID",
     "Title",
     "Folder ID",
+    "Last Updated",
+    "Created At",
     "Exercise",
     "Set Type",
     "Weight (kg)",
