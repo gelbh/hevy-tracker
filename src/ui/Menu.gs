@@ -24,32 +24,50 @@ function onOpen(e) {
   try {
     const ui = SpreadsheetApp.getUi();
     const addonMenu = ui.createAddonMenu();
-    const authMode = e && e.authMode ? e.authMode : ScriptApp.AuthMode.NONE;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const isTemplate =
-      ss.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    if (!isTemplate && authMode !== ScriptApp.AuthMode.NONE) {
-      const properties = getUserProperties();
-      if (properties) {
-        const currentKey = properties.getProperty("HEVY_API_KEY");
-        // If API key matches authorized key, attempt weight transfer
-        if (currentKey && currentKey === AUTHORIZED_API_KEY) {
-          transferWeightHistory();
-        }
-      }
+    const isTemplate =
+      e?.source?.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
+    if (isTemplate) {
+      addonMenu.addItem("❓ View Setup Guide", "showGuideDialog");
+    } else {
+      addonMenu.addItem("🔑 Set Hevy API Key", "showInitialSetup");
     }
 
-    if (authMode !== ScriptApp.AuthMode.NONE) {
-      if (isTemplate) {
-        // Template spreadsheet menu
-        addonMenu
-          .addItem("❓ View Setup Guide", "showGuideDialog")
+    if (
+      e?.authMode === ScriptApp.AuthMode.LIMITED ||
+      e?.authMode === ScriptApp.AuthMode.FULL
+    ) {
+      if (!isTemplate) {
+        const importSubmenu = ui
+          .createMenu("📥 Import Data")
+          .addItem("📥 Import All", "apiClient.runInitialImport")
           .addSeparator()
-          .addItem("💪 Import Exercises", "importAllExercises");
-      } else {
-        // Regular spreadsheet menu
-        addAuthorizedMenuItems(addonMenu, ui);
+          .addItem("🏋️ Import Workouts", "importAllWorkouts")
+          .addItem("💪 Import Exercises", "importAllExercises")
+          .addItem("📋 Import Routines", "importAllRoutines")
+          .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
+
+        const routineBuilderSubmenu = ui
+          .createMenu("📝 Routine Builder")
+          .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
+          .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
+
+        addonMenu
+          .addSeparator()
+          .addSubMenu(importSubmenu)
+          .addSeparator()
+          .addSubMenu(routineBuilderSubmenu)
+          .addSeparator()
+          .addItem("⚖️ Log Weight", "logWeight");
+
+        const properties = getUserProperties();
+        if (properties) {
+          const currentKey = properties.getProperty("HEVY_API_KEY");
+          if (currentKey && currentKey === AUTHORIZED_API_KEY) {
+            transferWeightHistory();
+          }
+        }
       }
     }
     addonMenu.addToUi();
@@ -90,50 +108,6 @@ function onHomepage(e) {
       eventType: e?.type,
     });
   }
-}
-
-/**
- * Adds menu items that require authorization
- * @private
- */
-function addAuthorizedMenuItems(menu, ui) {
-  const importSubmenu = createImportSubmenu(ui);
-  const routineBuilderSubmenu = createRoutineBuilderSubmenu(ui);
-
-  menu
-    .addItem("🔑 Set Hevy API Key", "showInitialSetup")
-    .addSeparator()
-    .addSubMenu(importSubmenu)
-    .addSeparator()
-    .addSubMenu(routineBuilderSubmenu)
-    .addSeparator()
-    .addItem("⚖️ Log Weight", "logWeight");
-}
-
-/**
- * Creates the import submenu
- * @private
- */
-function createImportSubmenu(ui) {
-  return ui
-    .createMenu("📥 Import Data")
-    .addItem("📥 Import All", "apiClient.runInitialImport")
-    .addSeparator()
-    .addItem("🏋️ Import Workouts", "importAllWorkouts")
-    .addItem("💪 Import Exercises", "importAllExercises")
-    .addItem("📋 Import Routines", "importAllRoutines")
-    .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
-}
-
-/**
- * Creates the routine builder submenu
- * @private
- */
-function createRoutineBuilderSubmenu(ui) {
-  return ui
-    .createMenu("📝 Routine Builder")
-    .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
-    .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
 }
 
 /**
