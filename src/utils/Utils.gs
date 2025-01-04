@@ -421,6 +421,16 @@ function normalizeNumber(value) {
 }
 
 /**
+ * Normalizes set types for consistency
+ * @param {number|null} value - Set type to normalize
+ * @returns {number|string} Normalized value or empty string if null/undefined
+ */
+function normalizeSetType(value) {
+  if (value === null || value === undefined) return "normal";
+  return value;
+}
+
+/**
  * Converts column number to letter reference
  * @param {number} column - Column number (1-based)
  * @returns {string} Column letter reference (e.g., 1 -> A, 27 -> AA)
