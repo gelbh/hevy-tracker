@@ -245,7 +245,7 @@ function processWorkoutsData(workouts) {
           formatDate(workout.start_time),
           formatDate(workout.end_time),
           exercise.title,
-          set.set_type || "",
+          set.type || "",
           normalizeWeight(set.weight_kg),
           normalizeNumber(set.reps),
           normalizeNumber(set.distance_meters),
