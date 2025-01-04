@@ -13,7 +13,6 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
   - Workouts with full exercise details
   - Custom and preset exercises
   - Workout routines and folders
-  - Weight measurements
 
 - 📊 Data Organization
 
