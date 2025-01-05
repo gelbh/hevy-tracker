@@ -131,7 +131,7 @@ function processRoutineExercise(exercise, routine) {
       formatDate(routine.updated_at),
       formatDate(routine.created_at),
       exercise.title,
-      set.type || "",
+      normalizeSetType(set.type),
       normalizeWeight(set.weight_kg),
       normalizeNumber(set.reps),
     ]);
