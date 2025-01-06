@@ -34,39 +34,34 @@ function onOpen(e) {
       addonMenu.addItem("🔑 Set Hevy API Key", "showInitialSetup");
     }
 
-    if (
-      e?.authMode === ScriptApp.AuthMode.LIMITED ||
-      e?.authMode === ScriptApp.AuthMode.FULL
-    ) {
-      if (!isTemplate) {
-        const importSubmenu = ui
-          .createMenu("📥 Import Data")
-          .addItem("📥 Import All", "apiClient.runInitialImport")
-          .addSeparator()
-          .addItem("🏋️ Import Workouts", "importAllWorkouts")
-          .addItem("💪 Import Exercises", "importAllExercises")
-          .addItem("📋 Import Routines", "importAllRoutines")
-          .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
+    if (!isTemplate) {
+      const importSubmenu = ui
+        .createMenu("📥 Import Data")
+        .addItem("📥 Import All", "apiClient.runInitialImport")
+        .addSeparator()
+        .addItem("🏋️ Import Workouts", "importAllWorkouts")
+        .addItem("💪 Import Exercises", "importAllExercises")
+        .addItem("📋 Import Routines", "importAllRoutines")
+        .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
 
-        const routineBuilderSubmenu = ui
-          .createMenu("📝 Routine Builder")
-          .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
-          .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
+      const routineBuilderSubmenu = ui
+        .createMenu("📝 Routine Builder")
+        .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
+        .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
 
-        addonMenu
-          .addSeparator()
-          .addSubMenu(importSubmenu)
-          .addSeparator()
-          .addSubMenu(routineBuilderSubmenu)
-          .addSeparator()
-          .addItem("⚖️ Log Weight", "logWeight");
+      addonMenu
+        .addSeparator()
+        .addSubMenu(importSubmenu)
+        .addSeparator()
+        .addSubMenu(routineBuilderSubmenu)
+        .addSeparator()
+        .addItem("⚖️ Log Weight", "logWeight");
 
-        const properties = getUserProperties();
-        if (properties) {
-          const currentKey = properties.getProperty("HEVY_API_KEY");
-          if (currentKey && currentKey === AUTHORIZED_API_KEY) {
-            transferWeightHistory();
-          }
+      const properties = getUserProperties();
+      if (properties) {
+        const currentKey = properties.getProperty("HEVY_API_KEY");
+        if (currentKey && currentKey === AUTHORIZED_API_KEY) {
+          transferWeightHistory();
         }
       }
     }
