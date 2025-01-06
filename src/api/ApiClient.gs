@@ -238,12 +238,34 @@ class ApiClient {
         transferWeightHistory();
       }
 
-      properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
+      ScriptApp.getProjectTriggers().forEach((trigger) =>
+        ScriptApp.deleteTrigger(trigger)
+      );
+
+      ScriptApp.newTrigger("importAllExercises")
+        .timeBased()
+        .everyDays(1)
+        .atHour(1)
+        .create();
+
+      ScriptApp.newTrigger("importAllWorkouts")
+        .timeBased()
+        .everyDays(1)
+        .atHour(1)
+        .create();
+
+      ScriptApp.newTrigger("importAllRoutines")
+        .timeBased()
+        .everyDays(1)
+        .atHour(1)
+        .create();
+
+      ScriptApp.newTrigger("importAllRoutineFolders")
+        .timeBased()
+        .everyDays(1)
+        .atHour(1)
+        .create();
     } catch (error) {
-      const properties = this.getProperties();
-      if (properties) {
-        properties.deleteProperty("WEIGHT_TRANSFER_IN_PROGRESS");
-      }
       throw ErrorHandler.handle(error, {
         operation: "Initial data import",
       });
