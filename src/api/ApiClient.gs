@@ -237,34 +237,6 @@ class ApiClient {
       if (apiKey === AUTHORIZED_API_KEY) {
         transferWeightHistory();
       }
-
-      ScriptApp.getProjectTriggers().forEach((trigger) =>
-        ScriptApp.deleteTrigger(trigger)
-      );
-
-      ScriptApp.newTrigger("importAllExercises")
-        .timeBased()
-        .everyDays(1)
-        .atHour(1)
-        .create();
-
-      ScriptApp.newTrigger("importAllWorkouts")
-        .timeBased()
-        .everyDays(1)
-        .atHour(1)
-        .create();
-
-      ScriptApp.newTrigger("importAllRoutines")
-        .timeBased()
-        .everyDays(1)
-        .atHour(1)
-        .create();
-
-      ScriptApp.newTrigger("importAllRoutineFolders")
-        .timeBased()
-        .everyDays(1)
-        .atHour(1)
-        .create();
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Initial data import",
