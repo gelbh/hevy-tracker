@@ -337,44 +337,6 @@ function cleanupTempSheet(spreadsheet) {
   }
 }
 
-/**
- * Cleans up source sheet and form
- * @private
- */
-function cleanupSourceSheet(sourceSheet) {
-  try {
-    const formUrl = sourceSheet.getFormUrl();
-    if (formUrl) {
-      try {
-        // Attempt to cleanup form if we have permissions
-        const form = FormApp.openByUrl(formUrl);
-        // Delete all existing responses
-        const formResponses = form.getResponses();
-        formResponses.forEach((response) =>
-          form.deleteResponse(response.getId())
-        );
-        // Remove destination and stop accepting responses
-        form.removeDestination();
-        form.setAcceptingResponses(false);
-      } catch (formError) {
-        // Log form cleanup error but continue with sheet deletion
-        console.warn("Unable to cleanup form due to permissions:", formError);
-      }
-    }
-
-    // Always try to delete the source sheet, even if form cleanup fails
-    try {
-      const spreadsheet = sourceSheet.getParent();
-      spreadsheet.deleteSheet(sourceSheet);
-    } catch (sheetError) {
-      console.warn("Unable to delete source sheet:", sheetError);
-    }
-  } catch (error) {
-    // Log error but don't throw to allow rest of functionality to continue
-    console.error("Error in cleanupSourceSheet:", error);
-  }
-}
-
 // -----------------
 // Data Formatting
 // -----------------
