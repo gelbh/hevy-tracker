@@ -41,10 +41,11 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 1. Open the [Hevy Tracker Template](https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy)
 2. Click "Make a copy" to create your own version
 3. The new spreadsheet will open automatically
-4. Get your Hevy API key from [Hevy Developer Settings](https://hevy.com/settings?developer)
-5. In your spreadsheet, click Extensions → Hevy Tracker → Set Hevy API Key
-6. Enter your API key when prompted
-7. Initial data import will begin automatically
+4. Install the [Hevy Tracker Add-on](https://workspace.google.com/marketplace/app/hevy_tracker/221696974247)
+5. Get your Hevy API key from [Hevy Developer Settings](https://hevy.com/settings?developer)
+6. In your spreadsheet, click Extensions → Hevy Tracker → Set Hevy API Key
+7. Enter your API key when prompted
+8. Initial data import will begin automatically
 
 ### For Developers
 
