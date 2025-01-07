@@ -168,35 +168,28 @@ function promptForWeight() {
 }
 
 /**
- * Transfers weight history from external spreadsheet
+ * Transfers weight history from published CSV
  * @returns {boolean} Whether the transfer was authorized and attempted
  */
 function transferWeightHistory() {
   try {
     if (!authorizeTransfer()) return false;
 
-    const sourceSpreadsheetId = "1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68";
-    let sourceSpreadsheet;
-
-    try {
-      sourceSpreadsheet = SpreadsheetApp.openById(sourceSpreadsheetId);
-    } catch (e) {
-      console.error("Error opening source spreadsheet:", e);
-      return false;
-    }
-
-    const sourceSheet = sourceSpreadsheet.getSheetByName("Weight History");
-    if (!sourceSheet) {
-      throw new SheetError(
-        "Source weight history sheet not found",
-        "Weight History"
-      );
-    }
-
     const targetSS = SpreadsheetApp.getActiveSpreadsheet();
     if (isTransferComplete(targetSS)) return true;
 
-    const result = processWeightTransfer(sourceSheet);
+    // Get published CSV URL for the weight history sheet
+    const csvUrl =
+      "https://docs.google.com/spreadsheets/d/1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68/gviz/tq?tqx=out:csv&sheet=Weight+History";
+
+    const response = UrlFetchApp.fetch(csvUrl);
+    if (response.getResponseCode() !== 200) {
+      throw new Error("Failed to fetch weight data");
+    }
+
+    const csvData = response.getContentText();
+    const result = processWeightTransferFromCsv(csvData);
+
     if (result.success) {
       markTransferComplete(targetSS);
       showProgress(
@@ -205,10 +198,75 @@ function transferWeightHistory() {
         TOAST_DURATION.NORMAL
       );
     }
-
     return true;
   } catch (error) {
     throw ErrorHandler.handle(error, "Transferring weight history");
+  }
+}
+
+/**
+ * Processes CSV data for weight transfer
+ * @private
+ * @param {string} csvData - Raw CSV data
+ * @returns {Object} Result object with success status and count
+ */
+function processWeightTransferFromCsv(csvData) {
+  try {
+    const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
+    const targetSheet = targetManager.sheet;
+
+    // Get existing data to check for duplicates
+    const existingData = new Map();
+    if (targetSheet.getLastRow() > 1) {
+      const existingValues = targetSheet.getDataRange().getValues();
+      existingValues.slice(1).forEach((row) => {
+        const timestamp = row[0].getTime();
+        existingData.set(timestamp, true);
+      });
+    }
+
+    // Parse CSV data
+    const parsedData = Utilities.parseCsv(csvData);
+
+    // Skip header row and prepare new entries
+    const newEntries = parsedData
+      .slice(1)
+      .filter((row) => {
+        if (!row[0] || !row[1]) return false;
+        const timestamp = new Date(row[0]).getTime();
+        return !existingData.has(timestamp) && !isNaN(timestamp);
+      })
+      .map((row) => [new Date(row[0]), normalizeWeight(parseFloat(row[1]))]);
+
+    if (newEntries.length > 0) {
+      const lastRow = Math.max(1, targetSheet.getLastRow());
+      targetSheet
+        .getRange(lastRow + 1, 1, newEntries.length, 2)
+        .setValues(newEntries);
+
+      // Sort by date
+      if (targetSheet.getLastRow() > 2) {
+        const dataRange = targetSheet.getRange(
+          2,
+          1,
+          targetSheet.getLastRow() - 1,
+          2
+        );
+        dataRange.sort(1);
+      }
+
+      targetManager.formatSheet();
+    }
+
+    return {
+      success: true,
+      count: newEntries.length,
+    };
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Processing weight transfer",
+      source: "CSV data",
+    });
   }
 }
 
@@ -249,92 +307,6 @@ function markTransferComplete(spreadsheet) {
   const properties = getUserProperties();
   const transferKey = `WEIGHT_TRANSFER_${spreadsheet.getId()}`;
   properties.setProperty(transferKey, "true");
-}
-
-/**
- * Processes the weight transfer from external source
- * @private
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sourceSheet - The source sheet containing weight data
- * @returns {Object} Result object with success status and count of transferred entries
- */
-function processWeightTransfer(sourceSheet) {
-  try {
-    const targetManager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
-    const targetSheet = targetManager.sheet;
-
-    // Get existing data to check for duplicates
-    const existingData = new Map();
-    if (targetSheet.getLastRow() > 1) {
-      const existingValues = targetSheet.getDataRange().getValues();
-      existingValues.slice(1).forEach((row) => {
-        const timestamp = row[0].getTime();
-        existingData.set(timestamp, true);
-      });
-    }
-
-    // Get source data
-    const sourceData = sourceSheet.getDataRange().getValues();
-    let transferCount = 0;
-
-    if (sourceData.length > 1) {
-      // Filter out header and prepare new entries
-      const newEntries = sourceData.slice(1).filter((row) => {
-        if (!row[0] || !row[1]) return false; // Skip rows with missing data
-        const timestamp = new Date(row[0]).getTime();
-        return !existingData.has(timestamp) && !isNaN(timestamp);
-      });
-
-      if (newEntries.length > 0) {
-        transferCount = newEntries.length;
-        const lastRow = Math.max(1, targetSheet.getLastRow());
-
-        // Format dates consistently
-        const formattedEntries = newEntries.map((row) => [
-          new Date(row[0]),
-          normalizeWeight(row[1]),
-        ]);
-
-        targetSheet
-          .getRange(lastRow + 1, 1, formattedEntries.length, 2)
-          .setValues(formattedEntries);
-
-        // Sort the sheet by date after import
-        if (targetSheet.getLastRow() > 2) {
-          const dataRange = targetSheet.getRange(
-            2,
-            1,
-            targetSheet.getLastRow() - 1,
-            2
-          );
-          dataRange.sort(1);
-        }
-
-        targetManager.formatSheet();
-      }
-    }
-
-    return { success: true, count: transferCount };
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Processing weight transfer",
-      sourceSheet: sourceSheet.getName(),
-    });
-  }
-}
-
-/**
- * Cleans up temporary sheet
- * @private
- */
-function cleanupTempSheet(spreadsheet) {
-  try {
-    const tempSheet = spreadsheet.getSheetByName("TempSheet");
-    if (tempSheet) {
-      spreadsheet.deleteSheet(tempSheet);
-    }
-  } catch (e) {
-    ErrorHandler.handle(e, "Cleaning up temporary sheet");
-  }
 }
 
 // -----------------
