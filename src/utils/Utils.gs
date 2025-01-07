@@ -173,11 +173,6 @@ function promptForWeight() {
  */
 function transferWeightHistory() {
   try {
-    if (!authorizeTransfer()) return false;
-
-    const targetSS = SpreadsheetApp.getActiveSpreadsheet();
-    if (isTransferComplete(targetSS)) return true;
-
     // Get published CSV URL for the weight history sheet
     const csvUrl =
       "https://docs.google.com/spreadsheets/d/1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68/gviz/tq?tqx=out:csv&sheet=Weight+History";
@@ -191,7 +186,6 @@ function transferWeightHistory() {
     const result = processWeightTransferFromCsv(csvData);
 
     if (result.success) {
-      markTransferComplete(targetSS);
       showProgress(
         `Imported ${result.count} weight entries successfully!`,
         "Import Complete",
@@ -270,45 +264,6 @@ function processWeightTransferFromCsv(csvData) {
   }
 }
 
-/**
- * Authorizes weight transfer
- * @private
- */
-function authorizeTransfer() {
-  const properties = getUserProperties();
-  if (!properties) {
-    throw new ConfigurationError("Unable to access user properties");
-  }
-
-  const currentKey = properties.getProperty("HEVY_API_KEY");
-
-  if (typeof AUTHORIZED_API_KEY !== "undefined") {
-    return currentKey && currentKey === AUTHORIZED_API_KEY;
-  }
-
-  return false;
-}
-
-/**
- * Checks if transfer is already complete
- * @private
- */
-function isTransferComplete(spreadsheet) {
-  const properties = getUserProperties();
-  const transferKey = `WEIGHT_TRANSFER_${spreadsheet.getId()}`;
-  return properties.getProperty(transferKey);
-}
-
-/**
- * Marks transfer as complete
- * @private
- */
-function markTransferComplete(spreadsheet) {
-  const properties = getUserProperties();
-  const transferKey = `WEIGHT_TRANSFER_${spreadsheet.getId()}`;
-  properties.setProperty(transferKey, "true");
-}
-
 // -----------------
 // Data Formatting
 // -----------------
@@ -380,17 +335,4 @@ function columnToLetter(column) {
   }
 
   return letter;
-}
-
-// -----------------
-// API Key Management
-// -----------------
-
-/**
- * Global function to save Hevy API key, callable from dialog
- * @param {string} apiKey - The API key to save
- * @throws {Error} If saving fails
- */
-function saveHevyApiKey(apiKey) {
-  return apiClient.saveHevyApiKey(apiKey);
 }
