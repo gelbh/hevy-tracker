@@ -336,3 +336,16 @@ function columnToLetter(column) {
 
   return letter;
 }
+
+// -----------------
+// API Key Management
+// -----------------
+
+/**
+ * Global function to save Hevy API key, callable from dialog
+ * @param {string} apiKey - The API key to save
+ * @throws {Error} If saving fails
+ */
+function saveHevyApiKey(apiKey) {
+  return apiClient.saveHevyApiKey(apiKey);
+}
