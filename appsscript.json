@@ -46,6 +46,7 @@
     "https://api.hevyapp.com/v1/workouts/events",
     "https://api.hevyapp.com/v1/routines",
     "https://api.hevyapp.com/v1/exercise_templates",
-    "https://api.hevyapp.com/v1/routine_folders"
+    "https://api.hevyapp.com/v1/routine_folders",
+    "https://docs.google.com/spreadsheets/"
   ]
 }
