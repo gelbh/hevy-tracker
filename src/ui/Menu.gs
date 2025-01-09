@@ -56,15 +56,8 @@ function onOpen(e) {
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
         .addItem("⚖️ Log Weight", "logWeight");
-
-      const properties = getUserProperties();
-      if (properties) {
-        const currentKey = properties.getProperty("HEVY_API_KEY");
-        if (currentKey && currentKey === AUTHORIZED_API_KEY) {
-          transferWeightHistory();
-        }
-      }
     }
+
     addonMenu.addToUi();
   } catch (error) {
     throw ErrorHandler.handle(error, {
