@@ -81,6 +81,7 @@ function processFolderData(folders) {
       folder.title,
       formatDate(folder.updated_at),
       formatDate(folder.created_at),
+      folder.index,
     ]);
   } catch (error) {
     throw ErrorHandler.handle(error, {

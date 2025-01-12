@@ -80,7 +80,13 @@ const SHEET_HEADERS = {
     "Count",
     "Rank",
   ],
-  [ROUTINE_FOLDERS_SHEET_NAME]: ["ID", "Name", "Last Updated", "Created At"],
+  [ROUTINE_FOLDERS_SHEET_NAME]: [
+    "ID",
+    "Name",
+    "Last Updated",
+    "Created At",
+    "Index",
+  ],
   [WEIGHT_SHEET_NAME]: ["Timestamp", "Weight (kg)"],
 };
 
