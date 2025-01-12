@@ -4,7 +4,6 @@
 
 /**
  * Imports all workout routine folders from Hevy API.
- * Creates a default "Coach" folder if no other folders exist.
  */
 async function importAllRoutineFolders() {
   try {
@@ -38,13 +37,16 @@ async function importAllRoutineFolders() {
       "routine_folders"
     );
 
-    // Add default coach folder and update sheet
     await updateFoldersInSheet(sheet, processedFolders);
 
     // Format and finish
     manager.formatSheet();
 
-    showCompletionMessage(totalFolders, processedFolders.length);
+    showProgress(
+      `Imported ${totalFolders + 1} folders successfully!`,
+      "Import Complete",
+      TOAST_DURATION.NORMAL
+    );
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Importing routine folders",
@@ -89,15 +91,11 @@ function processFolderData(folders) {
 }
 
 /**
- * Updates the sheet with folder data and adds default coach folder
+ * Updates the sheet with folder data
  * @private
  */
 async function updateFoldersInSheet(sheet, processedFolders) {
   try {
-    // Always add the Coach folder at the top
-    sheet.getRange(2, 1, 1, 2).setValues([[111111, "Coach"]]);
-
-    // Add other folders if they exist
     if (processedFolders.length > 0) {
       sheet
         .getRange(
@@ -114,25 +112,5 @@ async function updateFoldersInSheet(sheet, processedFolders) {
       sheetName: sheet.getName(),
       folderCount: processedFolders.length,
     });
-  }
-}
-
-/**
- * Shows the appropriate completion message
- * @private
- */
-function showCompletionMessage(totalFolders, processedCount) {
-  if (processedCount > 0) {
-    showProgress(
-      `Imported ${totalFolders + 1} folders successfully!`,
-      "Import Complete",
-      TOAST_DURATION.NORMAL
-    );
-  } else {
-    showProgress(
-      "Only default Coach folder created.",
-      "Import Complete",
-      TOAST_DURATION.NORMAL
-    );
   }
 }

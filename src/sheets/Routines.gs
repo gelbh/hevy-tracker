@@ -95,7 +95,7 @@ function processRoutine(routine) {
         [
           routine.id,
           routine.title,
-          assignRoutineFolder(routine),
+          routine.folder_id || "",
           formatDate(routine.updated_at),
           formatDate(routine.created_at),
           "", // Exercise
@@ -127,7 +127,7 @@ function processRoutineExercise(exercise, routine) {
     return exercise.sets.map((set) => [
       routine.id,
       routine.title,
-      assignRoutineFolder(routine),
+      routine.folder_id || "",
       formatDate(routine.updated_at),
       formatDate(routine.created_at),
       exercise.title,
@@ -140,32 +140,6 @@ function processRoutineExercise(exercise, routine) {
       operation: "Processing routine exercise",
       routineId: routine.id,
       exerciseTitle: exercise.title,
-    });
-  }
-}
-
-/**
- * Assigns a routine folder based on routine properties
- * Defaults to Coach folder for push/pull routines
- * @private
- */
-function assignRoutineFolder(routine) {
-  try {
-    if (routine.folder_id != null) {
-      return routine.folder_id;
-    }
-
-    const title = routine.title.toLowerCase();
-    if (title.includes("push") || title.includes("pull")) {
-      return "111111"; // Coach folder ID
-    }
-
-    return "";
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Assigning routine folder",
-      routineId: routine.id,
-      routineTitle: routine.title,
     });
   }
 }
