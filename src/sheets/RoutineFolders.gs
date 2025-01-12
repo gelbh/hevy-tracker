@@ -99,7 +99,7 @@ async function updateFoldersInSheet(sheet, processedFolders) {
     if (processedFolders.length > 0) {
       sheet
         .getRange(
-          3,
+          2,
           1,
           processedFolders.length,
           SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length
