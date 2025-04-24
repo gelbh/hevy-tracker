@@ -10,8 +10,7 @@ async function importAllRoutineFolders() {
     const manager = SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME);
     const sheet = manager.sheet;
 
-    // Clear existing content while preserving headers
-    await clearExistingContent(sheet);
+    sheet.clear();
 
     // Set up headers
     sheet
@@ -51,21 +50,6 @@ async function importAllRoutineFolders() {
     throw ErrorHandler.handle(error, {
       operation: "Importing routine folders",
       sheetName: ROUTINE_FOLDERS_SHEET_NAME,
-    });
-  }
-}
-
-/**
- * Clears existing content while preserving headers
- * @private
- */
-async function clearExistingContent(sheet) {
-  try {
-    sheet.clear();
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Clearing folder sheet content",
-      sheetName: sheet.getName(),
     });
   }
 }

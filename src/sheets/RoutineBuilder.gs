@@ -198,7 +198,7 @@ function validateRoutineData(title, exercises) {
  */
 async function getOrCreateRoutineFolder(folderName) {
   try {
-    if (folderName == "(No Folder)") {
+    if (folderName == "(No Folder)" || !folderName) {
       return null;
     }
 

@@ -25,7 +25,7 @@ async function importAllExercises() {
       processedExercises.push(...processedData);
     };
 
-    const totalExercises = await apiClient.fetchPaginatedData(
+    await apiClient.fetchPaginatedData(
       API_ENDPOINTS.EXERCISES,
       PAGE_SIZE.EXERCISES,
       processExercisePage,
@@ -311,7 +311,7 @@ function addDuplicateHighlighting(manager) {
       }
     });
 
-    const columnLetter = columnToLetter(titleColumn);
+    const columnLetter = menu(titleColumn);
     const duplicateRule = SpreadsheetApp.newConditionalFormatRule()
       .setRanges([range])
       .whenFormulaSatisfied(

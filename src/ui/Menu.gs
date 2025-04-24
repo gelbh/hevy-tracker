@@ -34,6 +34,8 @@ function onOpen(e) {
       addonMenu.addItem("🔑 Set Hevy API Key", "showInitialSetup");
     }
 
+    checkForMultiLoginIssues();
+
     if (!isTemplate) {
       const importSubmenu = ui
         .createMenu("📥 Import Data")
@@ -208,5 +210,58 @@ function runMenuAction(action) {
       success: false,
       error: error.message,
     };
+  }
+}
+
+/**
+ * Checks if the user might be experiencing multi-login issues and shows a warning
+ * @private
+ */
+function checkForMultiLoginIssues() {
+  try {
+    const effectiveUser = Session.getEffectiveUser().getEmail();
+    const activeUser = Session.getActiveUser().getEmail();
+
+    if (!activeUser || activeUser !== effectiveUser) {
+      showMultiLoginWarning();
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    showMultiLoginWarning();
+    return true;
+  }
+}
+
+/**
+ * Shows a warning dialog about multi-login issues
+ * @private
+ */
+function showMultiLoginWarning() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const result = ui.alert(
+      "Multi-Account Login Detected",
+      "You appear to be logged into multiple Google accounts simultaneously. " +
+        "This can cause issues with the Hevy Tracker add-on.\n\n" +
+        "For best results:\n" +
+        "1. Log out of all Google accounts\n" +
+        "2. Log in only with the account that has access to this spreadsheet\n" +
+        "3. Or use an incognito/private browsing window with just one account\n\n" +
+        "Would you like to continue anyway?",
+      ui.ButtonSet.YES_NO
+    );
+
+    if (result === ui.Button.NO) {
+      // User chose to fix the issue first
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing multi-login warning",
+    });
   }
 }

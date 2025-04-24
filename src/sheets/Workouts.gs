@@ -13,7 +13,7 @@ async function importAllWorkouts() {
     const properties = getUserProperties();
 
     if (!sheet.getRange("A2").getValue()) {
-      await resetWorkoutTimestamp();
+      properties.deleteProperty("LAST_WORKOUT_UPDATE");
     }
 
     const existingData = getExistingWorkouts(sheet);
@@ -190,25 +190,6 @@ function updateWorkoutData(sheet, processedData) {
       sheetName: sheet.getName(),
       updateCount: updates?.length || 0,
       additionCount: additions?.length || 0,
-    });
-  }
-}
-
-/**
- * Resets the workout timestamp for full refresh
- */
-async function resetWorkoutTimestamp() {
-  try {
-    const properties = getUserProperties();
-    properties.deleteProperty("LAST_WORKOUT_UPDATE");
-    showProgress(
-      "Workout timestamp reset successfully.",
-      "Reset Complete",
-      TOAST_DURATION.NORMAL
-    );
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Resetting workout timestamp",
     });
   }
 }

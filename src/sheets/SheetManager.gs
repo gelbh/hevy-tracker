@@ -132,7 +132,7 @@ class SheetManager {
    * Formats data with consistent styling
    * @private
    */
-  async formatData(startRow = 2, numRows) {
+  async formatData(numRows, startRow = 2) {
     try {
       if (!numRows) {
         numRows = Math.max(0, this.sheet.getLastRow() - startRow + 1);

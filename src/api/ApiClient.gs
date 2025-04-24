@@ -217,6 +217,14 @@ class ApiClient {
    */
   async runInitialImport() {
     try {
+      if (checkForMultiLoginIssues()) {
+        showProgress(
+          "Multi-login warning shown. Continuing with import...",
+          "Setup Progress",
+          TOAST_DURATION.NORMAL
+        );
+      }
+
       const apiKey = this.getOrPromptApiKey();
       if (!apiKey) return;
 
