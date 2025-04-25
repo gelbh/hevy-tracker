@@ -337,10 +337,6 @@ function validateAndProcessNumericValues(rest, weight, reps, supersetId) {
   if (isNaN(supersetId))
     throw new ValidationError(`Invalid superset ID: ${supersetId}`);
 
-  if (weight !== null && getWeightUnit() === "lbs") {
-    weight = lbsToKg(weight);
-  }
-
   return [rest, weight, reps, supersetId];
 }
 

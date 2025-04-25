@@ -57,9 +57,7 @@ function onOpen(e) {
         .addSeparator()
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
-        .addItem("⚖️ Log Body Weight", "logWeight")
-        .addSeparator()
-        .addItem("⚙️ Weight Unit Settings", "showWeightUnitDialog");
+        .addItem("⚖️ Log Weight", "logWeight");
     }
 
     addonMenu.addToUi();
@@ -191,10 +189,6 @@ function runMenuAction(action) {
         handler: showGuideDialog,
         successMessage: "Opening guide",
       }),
-      showWeightUnitDialog: () => ({
-        handler: showWeightUnitDialog,
-        successMessage: "Weight unit settings opened",
-      }),
     };
 
     if (action in actionMap) {
@@ -263,132 +257,6 @@ function showMultiLoginWarning() {
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Showing multi-login warning",
-    });
-  }
-}
-
-function showWeightUnitDialog() {
-  try {
-    showHtmlDialog("src/ui/dialogs/WeightUnitDialog", {
-      width: 400,
-      height: 300,
-      title: "Weight Unit Preference",
-    });
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing weight unit dialog",
-    });
-  }
-}
-
-function setWeightUnitAndRefresh(unit) {
-  try {
-    setWeightUnit(unit);
-    refreshWeightDisplays();
-    addWeightUnitTooltips();
-
-    showProgress(
-      `Weight unit preference set to ${unit}`,
-      "Settings Updated",
-      TOAST_DURATION.NORMAL
-    );
-    return true;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Setting weight unit",
-      unit: unit,
-    });
-  }
-}
-
-function refreshWeightDisplays() {
-  try {
-    // Array of sheets to refresh
-    const sheetsToRefresh = [
-      WORKOUTS_SHEET_NAME,
-      ROUTINES_SHEET_NAME,
-      WEIGHT_SHEET_NAME,
-      "Routine Builder", // Include the Routine Builder if it exists
-    ];
-
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Process each sheet
-    sheetsToRefresh.forEach((sheetName) => {
-      const sheet = ss.getSheetByName(sheetName);
-      if (sheet) {
-        // For standard sheets, use the SheetManager
-        if (SHEET_HEADERS[sheetName]) {
-          const manager = new SheetManager(sheet, sheetName);
-          manager.formatSheet();
-        } else {
-          // For Routine Builder, just reformat any weight cells
-          updateRoutineBuilderWeightFormat(sheet);
-        }
-      }
-    });
-
-    // Show user the unit in the header
-    updateSheetHeadersWithUnit();
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Refreshing weight displays",
-    });
-  }
-}
-
-// Helper function to update weight displays in Routine Builder
-function updateRoutineBuilderWeightFormat(sheet) {
-  try {
-    if (!sheet) return;
-
-    // Find the weight column in the Routine Builder (typically column D)
-    const headers = sheet.getRange("A7:H7").getValues()[0];
-    let weightColumnIndex = -1;
-
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i] === "Weight (kg)") {
-        weightColumnIndex = i;
-
-        // Update the header to show the current unit
-        const unit = getWeightUnit();
-        sheet.getRange(7, i + 1).setValue(`Weight (${unit})`);
-        break;
-      }
-    }
-
-    if (weightColumnIndex === -1) return;
-
-    // No need to modify the values, just ensure the header shows the right unit
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Updating routine builder weight format",
-    });
-  }
-}
-
-// Update sheet headers to show the current unit
-function updateSheetHeadersWithUnit() {
-  try {
-    const unit = getWeightUnit();
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Update headers in standard sheets
-    Object.entries(SHEET_HEADERS).forEach(([sheetName, headers]) => {
-      const sheet = ss.getSheetByName(sheetName);
-      if (!sheet) return;
-
-      // Find weight columns
-      headers.forEach((header, index) => {
-        if (header.includes("Weight (")) {
-          const newHeader = `Weight (${unit})`;
-          sheet.getRange(1, index + 1).setValue(newHeader);
-        }
-      });
-    });
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Updating sheet headers with unit",
     });
   }
 }
