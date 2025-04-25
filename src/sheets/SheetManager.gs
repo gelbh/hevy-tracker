@@ -64,10 +64,63 @@ class SheetManager {
         await this.formatData();
         await this.removeEmptyRowsAndColumns();
         await this.setAlternatingColors();
+        await this.formatWeightUnits();
       }
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Formatting sheet",
+        sheetName: this.sheetName,
+      });
+    }
+  }
+
+  /**
+   * Applies weight unit formatting to a sheet
+   */
+  async formatWeightUnits() {
+    try {
+      if (this.sheet.getLastRow() <= 1) return;
+
+      const headerRange = this.sheet.getRange(
+        1,
+        1,
+        1,
+        this.sheet.getLastColumn()
+      );
+      const headers = headerRange.getValues()[0];
+
+      const weightColumns = [];
+      headers.forEach((header, index) => {
+        if (header.toString().includes("Weight")) {
+          weightColumns.push(index + 1);
+        }
+      });
+
+      if (weightColumns.length === 0) return;
+
+      const unit = getWeightUnit();
+      const unitSuffix = unit === "kg" ? " kg" : " lbs";
+
+      const dataRange = this.sheet.getRange(
+        2,
+        1,
+        Math.max(0, this.sheet.getLastRow() - 1),
+        this.sheet.getLastColumn()
+      );
+      weightColumns.forEach((colIndex) => {
+        const rangeName = `WeightCol${colIndex}`;
+        const columnLetter = columnToLetter(colIndex);
+        const range = this.sheet.getRange(`${columnLetter}2:${columnLetter}`);
+
+        try {
+          SpreadsheetApp.getActiveSpreadsheet().setNamedRange(rangeName, range);
+        } catch (e) {
+          // Named range might already exist
+        }
+      });
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Formatting weight units",
         sheetName: this.sheetName,
       });
     }
