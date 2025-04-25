@@ -57,7 +57,9 @@ function onOpen(e) {
         .addSeparator()
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
-        .addItem("⚖️ Log Weight", "logWeight");
+        .addItem("⚖️ Log Body Weight", "logWeight")
+        .addSeparator()
+        .addItem("⚙️ Change Weight Unit", "changeWeightUnit");
     }
 
     addonMenu.addToUi();
@@ -188,6 +190,10 @@ function runMenuAction(action) {
       showGuideDialog: () => ({
         handler: showGuideDialog,
         successMessage: "Opening guide",
+      }),
+      changeWeightUnit: () => ({
+        handler: changeWeightUnit,
+        successMessage: "Weight unit changed",
       }),
     };
 

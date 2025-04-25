@@ -120,7 +120,8 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
  */
 function logWeight() {
   try {
-    const weight = promptForWeight();
+    const unit = getWeightUnit();
+    const weight = promptForWeight(unit);
     if (weight === null) return;
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
@@ -132,7 +133,7 @@ function logWeight() {
     manager.formatSheet();
 
     showProgress(
-      `Weight of ${weight}kg logged successfully!`,
+      `Weight of ${weight}${unit} logged successfully!`,
       "Success",
       TOAST_DURATION.NORMAL
     );
@@ -146,20 +147,23 @@ function logWeight() {
  * @private
  * @returns {number|null} Weight value or null if canceled/invalid
  */
-function promptForWeight() {
+function promptForWeight(unit = "kg") {
   const ui = SpreadsheetApp.getUi();
   const result = ui.prompt(
-    "Log Weight",
-    "Enter weight in kg:",
+    "Log Body Weight",
+    `Enter weight in ${unit}:`,
     ui.ButtonSet.OK_CANCEL
   );
 
   if (result.getSelectedButton() !== ui.Button.OK) return null;
 
   const weight = parseFloat(result.getResponseText().replace(",", "."));
-  if (!(!isNaN(weight) && weight > 0 && weight <= 500)) {
+
+  const maxWeight = unit === "lbs" ? 1100 : 500;
+
+  if (!(!isNaN(weight) && weight > 0 && weight <= maxWeight)) {
     ui.alert(
-      "Invalid weight value. Please enter a number between 0 and 500 kg."
+      `Invalid weight value. Please enter a number between 0 and ${maxWeight} ${unit}.`
     );
     return null;
   }
@@ -260,6 +264,69 @@ function processWeightTransferFromCsv(csvData) {
     throw ErrorHandler.handle(error, {
       operation: "Processing weight transfer",
       source: "CSV data",
+    });
+  }
+}
+
+/**
+ * Returns the user's preferred weight unit (kg or lbs) for use in spreadsheet formulas
+ * @returns {string} The weight unit ('kg' or 'lbs')
+ * @customfunction
+ */
+function GET_WEIGHT_UNIT() {
+  try {
+    return getWeightUnit();
+  } catch (e) {
+    return "kg";
+  }
+}
+
+/**
+ * Gets the user's preferred weight unit
+ * @returns {string} 'kg' or 'lbs'
+ */
+function getWeightUnit() {
+  const properties = getUserProperties();
+  return properties ? properties.getProperty("WEIGHT_UNIT") || "kg" : "kg";
+}
+
+/**
+ * Sets the user's preferred weight unit
+ * @param {string} unit - 'kg' or 'lbs'
+ */
+function setWeightUnit(unit) {
+  if (unit !== "kg" && unit !== "lbs") {
+    throw new ValidationError("Invalid weight unit. Must be 'kg' or 'lbs'");
+  }
+  const properties = getUserProperties();
+  if (properties) {
+    properties.setProperty("WEIGHT_UNIT", unit);
+  }
+}
+
+function changeWeightUnit() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const currentUnit = getWeightUnit();
+    const newUnit = currentUnit === "kg" ? "lbs" : "kg";
+
+    const result = ui.alert(
+      "Change Weight Unit",
+      `Would you like to switch from ${currentUnit} to ${newUnit}?`,
+      ui.ButtonSet.YES_NO
+    );
+
+    if (result === ui.Button.YES) {
+      setWeightUnit(newUnit);
+      showProgress(
+        `Weight unit changed to ${newUnit}`,
+        "Settings Updated",
+        TOAST_DURATION.NORMAL
+      );
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Changing weight unit",
     });
   }
 }

@@ -87,7 +87,7 @@ const SHEET_HEADERS = {
     "Created At",
     "Index",
   ],
-  [WEIGHT_SHEET_NAME]: ["Timestamp", "Weight (kg)"],
+  [WEIGHT_SHEET_NAME]: ["Timestamp", `Weight (${getWeightUnit()})`],
 };
 
 // Themes
