@@ -63,7 +63,10 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
-      // Check if this is a new key or an update
+      if (!properties.getProperty("WEIGHT_UNIT")) {
+        await this.promptForWeightUnit();
+      }
+
       if (!currentKey) {
         showProgress(
           "API key set successfully. Starting initial data import...",
@@ -229,6 +232,11 @@ class ApiClient {
       if (!apiKey) return;
 
       const properties = this.getProperties();
+
+      if (!properties.getProperty("WEIGHT_UNIT")) {
+        await this.promptForWeightUnit();
+      }
+
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
       await importAllRoutineFolders();
@@ -484,6 +492,21 @@ class ApiClient {
           `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
       )
       .join("&");
+  }
+
+  /**
+   * Prompts the user to select their preferred weight unit
+   * @private
+   */
+  async promptForWeightUnit() {
+    return new Promise((resolve) => {
+      showHtmlDialog("src/ui/dialogs/WeightUnitPrompt", {
+        width: 400,
+        height: 300,
+        title: "Weight Unit Preference",
+        onClose: resolve,
+      });
+    });
   }
 }
 

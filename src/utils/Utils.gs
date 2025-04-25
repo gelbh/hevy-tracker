@@ -120,19 +120,24 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
  */
 function logWeight() {
   try {
-    const weight = promptForWeight();
+    const unit = getWeightUnit();
+    const weight = promptForWeight(unit);
     if (weight === null) return;
+
+    // Convert to kg if unit is lbs (since we store in kg)
+    const weightKg = unit === "lbs" ? weight / 2.20462 : weight;
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const sheet = manager.sheet;
-
     const lastRow = Math.max(1, sheet.getLastRow());
-    sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
-
+    sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weightKg]]);
     manager.formatSheet();
 
+    // Update headers with the current weight unit
+    updateWeightUnitInHeaders();
+
     showProgress(
-      `Weight of ${weight}kg logged successfully!`,
+      `Weight of ${weight} ${unit} logged successfully!`,
       "Success",
       TOAST_DURATION.NORMAL
     );
@@ -146,20 +151,23 @@ function logWeight() {
  * @private
  * @returns {number|null} Weight value or null if canceled/invalid
  */
-function promptForWeight() {
+function promptForWeight(unit = "kg") {
   const ui = SpreadsheetApp.getUi();
   const result = ui.prompt(
     "Log Weight",
-    "Enter weight in kg:",
+    `Enter weight in ${unit}:`,
     ui.ButtonSet.OK_CANCEL
   );
-
   if (result.getSelectedButton() !== ui.Button.OK) return null;
 
   const weight = parseFloat(result.getResponseText().replace(",", "."));
-  if (!(!isNaN(weight) && weight > 0 && weight <= 500)) {
+
+  // Validate based on unit (higher max for lbs)
+  const maxWeight = unit === "lbs" ? 1100 : 500;
+
+  if (!(!isNaN(weight) && weight > 0 && weight <= maxWeight)) {
     ui.alert(
-      "Invalid weight value. Please enter a number between 0 and 500 kg."
+      `Invalid weight value. Please enter a number between 0 and ${maxWeight} ${unit}.`
     );
     return null;
   }
@@ -260,6 +268,111 @@ function processWeightTransferFromCsv(csvData) {
     throw ErrorHandler.handle(error, {
       operation: "Processing weight transfer",
       source: "CSV data",
+    });
+  }
+}
+
+/**
+ * Sets the user's preferred weight unit
+ * @param {string} unit - 'kg' or 'lbs'
+ */
+function setWeightUnit(unit) {
+  if (unit !== "kg" && unit !== "lbs") {
+    throw new ValidationError("Invalid weight unit. Must be 'kg' or 'lbs'");
+  }
+  const properties = getUserProperties();
+  if (properties) {
+    properties.setProperty("WEIGHT_UNIT", unit);
+
+    updateWeightUnitInHeaders();
+  }
+}
+
+/**
+ * Gets the user's preferred weight unit
+ * @returns {string} 'kg' or 'lbs'
+ */
+function getWeightUnit() {
+  const properties = getUserProperties();
+  return properties ? properties.getProperty("WEIGHT_UNIT") || "kg" : "kg";
+}
+
+/**
+ * Updates sheet headers to show the current weight unit
+ */
+function updateWeightUnitInHeaders() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const unit = getWeightUnit();
+
+    // Update workout sheet
+    const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
+    if (workoutSheet) {
+      const headers = workoutSheet
+        .getRange(1, 1, 1, workoutSheet.getLastColumn())
+        .getValues()[0];
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].toString().includes("Weight (")) {
+          workoutSheet.getRange(1, i + 1).setValue(`Weight (${unit})`);
+        }
+      }
+    }
+
+    // Update routine sheet
+    const routineSheet = ss.getSheetByName(ROUTINES_SHEET_NAME);
+    if (routineSheet) {
+      const headers = routineSheet
+        .getRange(1, 1, 1, routineSheet.getLastColumn())
+        .getValues()[0];
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].toString().includes("Weight (")) {
+          routineSheet.getRange(1, i + 1).setValue(`Weight (${unit})`);
+        }
+      }
+    }
+
+    // Update weight history sheet
+    const weightSheet = ss.getSheetByName(WEIGHT_SHEET_NAME);
+    if (weightSheet) {
+      const headers = weightSheet
+        .getRange(1, 1, 1, weightSheet.getLastColumn())
+        .getValues()[0];
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].toString().includes("Weight (")) {
+          weightSheet.getRange(1, i + 1).setValue(`Weight (${unit})`);
+        }
+      }
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Updating weight unit in headers",
+    });
+  }
+}
+
+function updateWeightUnitInHeaders() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const unit = getWeightUnit();
+    const otherUnit = unit === "kg" ? "lbs" : "kg";
+    const noteText = `Weights are displayed in ${unit}. You can change to ${otherUnit} via Extensions > Hevy Tracker > Change Weight Unit`;
+
+    const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
+    if (workoutSheet) {
+      const headers = workoutSheet
+        .getRange(1, 1, 1, workoutSheet.getLastColumn())
+        .getValues()[0];
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].toString().includes("Weight (")) {
+          const cell = workoutSheet.getRange(1, i + 1);
+          cell.setValue(`Weight (${unit})`);
+          cell.setNote(noteText);
+        }
+      }
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Updating weight unit in headers",
     });
   }
 }

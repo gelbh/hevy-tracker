@@ -86,6 +86,16 @@ function clearRoutineBuilder() {
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G1000").clearContent();
 
+    const headers = sheet.getRange("A7:H7").getValues()[0];
+    const unit = getWeightUnit();
+
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i].toString().toLowerCase().includes("weight")) {
+        sheet.getRange(7, i + 1).setValue(`Weight (${unit})`);
+        break;
+      }
+    }
+
     showProgress("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -336,6 +346,10 @@ function validateAndProcessNumericValues(rest, weight, reps, supersetId) {
   if (isNaN(reps)) throw new ValidationError(`Invalid reps value: ${reps}`);
   if (isNaN(supersetId))
     throw new ValidationError(`Invalid superset ID: ${supersetId}`);
+
+  if (weight !== null && getWeightUnit() === "lbs") {
+    weight = weight / 2.20462;
+  }
 
   return [rest, weight, reps, supersetId];
 }
