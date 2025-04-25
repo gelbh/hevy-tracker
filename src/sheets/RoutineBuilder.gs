@@ -104,11 +104,12 @@ function processExercises(exerciseData) {
     const exercises = [];
     let currentExercise = null;
     let currentTemplateId = null;
+    const weightUnit = getWeightUnit();
+    const conversionFactor = weightUnit === "lbs" ? 0.45359237 : 1;
 
     exerciseData.forEach((row) => {
       let [name, rest, setType, weight, reps, notes, supersetId, templateId] =
         row;
-
       templateId = templateId ? String(templateId).trim() : null;
       if (!templateId) {
         throw new ValidationError(`Missing template ID for exercise: ${name}`);
@@ -121,11 +122,14 @@ function processExercises(exerciseData) {
         supersetId
       );
 
+      if (weight !== null && weightUnit === "lbs") {
+        weight = weight * conversionFactor;
+      }
+
       if (templateId !== currentTemplateId) {
         if (currentExercise) {
           exercises.push(currentExercise);
         }
-
         currentExercise = createNewExercise(
           templateId,
           rest,

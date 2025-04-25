@@ -318,6 +318,11 @@ function changeWeightUnit() {
 
     if (result === ui.Button.YES) {
       setWeightUnit(newUnit);
+
+      updateChartTitles(newUnit);
+
+      SpreadsheetApp.flush();
+
       showProgress(
         `Weight unit changed to ${newUnit}`,
         "Settings Updated",
@@ -328,6 +333,36 @@ function changeWeightUnit() {
     throw ErrorHandler.handle(error, {
       operation: "Changing weight unit",
     });
+  }
+}
+
+/**
+ * Updates chart titles to reflect the current weight unit
+ * @param {string} unit - The weight unit (kg or lbs)
+ */
+function updateChartTitles(unit) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const mainSheet = ss.getSheetByName("Main");
+
+    let charts = mainSheet.getCharts();
+
+    for (let i = 0; i < charts.length; i++) {
+      const chart = charts[i];
+      let options = chart.getOptions();
+      let oldTitle = options.get("title");
+
+      if (oldTitle && oldTitle.toString().includes("Volume")) {
+        const newChart = chart
+          .modify()
+          .setOption("title", `Volume (${unit})`)
+          .build();
+
+        mainSheet.updateChart(newChart);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating chart titles:", error);
   }
 }
 
