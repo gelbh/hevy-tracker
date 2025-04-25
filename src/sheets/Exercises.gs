@@ -299,6 +299,8 @@ function addDuplicateHighlighting(manager) {
     if (titleColumn === 0) return;
 
     const range = sheet.getRange(2, titleColumn, lastRow - 1, 1);
+
+    // This is the area with the error - remove any references to 'menu'
     const rules = sheet.getConditionalFormatRules().filter((rule) => {
       try {
         const criteria = rule.getCriteriaType();
@@ -311,7 +313,7 @@ function addDuplicateHighlighting(manager) {
       }
     });
 
-    const columnLetter = menu(titleColumn);
+    const columnLetter = columnToLetter(titleColumn);
     const duplicateRule = SpreadsheetApp.newConditionalFormatRule()
       .setRanges([range])
       .whenFormulaSatisfied(

@@ -253,12 +253,7 @@ function showMultiLoginWarning() {
       ui.ButtonSet.YES_NO
     );
 
-    if (result === ui.Button.NO) {
-      // User chose to fix the issue first
-      return false;
-    }
-
-    return true;
+    return result !== ui.Button.NO;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Showing multi-login warning",
