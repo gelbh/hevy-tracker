@@ -57,11 +57,7 @@ function onOpen(e) {
         .addSeparator()
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
-        .addItem("⚖️ Log Weight", "logWeight")
-        .addSeparator()
-        .addItem("⚙️ Change Weight Unit", "changeWeightUnit");
-
-      updateWeightUnitInHeaders();
+        .addItem("⚖️ Log Weight", "logWeight");
     }
 
     addonMenu.addToUi();
@@ -193,10 +189,6 @@ function runMenuAction(action) {
         handler: showGuideDialog,
         successMessage: "Opening guide",
       }),
-      changeWeightUnit: () => ({
-        handler: changeWeightUnit,
-        successMessage: "Weight unit changed",
-      }),
     };
 
     if (action in actionMap) {
@@ -265,33 +257,6 @@ function showMultiLoginWarning() {
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Showing multi-login warning",
-    });
-  }
-}
-
-function changeWeightUnit() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-    const currentUnit = getWeightUnit();
-    const newUnit = currentUnit === "kg" ? "lbs" : "kg";
-
-    const result = ui.alert(
-      "Change Weight Unit",
-      `Would you like to switch from ${currentUnit} to ${newUnit}?`,
-      ui.ButtonSet.YES_NO
-    );
-
-    if (result === ui.Button.YES) {
-      setWeightUnit(newUnit);
-      showProgress(
-        `Weight unit changed to ${newUnit}`,
-        "Settings Updated",
-        TOAST_DURATION.NORMAL
-      );
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Changing weight unit",
     });
   }
 }

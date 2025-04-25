@@ -75,8 +75,6 @@ async function importAllWorkouts() {
     );
 
     manager.formatSheet();
-
-    updateWeightUnitInHeaders();
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Importing workouts",
