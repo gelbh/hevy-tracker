@@ -231,6 +231,8 @@ class ApiClient {
       const properties = this.getProperties();
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
+      await changeWeightUnit();
+
       await importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
 

@@ -59,7 +59,7 @@ function onOpen(e) {
         .addSeparator()
         .addItem("⚖️ Log Body Weight", "logWeight")
         .addSeparator()
-        .addItem("⚙️ Change Weight Unit", "changeWeightUnit");
+        .addItem(`⚙️ Change Weight Unit`, "changeWeightUnit");
     }
 
     addonMenu.addToUi();

@@ -304,7 +304,7 @@ function setWeightUnit(unit) {
   }
 }
 
-function changeWeightUnit() {
+async function changeWeightUnit() {
   try {
     const ui = SpreadsheetApp.getUi();
     const currentUnit = getWeightUnit();
@@ -346,7 +346,6 @@ function updateChartTitles(unit) {
     const mainSheet = ss.getSheetByName("Main");
 
     let charts = mainSheet.getCharts();
-
     for (let i = 0; i < charts.length; i++) {
       const chart = charts[i];
       let options = chart.getOptions();
