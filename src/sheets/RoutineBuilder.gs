@@ -104,7 +104,12 @@ function processExercises(exerciseData) {
     const exercises = [];
     let currentExercise = null;
     let currentTemplateId = null;
-    const weightUnit = getWeightUnit();
+
+    const weightUnit =
+      SpreadsheetApp.getActiveSpreadsheet()
+        .getSheetByName("Main")
+        .getRange("I5")
+        .getValue() || "kg";
     const conversionFactor = weightUnit === "lbs" ? 0.45359237 : 1;
 
     exerciseData.forEach((row) => {

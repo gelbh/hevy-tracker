@@ -57,9 +57,7 @@ function onOpen(e) {
         .addSeparator()
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
-        .addItem("⚖️ Log Body Weight", "logWeight")
-        .addSeparator()
-        .addItem(`⚙️ Change Weight Unit`, "changeWeightUnit");
+        .addItem("⚖️ Log Body Weight", "logWeight");
     }
 
     addonMenu.addToUi();
@@ -99,6 +97,22 @@ function onHomepage(e) {
       operation: "Opening homepage",
       eventType: e?.type,
     });
+  }
+}
+
+function onEdit(e) {
+  try {
+    if (
+      e.range.getSheet().getName() === "Main" &&
+      e.range.getA1Notation() === "I5"
+    ) {
+      const unit = e.value;
+      if (unit === "kg" || unit === "lbs") {
+        updateChartTitles(unit);
+      }
+    }
+  } catch (error) {
+    console.error("Error in onEdit trigger:", error);
   }
 }
 
@@ -190,10 +204,6 @@ function runMenuAction(action) {
       showGuideDialog: () => ({
         handler: showGuideDialog,
         successMessage: "Opening guide",
-      }),
-      changeWeightUnit: () => ({
-        handler: changeWeightUnit,
-        successMessage: "Weight unit changed",
       }),
     };
 

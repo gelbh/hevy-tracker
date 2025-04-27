@@ -231,22 +231,13 @@ class ApiClient {
       const properties = this.getProperties();
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
-      await changeWeightUnit();
-
       await importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-
       await importAllExercises();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-
       await importAllRoutines();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-
       await importAllWorkouts();
-
-      if (apiKey === AUTHORIZED_API_KEY) {
-        transferWeightHistory();
-      }
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Initial data import",

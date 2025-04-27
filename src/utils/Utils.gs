@@ -120,16 +120,19 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
  */
 function logWeight() {
   try {
-    const unit = getWeightUnit();
+    const unit =
+      SpreadsheetApp.getActiveSpreadsheet()
+        .getSheetByName("Main")
+        .getRange("I5")
+        .getValue() || "kg";
+
     const weight = promptForWeight(unit);
     if (weight === null) return;
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const sheet = manager.sheet;
-
     const lastRow = Math.max(1, sheet.getLastRow());
     sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
-
     manager.formatSheet();
 
     showProgress(
@@ -172,106 +175,6 @@ function promptForWeight(unit = "kg") {
 }
 
 /**
- * Sets up automatic weight history import using ImportData formula
- * @returns {boolean} Whether the setup was successful
- */
-function transferWeightHistory() {
-  try {
-    const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
-    const sheet = manager.sheet;
-
-    if (sheet.getLastRow() > 1) {
-      sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).clear();
-    }
-
-    const csvUrl =
-      "https://docs.google.com/spreadsheets/d/1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68/gviz/tq?tqx=out:csv&sheet=Weight+History";
-    const formula = `=QUERY(IMPORTDATA("${csvUrl}"),"SELECT * OFFSET 1", 0)`;
-    sheet.getRange("A2").setFormula(formula);
-
-    manager.formatSheet();
-
-    showProgress(
-      "Weight history import formula added successfully! Data will update automatically.",
-      "Import Complete",
-      TOAST_DURATION.NORMAL
-    );
-
-    return true;
-  } catch (error) {
-    throw ErrorHandler.handle(error, "Setting up weight history import");
-  }
-}
-
-/**
- * Returns the user's preferred weight unit (kg or lbs) for use in spreadsheet formulas
- * @returns {string} The weight unit ('kg' or 'lbs')
- * @customfunction
- */
-function GET_WEIGHT_UNIT() {
-  try {
-    return getWeightUnit();
-  } catch (e) {
-    return "kg";
-  }
-}
-
-/**
- * Gets the user's preferred weight unit
- * @returns {string} 'kg' or 'lbs'
- */
-function getWeightUnit() {
-  const properties = getUserProperties();
-  return properties ? properties.getProperty("WEIGHT_UNIT") || "kg" : "kg";
-}
-
-/**
- * Sets the user's preferred weight unit
- * @param {string} unit - 'kg' or 'lbs'
- */
-function setWeightUnit(unit) {
-  if (unit !== "kg" && unit !== "lbs") {
-    throw new ValidationError("Invalid weight unit. Must be 'kg' or 'lbs'");
-  }
-  const properties = getUserProperties();
-  if (properties) {
-    properties.setProperty("WEIGHT_UNIT", unit);
-  }
-}
-
-async function changeWeightUnit() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-    const currentUnit = getWeightUnit();
-    const newUnit = currentUnit === "kg" ? "lbs" : "kg";
-
-    const result = ui.alert(
-      "Change Weight Unit",
-      `Would you like to switch from ${currentUnit} to ${newUnit}?`,
-      ui.ButtonSet.YES_NO
-    );
-
-    if (result === ui.Button.YES) {
-      setWeightUnit(newUnit);
-
-      updateChartTitles(newUnit);
-
-      SpreadsheetApp.flush();
-
-      showProgress(
-        `Weight unit changed to ${newUnit}`,
-        "Settings Updated",
-        TOAST_DURATION.NORMAL
-      );
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Changing weight unit",
-    });
-  }
-}
-
-/**
  * Updates chart titles to reflect the current weight unit
  * @param {string} unit - The weight unit (kg or lbs)
  */
@@ -279,24 +182,30 @@ function updateChartTitles(unit) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = ss.getSheetByName("Main");
-
     let charts = mainSheet.getCharts();
     for (let i = 0; i < charts.length; i++) {
       const chart = charts[i];
       let options = chart.getOptions();
       let oldTitle = options.get("title");
-
       if (oldTitle && oldTitle.toString().includes("Volume")) {
         const newChart = chart
           .modify()
           .setOption("title", `Volume (${unit})`)
           .build();
-
         mainSheet.updateChart(newChart);
       }
     }
+
+    SpreadsheetApp.flush();
+    showProgress(
+      `Weight unit changed to ${unit}`,
+      "Settings Updated",
+      TOAST_DURATION.NORMAL
+    );
   } catch (error) {
-    console.error("Error updating chart titles:", error);
+    throw ErrorHandler.handle(error, {
+      operation: "Updating chart titles",
+    });
   }
 }
 
