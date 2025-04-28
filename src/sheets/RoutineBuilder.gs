@@ -110,7 +110,8 @@ function processExercises(exerciseData) {
         .getSheetByName("Main")
         .getRange("I5")
         .getValue() || "kg";
-    const conversionFactor = weightUnit === "lbs" ? 0.45359237 : 1;
+    const conversionFactor =
+      weightUnit === "lbs" ? 0.45359237 : weightUnit === "stone" ? 6.35029 : 1;
 
     exerciseData.forEach((row) => {
       let [name, rest, setType, weight, reps, notes, supersetId, templateId] =
@@ -127,7 +128,7 @@ function processExercises(exerciseData) {
         supersetId
       );
 
-      if (weight !== null && weightUnit === "lbs") {
+      if (weight !== null) {
         weight = weight * conversionFactor;
       }
 

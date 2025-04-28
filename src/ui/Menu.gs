@@ -106,10 +106,7 @@ function onEdit(e) {
       e.range.getSheet().getName() === "Main" &&
       e.range.getA1Notation() === "I5"
     ) {
-      const unit = e.value;
-      if (unit === "kg" || unit === "lbs") {
-        updateChartTitles(unit);
-      }
+      updateChartTitles(e.value);
     }
   } catch (error) {
     console.error("Error in onEdit trigger:", error);

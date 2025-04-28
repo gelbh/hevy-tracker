@@ -162,7 +162,7 @@ function promptForWeight(unit = "kg") {
 
   const weight = parseFloat(result.getResponseText().replace(",", "."));
 
-  const maxWeight = unit === "lbs" ? 1100 : 500;
+  const maxWeight = unit === "lbs" ? 1100 : unit === "stone" ? 78.5 : 500;
 
   if (!(!isNaN(weight) && weight > 0 && weight <= maxWeight)) {
     ui.alert(
@@ -176,7 +176,7 @@ function promptForWeight(unit = "kg") {
 
 /**
  * Updates chart titles to reflect the current weight unit
- * @param {string} unit - The weight unit (kg or lbs)
+ * @param {string} unit - The weight unit
  */
 function updateChartTitles(unit) {
   try {
