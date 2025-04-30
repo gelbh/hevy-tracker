@@ -305,35 +305,64 @@ function saveHevyApiKey(apiKey) {
  */
 function setupAutomaticImportTriggers() {
   try {
+    // Check if this is the template spreadsheet - don't set up triggers on the template
     const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
     const isTemplate =
       spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
+    // Do not proceed if this is the template spreadsheet
     if (isTemplate) {
       console.log("Not setting up triggers on template spreadsheet");
       return;
     }
 
-    if (doImportTriggersExist()) {
+    // First, clean up any existing import triggers to avoid duplicates
+    removeAutomaticImportTriggers();
+
+    // Get count of existing time-based triggers to check against limits
+    const existingTriggerCount = ScriptApp.getProjectTriggers().filter(
+      (trigger) => trigger.getEventType() === ScriptApp.EventType.CLOCK
+    ).length;
+
+    // Only create triggers if we're under the limit (leaving room for our 2 triggers)
+    if (existingTriggerCount >= 18) {
+      // 20 - 2 = 18
+      console.error(
+        "Too many existing triggers. Cannot create automatic import triggers."
+      );
+      showProgress(
+        "Could not set up automatic imports due to trigger quota limits.",
+        "Quota Limit",
+        TOAST_DURATION.NORMAL
+      );
       return;
     }
 
+    // Create morning trigger (6:00 AM)
     ScriptApp.newTrigger("runAutomaticImport")
       .timeBased()
       .atHour(6)
       .everyDays(1)
       .create();
 
+    // Create evening trigger (6:00 PM)
     ScriptApp.newTrigger("runAutomaticImport")
       .timeBased()
       .atHour(18)
       .everyDays(1)
       .create();
 
+    // Store setting in user properties
     const properties = getUserProperties();
     if (properties) {
       properties.setProperty("AUTO_IMPORT_ENABLED", "true");
     }
+
+    showProgress(
+      "Automatic imports scheduled for 6 AM and 6 PM daily.",
+      "Auto-Import Enabled",
+      TOAST_DURATION.NORMAL
+    );
 
     console.log("Automatic import triggers set up successfully");
   } catch (error) {
@@ -402,22 +431,30 @@ function doImportTriggersExist() {
 /**
  * Removes all automatic import triggers
  * Call this when user wants to disable auto-imports
+ * @returns {number} Number of triggers removed
  */
 function removeAutomaticImportTriggers() {
   try {
     const triggers = ScriptApp.getProjectTriggers();
+    let count = 0;
+
     triggers.forEach((trigger) => {
       if (trigger.getHandlerFunction() === "runAutomaticImport") {
         ScriptApp.deleteTrigger(trigger);
+        count++;
       }
     });
 
-    const properties = getUserProperties();
-    if (properties) {
-      properties.setProperty("AUTO_IMPORT_ENABLED", "false");
+    // Update user properties
+    if (count > 0) {
+      const properties = getUserProperties();
+      if (properties) {
+        properties.setProperty("AUTO_IMPORT_ENABLED", "false");
+      }
+      console.log(`Removed ${count} automatic import triggers`);
     }
 
-    console.log("Automatic import triggers removed");
+    return count;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Removing automatic import triggers",
