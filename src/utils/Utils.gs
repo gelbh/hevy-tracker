@@ -301,10 +301,19 @@ function saveHevyApiKey(apiKey) {
 
 /**
  * Sets up automatic import triggers to run twice daily
- * Only configures triggers if they don't already exist
+ * Only configures triggers if they don't already exist and not on template spreadsheet
  */
 function setupAutomaticImportTriggers() {
   try {
+    const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    const isTemplate =
+      spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
+    if (isTemplate) {
+      console.log("Not setting up triggers on template spreadsheet");
+      return;
+    }
+
     if (doImportTriggersExist()) {
       return;
     }
@@ -340,6 +349,15 @@ function setupAutomaticImportTriggers() {
  */
 function runAutomaticImport() {
   try {
+    const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    const isTemplate =
+      spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+
+    if (isTemplate) {
+      console.log("Not running automatic import on template spreadsheet");
+      return;
+    }
+
     const properties = getUserProperties();
     if (
       !properties ||
