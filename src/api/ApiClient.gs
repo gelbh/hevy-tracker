@@ -238,6 +238,14 @@ class ApiClient {
       await importAllRoutines();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllWorkouts();
+
+      setupAutomaticImportTriggers();
+
+      showProgress(
+        "Initial import complete. Automatic updates scheduled for twice daily.",
+        "Setup Complete",
+        TOAST_DURATION.NORMAL
+      );
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Initial data import",

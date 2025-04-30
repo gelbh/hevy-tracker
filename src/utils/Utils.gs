@@ -294,3 +294,115 @@ function columnToLetter(column) {
 function saveHevyApiKey(apiKey) {
   return apiClient.saveHevyApiKey(apiKey);
 }
+
+// -----------------
+// Trigger Management
+// -----------------
+
+/**
+ * Sets up automatic import triggers to run twice daily
+ * Only configures triggers if they don't already exist
+ */
+function setupAutomaticImportTriggers() {
+  try {
+    if (doImportTriggersExist()) {
+      return;
+    }
+
+    ScriptApp.newTrigger("runAutomaticImport")
+      .timeBased()
+      .atHour(6)
+      .everyDays(1)
+      .create();
+
+    ScriptApp.newTrigger("runAutomaticImport")
+      .timeBased()
+      .atHour(18)
+      .everyDays(1)
+      .create();
+
+    const properties = getUserProperties();
+    if (properties) {
+      properties.setProperty("AUTO_IMPORT_ENABLED", "true");
+    }
+
+    console.log("Automatic import triggers set up successfully");
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Setting up automatic import triggers",
+    });
+  }
+}
+
+/**
+ * Runs the automatic import process
+ * This is the function called by the triggers
+ */
+function runAutomaticImport() {
+  try {
+    const properties = getUserProperties();
+    if (
+      !properties ||
+      properties.getProperty("AUTO_IMPORT_ENABLED") !== "true"
+    ) {
+      return;
+    }
+
+    importAllWorkouts();
+
+    console.log(`Automatic import completed at ${new Date().toISOString()}`);
+  } catch (error) {
+    ErrorHandler.handle(
+      error,
+      {
+        operation: "Running automatic import",
+      },
+      false
+    );
+  }
+}
+
+/**
+ * Checks if import triggers already exist
+ * @returns {boolean} True if triggers exist
+ * @private
+ */
+function doImportTriggersExist() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    return triggers.some(
+      (trigger) =>
+        trigger.getHandlerFunction() === "runAutomaticImport" &&
+        trigger.getEventType() === ScriptApp.EventType.CLOCK
+    );
+  } catch (error) {
+    console.error("Error checking triggers:", error);
+    return false;
+  }
+}
+
+/**
+ * Removes all automatic import triggers
+ * Call this when user wants to disable auto-imports
+ */
+function removeAutomaticImportTriggers() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach((trigger) => {
+      if (trigger.getHandlerFunction() === "runAutomaticImport") {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    const properties = getUserProperties();
+    if (properties) {
+      properties.setProperty("AUTO_IMPORT_ENABLED", "false");
+    }
+
+    console.log("Automatic import triggers removed");
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Removing automatic import triggers",
+    });
+  }
+}
