@@ -239,7 +239,14 @@ class ApiClient {
       Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllWorkouts();
 
-      setupAutomaticImportTriggers();
+      try {
+        setupAutomaticImportTriggers();
+      } catch (triggerError) {
+        console.error(
+          "Failed to set up automatic import triggers:",
+          triggerError
+        );
+      }
 
       showProgress(
         "Initial import complete. Automatic updates scheduled for twice daily.",

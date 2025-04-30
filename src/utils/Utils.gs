@@ -312,6 +312,12 @@ function setupAutomaticImportTriggers() {
       return;
     }
 
+    // If triggers already exist, don't create new ones
+    if (doImportTriggersExist()) {
+      console.log("Automatic import triggers already exist");
+      return;
+    }
+
     // First, clean up any existing import triggers to avoid duplicates
     removeAutomaticImportTriggers();
 
@@ -320,51 +326,73 @@ function setupAutomaticImportTriggers() {
       (trigger) => trigger.getEventType() === ScriptApp.EventType.CLOCK
     ).length;
 
-    // Only create triggers if we're under the limit (leaving room for our 2 triggers)
+    // Check if we're approaching the trigger limit
     if (existingTriggerCount >= 18) {
       // 20 - 2 = 18
-      console.error(
+      console.log(
         "Too many existing triggers. Cannot create automatic import triggers."
       );
       showProgress(
-        "Could not set up automatic imports due to trigger quota limits.",
-        "Quota Limit",
+        "Automatic imports could not be scheduled due to trigger limits. The add-on will still work manually.",
+        "Trigger Limit Reached",
         TOAST_DURATION.NORMAL
       );
+
+      // Set the property to false but continue without error
+      const properties = getUserProperties();
+      if (properties) {
+        properties.setProperty("AUTO_IMPORT_ENABLED", "false");
+      }
+      return; // Return without error
+    }
+
+    try {
+      // Create morning trigger (6:00 AM)
+      ScriptApp.newTrigger("runAutomaticImport")
+        .timeBased()
+        .atHour(6)
+        .everyDays(1)
+        .create();
+
+      // Create evening trigger (6:00 PM)
+      ScriptApp.newTrigger("runAutomaticImport")
+        .timeBased()
+        .atHour(18)
+        .everyDays(1)
+        .create();
+
+      // Store setting in user properties
+      const properties = getUserProperties();
+      if (properties) {
+        properties.setProperty("AUTO_IMPORT_ENABLED", "true");
+      }
+
+      showProgress(
+        "Automatic imports scheduled for 6 AM and 6 PM daily.",
+        "Auto-Import Enabled",
+        TOAST_DURATION.NORMAL
+      );
+      console.log("Automatic import triggers set up successfully");
+    } catch (triggerError) {
+      console.error("Failed to create triggers:", triggerError);
+      showProgress(
+        "Could not set up automatic imports. You can still import data manually.",
+        "Setup Note",
+        TOAST_DURATION.NORMAL
+      );
+
+      // Don't throw an error, just continue without automatic imports
       return;
     }
-
-    // Create morning trigger (6:00 AM)
-    ScriptApp.newTrigger("runAutomaticImport")
-      .timeBased()
-      .atHour(6)
-      .everyDays(1)
-      .create();
-
-    // Create evening trigger (6:00 PM)
-    ScriptApp.newTrigger("runAutomaticImport")
-      .timeBased()
-      .atHour(18)
-      .everyDays(1)
-      .create();
-
-    // Store setting in user properties
-    const properties = getUserProperties();
-    if (properties) {
-      properties.setProperty("AUTO_IMPORT_ENABLED", "true");
-    }
-
+  } catch (error) {
+    // Log but don't throw - let the import continue without triggers
+    console.error("Error setting up triggers:", error);
     showProgress(
-      "Automatic imports scheduled for 6 AM and 6 PM daily.",
-      "Auto-Import Enabled",
+      "Initial import completed, but automatic updates could not be scheduled.",
+      "Import Complete",
       TOAST_DURATION.NORMAL
     );
-
-    console.log("Automatic import triggers set up successfully");
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Setting up automatic import triggers",
-    });
+    return; // Return without error to allow the import to complete
   }
 }
 
