@@ -221,11 +221,7 @@ function updateChartTitles(unit) {
 function formatDate(dateString) {
   if (!dateString) return "";
   try {
-    const date = new Date(dateString);
-    const adjustedDate = new Date(
-      date.getTime() - date.getTimezoneOffset() * 60000
-    );
-    return adjustedDate;
+    return new Date(dateString);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       context: "Formatting date",
