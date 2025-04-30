@@ -82,14 +82,18 @@ function onHomepage(e) {
     const template = HtmlService.createTemplateFromFile(
       "src/ui/dialogs/Sidebar"
     );
-    template.data = { isTemplate };
+    template.data = {
+      isTemplate,
+      timestamp: new Date().getTime(),
+    };
 
     const htmlOutput = template
       .evaluate()
       .setTitle("Hevy Tracker")
       .setWidth(300)
       .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-      .addMetaTag("viewport", "width=device-width, initial-scale=1");
+      .addMetaTag("viewport", "width=device-width, initial-scale=1")
+      .addMetaTag("cache-control", "no-cache, no-store, must-revalidate");
 
     SpreadsheetApp.getUi().showSidebar(htmlOutput);
   } catch (error) {

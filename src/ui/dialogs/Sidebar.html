@@ -10,7 +10,12 @@
   </head>
   <body class="bg-white">
     <div class="flex flex-col h-full">
-      <div class="p-4 space-y-4">
+      <div class="p-4 space-y-4" id="sidebar-content">
+        <!-- Loading indicator -->
+        <div id="loading-indicator" class="text-center py-4">
+          <p>Loading sidebar content...</p>
+        </div>
+
         <? if (data.isTemplate) { ?>
         <!-- Template Spreadsheet Menu -->
         <div
@@ -27,9 +32,7 @@
         >
           <span class="text-blue-600">🔑 Set Hevy API Key</span>
         </div>
-
         <hr class="my-4" />
-
         <div class="space-y-2">
           <h3 class="font-semibold text-gray-700">IMPORT DATA</h3>
           <div class="space-y-1">
@@ -65,9 +68,7 @@
             </div>
           </div>
         </div>
-
         <hr class="my-4" />
-
         <div class="space-y-2">
           <h3 class="font-semibold text-gray-700">ROUTINE BUILDER</h3>
           <div class="space-y-1">
@@ -85,38 +86,67 @@
             </div>
           </div>
         </div>
-
         <hr class="my-4" />
-
         <div
           class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
           data-action="logWeight"
         >
           <span>⚖️ Log Body Weight</span>
         </div>
-
         <? } ?>
       </div>
     </div>
 
     <script>
+      // Main initialization with error handling
       document.addEventListener("DOMContentLoaded", function () {
+        try {
+          initSidebar();
+        } catch (err) {
+          document.getElementById("sidebar-content").innerHTML =
+            '<div class="p-4 bg-red-100 text-red-800 rounded">' +
+            "<p>Error loading sidebar content. Please try closing and reopening the add-on.</p>" +
+            '<button class="mt-2 px-3 py-1 bg-red-800 text-white rounded" ' +
+            'onclick="window.location.reload()">Reload</button>' +
+            "</div>";
+          console.error("Sidebar initialization error:", err);
+        }
+      });
+
+      function initSidebar() {
+        // Hide loading indicator once content is ready
+        document.getElementById("loading-indicator").style.display = "none";
+
+        // Initialize menu items with improved click handling
         document.querySelectorAll(".menu-item").forEach(function (item) {
           item.addEventListener("click", function () {
             const action = this.getAttribute("data-action");
             if (action) {
+              // Show a temporary loading state
+              this.classList.add("bg-gray-100");
+
               google.script.run
                 .withSuccessHandler(function (response) {
                   console.log("Action completed:", response);
+                  // Remove loading state
+                  item.classList.remove("bg-gray-100");
                 })
                 .withFailureHandler(function (error) {
                   console.error("Action failed:", error);
+                  // Remove loading state and add error state
+                  item.classList.remove("bg-gray-100");
+                  item.classList.add("bg-red-100");
+                  setTimeout(() => item.classList.remove("bg-red-100"), 2000);
                 })
                 .runMenuAction(action);
             }
           });
         });
-      });
+
+        // Log successful initialization with timestamp (for debugging)
+        console.log("Sidebar initialized: " + new Date().toString());
+        console.log("Cache timestamp: <?= data.timestamp || 'not set' ?>");
+      }
     </script>
   </body>
 </html>
