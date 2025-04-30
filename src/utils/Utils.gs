@@ -301,67 +301,46 @@ function saveHevyApiKey(apiKey) {
  */
 function setupAutomaticImportTriggers() {
   try {
-    // Check if this is the template spreadsheet - don't set up triggers on the template
     const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
     const isTemplate =
       spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
-    // Do not proceed if this is the template spreadsheet
     if (isTemplate) {
       console.log("Not setting up triggers on template spreadsheet");
       return;
     }
 
-    // If triggers already exist, don't create new ones
     if (doImportTriggersExist()) {
       console.log("Automatic import triggers already exist");
       return;
     }
 
-    // First, clean up any existing import triggers to avoid duplicates
     removeAutomaticImportTriggers();
 
-    // Get count of existing time-based triggers to check against limits
     const existingTriggerCount = ScriptApp.getProjectTriggers().filter(
       (trigger) => trigger.getEventType() === ScriptApp.EventType.CLOCK
     ).length;
 
-    // Check if we're approaching the trigger limit
     if (existingTriggerCount >= 18) {
-      // 20 - 2 = 18
-      console.log(
-        "Too many existing triggers. Cannot create automatic import triggers."
-      );
       showProgress(
         "Automatic imports could not be scheduled due to trigger limits. The add-on will still work manually.",
         "Trigger Limit Reached",
         TOAST_DURATION.NORMAL
       );
 
-      // Set the property to false but continue without error
       const properties = getUserProperties();
       if (properties) {
         properties.setProperty("AUTO_IMPORT_ENABLED", "false");
       }
-      return; // Return without error
+      return;
     }
 
     try {
-      // Create morning trigger (6:00 AM)
       ScriptApp.newTrigger("runAutomaticImport")
         .timeBased()
-        .atHour(6)
-        .everyDays(1)
+        .everyHours(12)
         .create();
 
-      // Create evening trigger (6:00 PM)
-      ScriptApp.newTrigger("runAutomaticImport")
-        .timeBased()
-        .atHour(18)
-        .everyDays(1)
-        .create();
-
-      // Store setting in user properties
       const properties = getUserProperties();
       if (properties) {
         properties.setProperty("AUTO_IMPORT_ENABLED", "true");
@@ -381,18 +360,15 @@ function setupAutomaticImportTriggers() {
         TOAST_DURATION.NORMAL
       );
 
-      // Don't throw an error, just continue without automatic imports
       return;
     }
   } catch (error) {
-    // Log but don't throw - let the import continue without triggers
-    console.error("Error setting up triggers:", error);
     showProgress(
       "Initial import completed, but automatic updates could not be scheduled.",
       "Import Complete",
       TOAST_DURATION.NORMAL
     );
-    return; // Return without error to allow the import to complete
+    return;
   }
 }
 
@@ -469,7 +445,6 @@ function removeAutomaticImportTriggers() {
       }
     });
 
-    // Update user properties
     if (count > 0) {
       const properties = getUserProperties();
       if (properties) {
