@@ -92,8 +92,7 @@ function onHomepage(e) {
       .setTitle("Hevy Tracker")
       .setWidth(300)
       .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-      .addMetaTag("viewport", "width=device-width, initial-scale=1")
-      .addMetaTag("cache-control", "no-cache, no-store, must-revalidate");
+      .addMetaTag("viewport", "width=device-width, initial-scale=1");
 
     SpreadsheetApp.getUi().showSidebar(htmlOutput);
   } catch (error) {
@@ -104,16 +103,27 @@ function onHomepage(e) {
   }
 }
 
+/**
+ * Handles spreadsheet edit events and triggers appropriate actions
+ * @param {GoogleAppsScript.Events.SheetsOnEdit} e - The onEdit event object
+ */
 function onEdit(e) {
   try {
-    if (
-      e.range.getSheet().getName() === "Main" &&
-      e.range.getA1Notation() === "I5"
-    ) {
-      updateChartTitles(e.value);
+    if (!e || !e.range) return;
+
+    if (e.range.getSheet().getName() === "Main") {
+      switch (e.range.getA1Notation()) {
+        case "I5":
+          updateChartTitles(e.value);
+          break;
+      }
     }
   } catch (error) {
-    console.error("Error in onEdit trigger:", error);
+    throw ErrorHandler.handle(error, {
+      operation: "Handling edit event",
+      sheetName: e?.range?.getSheet()?.getName(),
+      cellNotation: e?.range?.getA1Notation(),
+    });
   }
 }
 

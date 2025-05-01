@@ -111,6 +111,68 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
 }
 
 // -----------------
+// Cell Management
+// -----------------
+
+/**
+ * Syncs a value to a specified cell in a sheet
+ * @param {string} sheetName - Name of the sheet containing the target cell
+ * @param {string} cellA1Notation - A1 notation of the target cell
+ * @param {*} value - The value to set
+ * @private
+ */
+function syncCellValues(sheetName, cellA1Notation, value) {
+  try {
+    SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(sheetName)
+      .getRange(cellA1Notation)
+      .setValue(value);
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Syncing cell values",
+      sheetName: sheetName,
+      cellNotation: cellA1Notation,
+    });
+  }
+}
+
+/**
+ * Checks if a value is valid according to the cell's data validation
+ * @param {GoogleAppsScript.Spreadsheet.Range} range - The range to check validation against
+ * @param {*} value - The value to validate
+ * @return {boolean} True if the value is valid or if there's no validation
+ * @private
+ */
+function isValidCellValue(range, value) {
+  try {
+    const dataValidation = range.getDataValidation();
+    if (!dataValidation) return true;
+
+    const args = dataValidation.getCriteriaValues();
+
+    switch (dataValidation.getCriteriaType()) {
+      case SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST:
+        return args[0].indexOf(value) !== -1;
+      case SpreadsheetApp.DataValidationCriteria.VALUE_IN_RANGE:
+        const validValues = args[0].getValues().flat();
+        return validValues.indexOf(value) !== -1;
+      case SpreadsheetApp.DataValidationCriteria.NUMBER_BETWEEN:
+        const min = args[0];
+        const max = args[1];
+        return value >= min && value <= max;
+      default:
+        return true;
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Validating cell value",
+      range: range.getA1Notation(),
+      value,
+    });
+  }
+}
+
+// -----------------
 // Weight Management
 // -----------------
 
