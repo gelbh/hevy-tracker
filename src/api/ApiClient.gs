@@ -233,7 +233,7 @@ class ApiClient {
           .getSheetByName(WEIGHT_SHEET_NAME)
           .getRange("A2")
           .setFormula(
-            'IF(FALSE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, GET_CONVERSION_FACTOR(Main!$I$5)}), "")'
+            'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, GET_CONVERSION_FACTOR(Main!$I$5)}), "")'
           );
       }
 
