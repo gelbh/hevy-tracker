@@ -253,6 +253,8 @@ function updateChartTitles(unit) {
         const newChart = chart
           .modify()
           .setOption("title", `Volume (${unit})`)
+          .setOption("backgroundColor.stroke", "#000")
+          .setOption("backgroundColor.strokeWidth", 1)
           .build();
         mainSheet.updateChart(newChart);
       }

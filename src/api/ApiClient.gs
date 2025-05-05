@@ -63,14 +63,13 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
-      // Check if this is a new key or an update
       if (!currentKey) {
         showProgress(
           "API key set successfully. Starting initial data import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
-        await this.runInitialImport();
+        await this.runFullImport();
       } else {
         showProgress(
           "API key updated successfully!",
@@ -215,7 +214,7 @@ class ApiClient {
   /**
    * Runs initial data import sequence for new API key setup
    */
-  async runInitialImport() {
+  async runFullImport() {
     try {
       if (checkForMultiLoginIssues()) {
         showProgress(
@@ -236,9 +235,6 @@ class ApiClient {
             'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'
           );
       }
-
-      const properties = this.getProperties();
-      properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
       await importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);

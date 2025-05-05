@@ -1,231 +1,209 @@
 /**
  * Functions for importing and managing workout data.
+ * Requires shared constants and utilities defined elsewhere.
  */
 
 /**
- * Imports all workouts from Hevy API and populates the 'Workouts' sheet.
- * Handles updates and deletions through events API.
+ * Synchronizes workout data to the 'Workouts' sheet.
+ * - First run: full import of all workouts.
+ * - Subsequent runs: delta import of only new/changed/deleted events.
  */
 async function importAllWorkouts() {
-  try {
-    const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
-    const sheet = manager.sheet;
-    const properties = getUserProperties();
+  const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
+  const sheet = manager.sheet;
+  const props = PropertiesService.getScriptProperties();
+  const lastUpdate = props.getProperty("LAST_WORKOUT_UPDATE");
 
-    if (!sheet.getRange("A2").getValue()) {
-      properties.deleteProperty("LAST_WORKOUT_UPDATE");
-    }
-
-    const existingData = getExistingWorkouts(sheet);
-    const processedWorkouts = [];
-    const deletedWorkoutIds = new Set();
-
-    const processWorkoutPage = async (events) => {
-      if (!events) return;
-
-      events.forEach((event) => {
-        if (
-          event.type === "updated" &&
-          !shouldSkipWorkout(event.workout, existingData)
-        ) {
-          processedWorkouts.push(event.workout);
-        } else if (event.type === "deleted") {
-          deletedWorkoutIds.add(event.id);
-        }
-      });
-    };
-
-    const lastUpdate =
-      properties.getProperty("LAST_WORKOUT_UPDATE") || "2000-01-01T00:00:00Z";
-
-    await apiClient.fetchPaginatedData(
-      API_ENDPOINTS.WORKOUTS_EVENTS,
-      PAGE_SIZE.WORKOUTS,
-      processWorkoutPage,
-      "events",
-      { since: lastUpdate }
-    );
-
-    if (deletedWorkoutIds.size > 0) {
-      deleteWorkoutRows(sheet, deletedWorkoutIds);
-    }
-
-    if (processedWorkouts.length > 0) {
-      const processedData = processWorkoutsData(processedWorkouts);
-      updateWorkoutData(sheet, processedData);
-
-      const now = new Date().toISOString();
-      properties.setProperty("LAST_WORKOUT_UPDATE", now);
-
-      showProgress(
-        `Processed ${processedWorkouts.length} workouts (${deletedWorkoutIds.size} deleted)!`,
-        "Import Complete",
-        TOAST_DURATION.NORMAL
-      );
-    } else {
-      showProgress(
-        "No workout changes found.",
-        "Import Complete",
-        TOAST_DURATION.NORMAL
-      );
-    }
-
-    await updateExerciseCounts(
-      SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
-    );
-
-    manager.formatSheet();
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Importing workouts",
-      sheetName: WORKOUTS_SHEET_NAME,
-    });
+  const isFirstRun = !lastUpdate || !sheet.getRange("A2").getValue();
+  if (isFirstRun) {
+    await importAllWorkoutsFull();
+  } else {
+    await importAllWorkoutsDelta(lastUpdate);
   }
+
+  await updateExerciseCounts(
+    SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
+  );
+  manager.formatSheet();
 }
 
 /**
- * Gets existing workouts from the sheet along with their details
- * @private
+ * Performs a full import of all workouts.
+ * Clears existing data rows (keeping headers), fetches all pages,
+ * and writes rows in a single batch.
  */
-function getExistingWorkouts(sheet) {
-  try {
-    const existingData = new Map();
-    if (sheet.getLastRow() > 1) {
-      const data = sheet.getDataRange().getValues();
-      const headers = data.shift();
-      const workoutIdIndex = headers.indexOf("ID");
+async function importAllWorkoutsFull() {
+  const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
+  const sheet = manager.sheet;
+  const props = PropertiesService.getScriptProperties();
 
-      data.forEach((row) => {
-        if (row[workoutIdIndex]) {
-          existingData.set(row[workoutIdIndex], {
-            id: row[workoutIdIndex],
-            startTime: row[headers.indexOf("Start Time")],
-            endTime: row[headers.indexOf("End Time")],
-          });
-        }
+  props.deleteProperty("LAST_WORKOUT_UPDATE");
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+  }
+
+  const allWorkouts = [];
+  await apiClient.fetchPaginatedData(
+    API_ENDPOINTS.WORKOUTS,
+    PAGE_SIZE.WORKOUTS,
+    (workouts) => {
+      if (workouts) allWorkouts.push(...workouts);
+    },
+    "workouts",
+    {}
+  );
+
+  const rows = processWorkoutsData(allWorkouts);
+
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  }
+
+  props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `Imported ${rows.length} workout records.`,
+    "Full Import Complete",
+    5
+  );
+}
+
+/**
+ * Imports only changed/deleted workouts since lastUpdate.
+ * @param {string} lastUpdate ISO timestamp
+ */
+async function importAllWorkoutsDelta(lastUpdate) {
+  const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
+  const sheet = manager.sheet;
+  const props = PropertiesService.getScriptProperties();
+
+  const processed = [];
+  const deletedIds = new Set();
+
+  await apiClient.fetchPaginatedData(
+    API_ENDPOINTS.WORKOUTS_EVENTS,
+    PAGE_SIZE.WORKOUTS,
+    (events) => {
+      events.forEach((e) => {
+        if (e.type === "updated" || e.type === "created")
+          processed.push(e.workout);
+        else if (e.type === "deleted") deletedIds.add(e.id);
       });
-    }
-    return existingData;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Getting existing workouts",
-      sheetName: sheet.getName(),
-    });
+    },
+    "events",
+    { since: lastUpdate }
+  );
+
+  if (deletedIds.size) deleteWorkoutRows(sheet, deletedIds);
+
+  if (processed.length) {
+    const rows = processWorkoutsData(processed);
+    updateWorkoutData(sheet, rows);
+    props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      `Processed ${processed.length} workout changes.`,
+      "Delta Import Complete",
+      5
+    );
+  } else {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      "No workout changes to apply.",
+      "Delta Import",
+      5
+    );
   }
 }
 
 /**
- * Deletes workout rows from the sheet
+ * Deletes workout rows from the sheet in a single bulk rewrite.
  * @private
  */
 function deleteWorkoutRows(sheet, workoutIds) {
-  try {
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    const workoutIdIndex = headers.indexOf("ID");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const idIdx = headers.indexOf("ID");
 
-    const rowsToDelete = [];
-    data.forEach((row, index) => {
-      if (workoutIds.has(row[workoutIdIndex])) {
-        rowsToDelete.unshift(index + 2);
-      }
-    });
-
-    if (rowsToDelete.length > 0) {
-      rowsToDelete.forEach((row) => sheet.deleteRow(row));
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Deleting workout rows",
-      sheetName: sheet.getName(),
-      affectedIds: Array.from(workoutIds),
-    });
-  }
+  const filtered = values.filter(
+    (row, i) => i === 0 || !workoutIds.has(row[idIdx])
+  );
+  sheet.clearContents();
+  sheet.getRange(1, 1, filtered.length, filtered[0].length).setValues(filtered);
 }
 
 /**
- * Updates workout data in the sheet
+ * Updates workout data in the sheet using contiguous block writes.
  * @private
  */
 function updateWorkoutData(sheet, processedData) {
-  try {
-    const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    const workoutIdIndex = headers.indexOf("ID");
-    const workoutRows = new Map();
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  const idIdx = headers.indexOf("ID");
+  const rowMap = new Map(values.map((r, i) => [r[idIdx], i + 2]));
 
-    data.forEach((row, index) => {
-      if (row[workoutIdIndex]) {
-        workoutRows.set(row[workoutIdIndex], index + 2);
-      }
-    });
+  const updates = [];
+  const additions = [];
 
-    const updates = [];
-    const additions = [];
+  processedData.forEach((row) => {
+    const id = row[0];
+    if (rowMap.has(id)) updates.push({ r: rowMap.get(id), d: row });
+    else additions.push(row);
+  });
 
-    processedData.forEach((row) => {
-      const workoutId = row[0];
-      if (workoutRows.has(workoutId)) {
-        updates.push({ row: workoutRows.get(workoutId), data: row });
-      } else {
-        additions.push(row);
-      }
-    });
-
-    if (updates.length > 0) {
-      updates.forEach(({ row, data }) => {
-        sheet.getRange(row, 1, 1, data.length).setValues([data]);
-      });
-    }
-
-    if (additions.length > 0) {
-      sheet.insertRowsBefore(2, additions.length);
+  updates
+    .sort((a, b) => a.r - b.r)
+    .reduce((segs, u) => {
+      const last = segs[segs.length - 1];
+      if (last && u.r === last.start + last.data.length) last.data.push(u.d);
+      else segs.push({ start: u.r, data: [u.d] });
+      return segs;
+    }, [])
+    .forEach((seg) => {
       sheet
-        .getRange(2, 1, additions.length, additions[0].length)
-        .setValues(additions);
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Updating workout data",
-      sheetName: sheet.getName(),
-      updateCount: updates?.length || 0,
-      additionCount: additions?.length || 0,
+        .getRange(seg.start, 1, seg.data.length, seg.data[0].length)
+        .setValues(seg.data);
     });
+
+  if (additions.length) {
+    sheet.insertRowsBefore(2, additions.length);
+    sheet
+      .getRange(2, 1, additions.length, additions[0].length)
+      .setValues(additions);
   }
 }
 
 /**
- * Processes workout data into a format suitable for the sheet
+ * Converts workout objects into 2D array of sheet rows.
  * @private
  */
 function processWorkoutsData(workouts) {
   try {
-    return workouts.flatMap((workout) => {
-      if (!workout.exercises || workout.exercises.length === 0) {
+    return workouts.flatMap((w) => {
+      if (!w.exercises || !w.exercises.length) {
         return [
           [
-            workout.id,
-            workout.title,
-            formatDate(workout.start_time),
-            formatDate(workout.end_time),
-            "", // Exercise
-            "", // Set Type
-            "", // Weight
-            "", // Reps
-            "", // Distance
-            "", // Duration
-            "", // RPE
+            w.id,
+            w.title,
+            formatDate(w.start_time),
+            formatDate(w.end_time),
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
           ],
         ];
       }
-
-      return workout.exercises.flatMap((exercise) =>
-        exercise.sets.map((set) => [
-          workout.id,
-          workout.title,
-          formatDate(workout.start_time),
-          formatDate(workout.end_time),
-          exercise.title,
+      return w.exercises.flatMap((ex) =>
+        ex.sets.map((set) => [
+          w.id,
+          w.title,
+          formatDate(w.start_time),
+          formatDate(w.end_time),
+          ex.title,
           normalizeSetType(set.type),
           normalizeWeight(set.weight_kg),
           normalizeNumber(set.reps),
@@ -241,23 +219,4 @@ function processWorkoutsData(workouts) {
       workoutCount: workouts.length,
     });
   }
-}
-
-/**
- * Determines if a workout should be skipped based on existing data
- * @param {Object} workout - Workout object from API
- * @param {Map} existingData - Map of existing workout data
- * @return {boolean} True if workout should be skipped
- */
-function shouldSkipWorkout(workout, existingData) {
-  const existingWorkout = existingData.get(workout.id);
-  if (!existingWorkout) return false;
-
-  const startTime = formatDate(workout.start_time);
-  const endTime = formatDate(workout.end_time);
-
-  return (
-    startTime === existingWorkout.startTime &&
-    endTime === existingWorkout.endTime
-  );
 }

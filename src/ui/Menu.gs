@@ -39,7 +39,7 @@ function onOpen(e) {
     if (!isTemplate) {
       const importSubmenu = ui
         .createMenu("📥 Import Data")
-        .addItem("📥 Import All", "apiClient.runInitialImport")
+        .addItem("📥 Import All", "apiClient.runFullImport")
         .addSeparator()
         .addItem("🏋️ Import Workouts", "importAllWorkouts")
         .addItem("💪 Import Exercises", "importAllExercises")
@@ -180,8 +180,8 @@ function runMenuAction(action) {
         handler: showInitialSetup,
         successMessage: "API key setup initiated",
       }),
-      runInitialImport: () => ({
-        handler: apiClient.runInitialImport,
+      runFullImport: () => ({
+        handler: apiClient.runFullImport,
         successMessage: "Import started",
       }),
       importAllWorkouts: () => ({
