@@ -69,7 +69,7 @@ class ApiClient {
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
-        await this.runFullImport();
+        this.runFullImport();
       } else {
         showProgress(
           "API key updated successfully!",
