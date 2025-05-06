@@ -236,7 +236,7 @@ async function getOrCreateRoutineFolder(folderName) {
  */
 async function findRoutineFolder(folderName) {
   const options = apiClient.createRequestOptions(
-    getUserProperties().getProperty("HEVY_API_KEY")
+    getDocumentProperties().getProperty("HEVY_API_KEY")
   );
 
   try {
@@ -267,7 +267,7 @@ async function findRoutineFolder(folderName) {
  */
 async function createNewRoutineFolder(folderName) {
   const options = apiClient.createRequestOptions(
-    getUserProperties().getProperty("HEVY_API_KEY"),
+    getDocumentProperties().getProperty("HEVY_API_KEY"),
     "post",
     { "Content-Type": "application/json" }
   );
@@ -383,7 +383,7 @@ function createSet(setType, weight, reps) {
  * @private
  */
 async function submitRoutine(routineData) {
-  const apiKey = getUserProperties().getProperty("HEVY_API_KEY");
+  const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }

@@ -132,7 +132,7 @@ function onEdit(e) {
  */
 function showInitialSetup() {
   try {
-    const properties = getUserProperties();
+    const properties = getDocumentProperties();
     const hasApiKey = properties && properties.getProperty("HEVY_API_KEY");
 
     if (hasApiKey) {

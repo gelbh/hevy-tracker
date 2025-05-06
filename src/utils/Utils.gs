@@ -20,6 +20,19 @@ function getUserProperties() {
   }
 }
 
+/**
+ * Gets document properties safely
+ * @returns {GoogleAppsScript.Properties.Properties|null}
+ */
+function getDocumentProperties() {
+  try {
+    return PropertiesService.getDocumentProperties();
+  } catch (error) {
+    console.error("Failed to get document properties:", error);
+    return null;
+  }
+}
+
 // -----------------
 // UI Utilities
 // -----------------
@@ -392,7 +405,7 @@ function setupAutomaticImportTriggers() {
         TOAST_DURATION.NORMAL
       );
 
-      const properties = getUserProperties();
+      const properties = getDocumentProperties();
       if (properties) {
         properties.setProperty("AUTO_IMPORT_ENABLED", "false");
       }
@@ -405,7 +418,7 @@ function setupAutomaticImportTriggers() {
         .everyHours(12)
         .create();
 
-      const properties = getUserProperties();
+      const properties = getDocumentProperties();
       if (properties) {
         properties.setProperty("AUTO_IMPORT_ENABLED", "true");
       }
@@ -451,7 +464,7 @@ function runAutomaticImport() {
       return;
     }
 
-    const properties = getUserProperties();
+    const properties = getDocumentProperties();
     if (
       !properties ||
       properties.getProperty("AUTO_IMPORT_ENABLED") !== "true"
@@ -510,7 +523,7 @@ function removeAutomaticImportTriggers() {
     });
 
     if (count > 0) {
-      const properties = getUserProperties();
+      const properties = getDocumentProperties();
       if (properties) {
         properties.setProperty("AUTO_IMPORT_ENABLED", "false");
       }
