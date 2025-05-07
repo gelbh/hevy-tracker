@@ -105,8 +105,8 @@ function processExercisesData(exercises) {
       exercise.title,
       "", // IMG
       exercise.type || "",
-      formatMuscleGroup(exercise.primary_muscle_group),
-      formatMuscleGroups(exercise.secondary_muscle_groups),
+      toTitleCaseFromSnake(exercise.primary_muscle_group),
+      arrayToTitleCase(exercise.secondary_muscle_groups),
       exercise.is_custom ? "TRUE" : "FALSE",
       0, // Count
       "", // Rank
@@ -117,32 +117,6 @@ function processExercisesData(exercises) {
       exerciseCount: exercises.length,
     });
   }
-}
-
-/**
- * Formats a primary muscle group name
- * @param {string} muscleGroup - Muscle group name to format
- * @return {string} Formatted muscle group name
- */
-function formatMuscleGroup(muscleGroup) {
-  if (!muscleGroup) return "";
-  return muscleGroup
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
-/**
- * Formats an array of secondary muscle groups
- * @param {string[]} muscleGroups - Array of muscle group names
- * @return {string} Formatted muscle groups string
- */
-function formatMuscleGroups(muscleGroups) {
-  if (!muscleGroups || !Array.isArray(muscleGroups)) return "";
-  return muscleGroups
-    .map((group) => formatMuscleGroup(group))
-    .filter((group) => group)
-    .join(", ");
 }
 
 /**

@@ -355,6 +355,47 @@ function columnToLetter(column) {
   return letter;
 }
 
+/**
+ * Converts a snake_case string to Title Case.
+ * @param {string} str
+ * @returns {string}
+ */
+function toTitleCaseFromSnake(str) {
+  if (!str) return "";
+  return str
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Converts an array of snake_case strings into a comma-separated Title Case string.
+ * @param {string[]} arr
+ * @returns {string}
+ */
+function arrayToTitleCase(arr) {
+  if (!Array.isArray(arr)) return "";
+  return arr
+    .map((item) => toTitleCaseFromSnake(item))
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Parses a value into number or null, throwing ValidationError if it’s not numeric.
+ * @param {*} value
+ * @param {string} fieldName
+ * @returns {number|null}
+ */
+function parseNumber(value, fieldName) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  if (isNaN(n)) {
+    throw new ValidationError(`Invalid ${fieldName} value: ${value}`);
+  }
+  return n;
+}
+
 // -----------------
 // API Key Management
 // -----------------

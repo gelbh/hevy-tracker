@@ -121,12 +121,10 @@ function processExercises(exerciseData) {
         throw new ValidationError(`Missing template ID for exercise: ${name}`);
       }
 
-      [rest, weight, reps, supersetId] = validateAndProcessNumericValues(
-        rest,
-        weight,
-        reps,
-        supersetId
-      );
+      rest = parseNumber(rest, "rest");
+      weight = parseNumber(weight, "weight");
+      reps = parseNumber(reps, "reps");
+      supersetId = parseNumber(supersetId, "superset ID");
 
       if (weight !== null) {
         weight = weight * conversionFactor;
@@ -262,92 +260,44 @@ async function findRoutineFolder(folderName) {
 
 /**
  * Creates a new routine folder
+ * @private
  * @param {string} folderName - Name for the new folder
  * @returns {Promise<number>} ID of the newly created folder
  */
 async function createNewRoutineFolder(folderName) {
-  const options = apiClient.createRequestOptions(
-    getDocumentProperties().getProperty("HEVY_API_KEY"),
-    "post",
-    { "Content-Type": "application/json" }
-  );
+  const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
+
+  const options = apiClient.createRequestOptions(apiKey, "post", {
+    "Content-Type": "application/json",
+  });
 
   try {
-    const folderData = {
-      routine_folder: {
-        title: folderName,
-      },
-    };
-
-    const response = UrlFetchApp.fetch(
-      `${API_ENDPOINTS.BASE}${API_ENDPOINTS.ROUTINE_FOLDERS}`,
-      {
-        method: "post",
-        contentType: "application/json",
-        headers: options.headers,
-        payload: JSON.stringify(folderData),
-        muteHttpExceptions: true,
-      }
+    const payload = { routine_folder: { title: folderName } };
+    const response = await apiClient.makeRequest(
+      API_ENDPOINTS.ROUTINE_FOLDERS,
+      options,
+      {},
+      payload
     );
 
-    const responseCode = response.getResponseCode();
-    const responseText = response.getContentText();
-
-    if (responseCode === 201) {
-      try {
-        const responseData = JSON.parse(responseText);
-        const folderId = responseData.routine_folder?.id;
-
-        if (!folderId) {
-          throw new ApiError(
-            "Invalid folder creation response structure",
-            responseCode,
-            responseText
-          );
-        }
-
-        return folderId;
-      } catch (parseError) {
-        throw new ApiError(
-          "Failed to parse folder creation response",
-          responseCode,
-          responseText
-        );
-      }
-    } else {
-      let errorMessage = "Failed to create folder";
-      try {
-        const errorData = JSON.parse(responseText);
-        errorMessage = errorData.error || errorMessage;
-      } catch (parseError) {}
-      throw new ApiError(errorMessage, responseCode, responseText);
+    const folderId = response.routine_folder?.id;
+    if (!folderId) {
+      throw new ApiError(
+        "Invalid folder creation response structure",
+        0,
+        JSON.stringify(response)
+      );
     }
+    return folderId;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Creating routine folder",
       folderName: folderName,
     });
   }
-}
-
-/**
- * Validates and processes numeric values from row data
- * @private
- */
-function validateAndProcessNumericValues(rest, weight, reps, supersetId) {
-  rest = rest ? Number(rest) : null;
-  weight = weight ? Number(weight) : null;
-  reps = reps ? Number(reps) : null;
-  supersetId = supersetId ? Number(supersetId) : null;
-
-  if (isNaN(rest)) throw new ValidationError(`Invalid rest value: ${rest}`);
-  if (isNaN(weight))
-    throw new ValidationError(`Invalid weight value: ${weight}`);
-  if (isNaN(reps)) throw new ValidationError(`Invalid reps value: ${reps}`);
-  if (isNaN(supersetId))
-    throw new ValidationError(`Invalid superset ID: ${supersetId}`);
-
-  return [rest, weight, reps, supersetId];
 }
 
 /**
@@ -381,6 +331,8 @@ function createSet(setType, weight, reps) {
 /**
  * Submits routine to the API
  * @private
+ * @param {Object} routineData - The routine payload to send
+ * @returns {Promise<Object>} Parsed response from the API
  */
 async function submitRoutine(routineData) {
   const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
@@ -388,35 +340,18 @@ async function submitRoutine(routineData) {
     throw new ConfigurationError("API key not found");
   }
 
-  const options = {
-    method: "post",
-    contentType: "application/json",
-    headers: {
-      "Api-Key": apiKey,
-      Accept: "application/json",
-    },
-    payload: JSON.stringify(routineData),
-    muteHttpExceptions: true,
-  };
+  const options = apiClient.createRequestOptions(apiKey, "post", {
+    "Content-Type": "application/json",
+  });
 
   try {
-    const response = await UrlFetchApp.fetch(
-      `${API_ENDPOINTS.BASE}${API_ENDPOINTS.ROUTINES}`,
-      options
+    const response = await apiClient.makeRequest(
+      API_ENDPOINTS.ROUTINES,
+      options,
+      {},
+      routineData
     );
-
-    const responseCode = response.getResponseCode();
-    const responseText = response.getContentText();
-
-    if (responseCode !== 201) {
-      throw new ApiError(
-        JSON.parse(responseText)?.error || "Failed to create routine",
-        responseCode,
-        responseText
-      );
-    }
-
-    return JSON.parse(responseText);
+    return response;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Submitting routine to API",

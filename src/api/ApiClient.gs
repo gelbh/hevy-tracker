@@ -16,7 +16,7 @@ class ApiClient {
    * @private
    */
   getOrPromptApiKey() {
-    const properties = this.getDocumentProperties();
+    const properties = getDocumentProperties();
     const key = properties.getProperty("HEVY_API_KEY");
 
     if (!key) {
@@ -34,7 +34,7 @@ class ApiClient {
    */
   manageHevyApiKey() {
     try {
-      const properties = this.getDocumentProperties();
+      const properties = getDocumentProperties();
       const currentKey = properties.getProperty("HEVY_API_KEY");
 
       if (currentKey && !this.confirmKeyReset()) {
@@ -59,7 +59,7 @@ class ApiClient {
     try {
       await this.validateApiKey(apiKey);
 
-      const properties = this.getDocumentProperties();
+      const properties = getDocumentProperties();
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
@@ -79,7 +79,7 @@ class ApiClient {
       }
     } catch (error) {
       if (error instanceof InvalidApiKeyError) {
-        const properties = this.getDocumentProperties();
+        const properties = getDocumentProperties();
         properties.deleteProperty("HEVY_API_KEY");
 
         const ui = SpreadsheetApp.getUi();
@@ -154,27 +154,6 @@ class ApiClient {
   }
 
   // Private helper methods
-
-  /**
-   * Gets properties service with error handling
-   * @private
-   */
-  getUserProperties() {
-    const properties = getUserProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access user properties");
-    }
-    return properties;
-  }
-
-  /** @private */
-  getDocumentProperties() {
-    const properties = getDocumentProperties();
-    if (!properties) {
-      throw new ConfigurationError("Unable to access document properties");
-    }
-    return properties;
-  }
 
   /**
    * Shows a prompt to set or reset the API key
