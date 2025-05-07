@@ -71,48 +71,76 @@ async function importAllWorkoutsFull() {
 }
 
 /**
- * Imports only changed/deleted workouts since lastUpdate.
- * @param {string} lastUpdate ISO timestamp
+ * Imports only changed or new workouts since lastUpdate.
+ * Fetches full workout details for every upsert event to ensure exercise/sets data.
+ *
+ * @param {string} lastUpdate ISO timestamp of last import
  */
 async function importAllWorkoutsDelta(lastUpdate) {
-  const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
-  const sheet = manager.sheet;
-  const props = PropertiesService.getScriptProperties();
+  try {
+    const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
+    const sheet = manager.sheet;
+    const props = PropertiesService.getScriptProperties();
 
-  const processed = [];
-  const deletedIds = new Set();
+    const events = [];
+    await apiClient.fetchPaginatedData(
+      API_ENDPOINTS.WORKOUTS_EVENTS,
+      PAGE_SIZE.WORKOUTS,
+      (page) => events.push(...page),
+      "events",
+      { since: lastUpdate }
+    );
 
-  await apiClient.fetchPaginatedData(
-    API_ENDPOINTS.WORKOUTS_EVENTS,
-    PAGE_SIZE.WORKOUTS,
-    (events) => {
-      events.forEach((e) => {
-        if (e.type === "updated" || e.type === "created")
-          processed.push(e.workout);
-        else if (e.type === "deleted") deletedIds.add(e.id);
-      });
-    },
-    "events",
-    { since: lastUpdate }
-  );
+    if (!events.length) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "No workout changes to apply.",
+        "Delta Import",
+        TOAST_DURATION.NORMAL
+      );
+      return;
+    }
 
-  if (deletedIds.size) deleteWorkoutRows(sheet, deletedIds);
+    const deletedIds = new Set();
+    const upsertIds = [];
+    events.forEach((e) => {
+      if (e.type === "deleted") {
+        const id = e.workout?.id || e.id;
+        if (id) deletedIds.add(id);
+      } else if (e.type === "updated" || e.type === "created") {
+        const id = e.workout?.id;
+        if (id) upsertIds.push(id);
+      }
+    });
 
-  if (processed.length) {
-    const rows = processWorkoutsData(processed);
+    if (deletedIds.size) {
+      deleteWorkoutRows(sheet, deletedIds);
+    }
+
+    const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
+    const fullWorkouts = await Promise.all(
+      upsertIds.map(async (id) => {
+        const resp = await apiClient.makeRequest(
+          `${API_ENDPOINTS.WORKOUTS}/${id}`,
+          apiClient.createRequestOptions(apiKey)
+        );
+        return resp.workout || resp;
+      })
+    );
+
+    const rows = processWorkoutsData(fullWorkouts);
     updateWorkoutData(sheet, rows);
+
     props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
     SpreadsheetApp.getActiveSpreadsheet().toast(
-      `Processed ${processed.length} workout changes.`,
+      `Processed ${fullWorkouts.length} workout changes.`,
       "Delta Import Complete",
-      5
+      TOAST_DURATION.NORMAL
     );
-  } else {
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      "No workout changes to apply.",
-      "Delta Import",
-      5
-    );
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Importing workout delta",
+      sheetName: WORKOUTS_SHEET_NAME,
+    });
   }
 }
 
