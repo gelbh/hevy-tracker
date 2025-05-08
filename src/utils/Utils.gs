@@ -414,100 +414,22 @@ function saveHevyApiKey(apiKey) {
 // -----------------
 
 /**
- * Sets up automatic import triggers to run twice daily
- * Only configures triggers if they don't already exist and not on template spreadsheet
- */
-function setupAutomaticImportTriggers() {
-  try {
-    const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
-    const isTemplate = spreadsheetId === TEMPLATE_SPREADSHEET_ID;
-
-    if (isTemplate) {
-      console.log("Not setting up triggers on template spreadsheet");
-      return;
-    }
-
-    if (doImportTriggersExist()) {
-      console.log("Automatic import triggers already exist");
-      return;
-    }
-
-    removeAutomaticImportTriggers();
-
-    const existingTriggerCount = ScriptApp.getProjectTriggers().filter(
-      (trigger) => trigger.getEventType() === ScriptApp.EventType.CLOCK
-    ).length;
-
-    if (existingTriggerCount >= 18) {
-      showProgress(
-        "Automatic imports could not be scheduled due to trigger limits. The add-on will still work manually.",
-        "Trigger Limit Reached",
-        TOAST_DURATION.NORMAL
-      );
-
-      const properties = getDocumentProperties();
-      if (properties) {
-        properties.setProperty("AUTO_IMPORT_ENABLED", "false");
-      }
-      return;
-    }
-
-    try {
-      ScriptApp.newTrigger("runAutomaticImport")
-        .timeBased()
-        .everyHours(12)
-        .create();
-
-      const properties = getDocumentProperties();
-      if (properties) {
-        properties.setProperty("AUTO_IMPORT_ENABLED", "true");
-      }
-
-      showProgress(
-        "Automatic imports scheduled for 6 AM and 6 PM daily.",
-        "Auto-Import Enabled",
-        TOAST_DURATION.NORMAL
-      );
-      console.log("Automatic import triggers set up successfully");
-    } catch (triggerError) {
-      console.error("Failed to create triggers:", triggerError);
-      showProgress(
-        "Could not set up automatic imports. You can still import data manually.",
-        "Setup Note",
-        TOAST_DURATION.NORMAL
-      );
-
-      return;
-    }
-  } catch (error) {
-    showProgress(
-      "Initial import completed, but automatic updates could not be scheduled.",
-      "Import Complete",
-      TOAST_DURATION.NORMAL
-    );
-    return;
-  }
-}
-
-/**
  * Runs the automatic import process
  * This is the function called by the triggers
+ * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
+  ScriptApp.getProjectTriggers()
+    .filter(
+      (trigger) =>
+        trigger.getHandlerFunction() === "runAutomaticImport" &&
+        trigger.getEventType() === ScriptApp.EventType.CLOCK
+    )
+    .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+
   try {
-    const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
-    const isTemplate = spreadsheetId === TEMPLATE_SPREADSHEET_ID;
-
-    if (isTemplate) {
-      console.log("Not running automatic import on template spreadsheet");
-      return;
-    }
-
-    const properties = getDocumentProperties();
-    if (
-      !properties ||
-      properties.getProperty("AUTO_IMPORT_ENABLED") !== "true"
-    ) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss.getId() === TEMPLATE_SPREADSHEET_ID) {
       return;
     }
 
@@ -519,66 +441,12 @@ async function runAutomaticImport() {
     Utilities.sleep(RATE_LIMIT.API_DELAY);
     await importAllWorkouts();
 
-    console.log(`Automatic import completed at ${new Date().toISOString()}`);
-  } catch (error) {
-    ErrorHandler.handle(
-      error,
-      {
-        operation: "Running automatic import",
-      },
-      false
-    );
-  }
-}
-
-/**
- * Checks if import triggers already exist
- * @returns {boolean} True if triggers exist
- * @private
- */
-function doImportTriggersExist() {
-  try {
-    const triggers = ScriptApp.getProjectTriggers();
-    return triggers.some(
-      (trigger) =>
-        trigger.getHandlerFunction() === "runAutomaticImport" &&
-        trigger.getEventType() === ScriptApp.EventType.CLOCK
+    ss.toast(
+      "Automatic import completed successfully",
+      "Automatic Import",
+      TOAST_DURATION.NORMAL
     );
   } catch (error) {
-    console.error("Error checking triggers:", error);
-    return false;
-  }
-}
-
-/**
- * Removes all automatic import triggers
- * Call this when user wants to disable auto-imports
- * @returns {number} Number of triggers removed
- */
-function removeAutomaticImportTriggers() {
-  try {
-    const triggers = ScriptApp.getProjectTriggers();
-    let count = 0;
-
-    triggers.forEach((trigger) => {
-      if (trigger.getHandlerFunction() === "runAutomaticImport") {
-        ScriptApp.deleteTrigger(trigger);
-        count++;
-      }
-    });
-
-    if (count > 0) {
-      const properties = getDocumentProperties();
-      if (properties) {
-        properties.setProperty("AUTO_IMPORT_ENABLED", "false");
-      }
-      console.log(`Removed ${count} automatic import triggers`);
-    }
-
-    return count;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Removing automatic import triggers",
-    });
+    ErrorHandler.handle(error, { operation: "Running import on open" }, false);
   }
 }

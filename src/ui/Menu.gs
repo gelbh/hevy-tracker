@@ -60,6 +60,8 @@ function onOpen(e) {
     }
 
     addonMenu.addToUi();
+
+    runAutomaticImport();
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Opening spreadsheet",
@@ -180,7 +182,7 @@ function runMenuAction(action) {
         successMessage: "API key setup initiated",
       }),
       runFullImport: () => ({
-        handler: apiClient.runFullImport,
+        handler: apiClient.runFullImport.bind(apiClient),
         successMessage: "Import started",
       }),
       importAllWorkouts: () => ({

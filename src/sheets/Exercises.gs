@@ -274,13 +274,12 @@ function addDuplicateHighlighting(manager) {
 
     const range = sheet.getRange(2, titleColumn, lastRow - 1, 1);
 
-    // This is the area with the error - remove any references to 'menu'
     const rules = sheet.getConditionalFormatRules().filter((rule) => {
       try {
         const criteria = rule.getCriteriaType();
         return (
           criteria !== SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA ||
-          !rule.getBooleanCriteria().getFormulas()[0].includes("countif")
+          !rule.getCriteriaValues()[0].includes("countif")
         );
       } catch (e) {
         return true;

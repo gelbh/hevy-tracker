@@ -221,7 +221,9 @@ class ApiClient {
           .getSheetByName(WEIGHT_SHEET_NAME)
           .getRange("A2")
           .setFormula(
-            'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'
+            'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("' +
+              TEMPLATE_SPREADSHEET_ID +
+              '", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'
           );
       }
 
@@ -233,17 +235,8 @@ class ApiClient {
       Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllWorkouts();
 
-      try {
-        setupAutomaticImportTriggers();
-      } catch (triggerError) {
-        console.error(
-          "Failed to set up automatic import triggers:",
-          triggerError
-        );
-      }
-
       showProgress(
-        "Initial import complete. Automatic updates scheduled for twice daily.",
+        "Initial import complete. Automatic imports will now run each time you open the sheet.",
         "Setup Complete",
         TOAST_DURATION.NORMAL
       );
