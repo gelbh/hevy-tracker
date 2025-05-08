@@ -229,9 +229,9 @@ class ApiClient {
 
       await importAllRoutineFolders();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllExercises();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllRoutines();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+      await importAllExercises();
       Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllWorkouts();
 

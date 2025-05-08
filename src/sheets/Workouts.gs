@@ -14,17 +14,20 @@ async function importAllWorkouts() {
   const props = getDocumentProperties();
   const lastUpdate = props.getProperty("LAST_WORKOUT_UPDATE");
 
-  const isFirstRun = !lastUpdate || !sheet.getRange("A2").getValue();
-  if (isFirstRun) {
-    await importAllWorkoutsFull();
+  let changes = 0;
+  if (!lastUpdate) {
+    changes = await importAllWorkoutsFull();
   } else {
-    await importAllWorkoutsDelta(lastUpdate);
+    changes = await importAllWorkoutsDelta(lastUpdate);
   }
 
-  await updateExerciseCounts(
-    SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
-  );
-  manager.formatSheet();
+  if (changes > 0) {
+    await updateExerciseCounts(
+      SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
+    );
+    manager.formatSheet();
+  }
+  return changes;
 }
 
 /**
@@ -57,7 +60,6 @@ async function importAllWorkoutsFull() {
   );
 
   const rows = processWorkoutsData(allWorkouts);
-
   if (rows.length) {
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
@@ -68,6 +70,7 @@ async function importAllWorkoutsFull() {
     "Full Import Complete",
     5
   );
+  return rows.length;
 }
 
 /**
@@ -97,7 +100,7 @@ async function importAllWorkoutsDelta(lastUpdate) {
         "Delta Import",
         TOAST_DURATION.NORMAL
       );
-      return;
+      return 0;
     }
 
     const deletedIds = new Set();
@@ -136,6 +139,7 @@ async function importAllWorkoutsDelta(lastUpdate) {
       "Delta Import Complete",
       TOAST_DURATION.NORMAL
     );
+    return fullWorkouts.length;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Importing workout delta",

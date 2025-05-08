@@ -419,13 +419,14 @@ function saveHevyApiKey(apiKey) {
  * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
-  ScriptApp.getProjectTriggers()
-    .filter(
-      (trigger) =>
-        trigger.getHandlerFunction() === "runAutomaticImport" &&
-        trigger.getEventType() === ScriptApp.EventType.CLOCK
-    )
-    .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.getProjectTriggers().forEach((t) => {
+    if (
+      t.getHandlerFunction() === "runAutomaticImport" &&
+      t.getEventType() === ScriptApp.EventType.TIME_DRIVEN
+    ) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -433,13 +434,15 @@ async function runAutomaticImport() {
       return;
     }
 
-    await importAllRoutineFolders();
-    Utilities.sleep(RATE_LIMIT.API_DELAY);
-    await importAllExercises();
-    Utilities.sleep(RATE_LIMIT.API_DELAY);
-    await importAllRoutines();
-    Utilities.sleep(RATE_LIMIT.API_DELAY);
-    await importAllWorkouts();
+    const newWorkouts = await importAllWorkouts();
+    if (newWorkouts > 0) {
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+      await importAllRoutineFolders();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+      await importAllExercises();
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+      await importAllRoutines();
+    }
 
     ss.toast(
       "Automatic import completed successfully",

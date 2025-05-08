@@ -3,6 +3,38 @@
  */
 
 /**
+ * Called once, when the add-on first gains file scope in a spreadsheet—
+ * either on install or upon making a copy of the template.
+ * Sets up the import-on-open trigger, then builds the menu.
+ *
+ * @param {Event} e The event object (with FULL authMode)
+ */
+function initializeAddOn(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const triggers = ScriptApp.getUserTriggers(ss);
+    const exists = triggers.some(
+      (t) =>
+        t.getHandlerFunction() === "runAutomaticImport" &&
+        t.getEventType() === ScriptApp.EventType.ON_OPEN
+    );
+    if (!exists) {
+      ScriptApp.newTrigger("runAutomaticImport")
+        .forSpreadsheet(ss)
+        .onOpen()
+        .create();
+    }
+
+    onOpen(e);
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Initializing add-on",
+      authMode: e?.authMode,
+    });
+  }
+}
+
+/**
  * Triggers when the add-on is installed
  * @param {Object} e The event object
  */
@@ -60,8 +92,6 @@ function onOpen(e) {
     }
 
     addonMenu.addToUi();
-
-    runAutomaticImport();
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Opening spreadsheet",
