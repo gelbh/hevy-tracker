@@ -25,8 +25,7 @@ function onOpen(e) {
     const ui = SpreadsheetApp.getUi();
     const addonMenu = ui.createAddonMenu();
 
-    const isTemplate =
-      e?.source?.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+    const isTemplate = e?.source?.getId() === TEMPLATE_SPREADSHEET_ID;
 
     if (isTemplate) {
       addonMenu.addItem("❓ View Setup Guide", "showGuideDialog");
@@ -76,8 +75,7 @@ function onOpen(e) {
 function onHomepage(e) {
   try {
     const spreadsheet = SpreadsheetApp.getActive();
-    const isTemplate =
-      spreadsheet.getId() === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+    const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
 
     const template = HtmlService.createTemplateFromFile(
       "src/ui/dialogs/Sidebar"
@@ -160,11 +158,12 @@ function showGuideDialog() {
       width: 700,
       height: 700,
       title: "Hevy Tracker Setup Guide",
+      templateData: {
+        TEMPLATE_SPREADSHEET_ID: TEMPLATE_SPREADSHEET_ID,
+      },
     });
   } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing guide dialog",
-    });
+    throw ErrorHandler.handle(error, { operation: "Showing guide dialog" });
   }
 }
 

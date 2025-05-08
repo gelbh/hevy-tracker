@@ -11,7 +11,7 @@
 async function importAllWorkouts() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const sheet = manager.sheet;
-  const props = PropertiesService.getScriptProperties();
+  const props = getDocumentProperties();
   const lastUpdate = props.getProperty("LAST_WORKOUT_UPDATE");
 
   const isFirstRun = !lastUpdate || !sheet.getRange("A2").getValue();
@@ -35,7 +35,7 @@ async function importAllWorkouts() {
 async function importAllWorkoutsFull() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const sheet = manager.sheet;
-  const props = PropertiesService.getScriptProperties();
+  const props = getDocumentProperties();
 
   props.deleteProperty("LAST_WORKOUT_UPDATE");
 
@@ -80,7 +80,7 @@ async function importAllWorkoutsDelta(lastUpdate) {
   try {
     const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
     const sheet = manager.sheet;
-    const props = PropertiesService.getScriptProperties();
+    const props = getDocumentProperties();
 
     const events = [];
     await apiClient.fetchPaginatedData(

@@ -101,9 +101,7 @@ class ErrorHandler {
       return "API key validation failed. Please reset your API key.";
     }
 
-    return DEBUG_MODE
-      ? `Error: ${error.message}\nID: ${error.errorId}`
-      : `An error occurred. Reference ID: ${error.errorId}`;
+    return `An error occurred. Reference ID: ${error.errorId}`;
   }
 
   /**

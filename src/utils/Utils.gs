@@ -420,8 +420,7 @@ function saveHevyApiKey(apiKey) {
 function setupAutomaticImportTriggers() {
   try {
     const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
-    const isTemplate =
-      spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+    const isTemplate = spreadsheetId === TEMPLATE_SPREADSHEET_ID;
 
     if (isTemplate) {
       console.log("Not setting up triggers on template spreadsheet");
@@ -494,11 +493,10 @@ function setupAutomaticImportTriggers() {
  * Runs the automatic import process
  * This is the function called by the triggers
  */
-function runAutomaticImport() {
+async function runAutomaticImport() {
   try {
     const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
-    const isTemplate =
-      spreadsheetId === "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
+    const isTemplate = spreadsheetId === TEMPLATE_SPREADSHEET_ID;
 
     if (isTemplate) {
       console.log("Not running automatic import on template spreadsheet");
@@ -513,7 +511,13 @@ function runAutomaticImport() {
       return;
     }
 
-    importAllWorkouts();
+    await importAllRoutineFolders();
+    Utilities.sleep(RATE_LIMIT.API_DELAY);
+    await importAllExercises();
+    Utilities.sleep(RATE_LIMIT.API_DELAY);
+    await importAllRoutines();
+    Utilities.sleep(RATE_LIMIT.API_DELAY);
+    await importAllWorkouts();
 
     console.log(`Automatic import completed at ${new Date().toISOString()}`);
   } catch (error) {

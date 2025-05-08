@@ -9,6 +9,7 @@ class ApiClient {
       baseDelay: 1000,
       maxDelay: 10000,
     };
+    this.cache = {};
   }
 
   /**
@@ -316,6 +317,13 @@ class ApiClient {
    * @throws {ApiError} If request fails after retries
    */
   async makeRequest(endpoint, options, queryParams = {}, payload = null) {
+    if (options.method === "GET" && Object.keys(queryParams).length === 0) {
+      const cacheKey = endpoint;
+      if (this.cache[cacheKey]) {
+        return this.cache[cacheKey];
+      }
+    }
+
     const url = this.buildUrl(endpoint, queryParams);
     let attempt = 0;
     let lastError;
@@ -332,7 +340,14 @@ class ApiClient {
         }
 
         const response = await this.executeRequest(url, options);
-        return this.handleResponse(response);
+
+        const parsedResponse = this.handleResponse(response);
+
+        if (options.method === "GET" && Object.keys(queryParams).length === 0) {
+          this.cache[endpoint] = parsedResponse;
+        }
+
+        return parsedResponse;
       } catch (error) {
         lastError = error;
 
