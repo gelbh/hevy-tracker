@@ -422,7 +422,7 @@ async function runAutomaticImport() {
   ScriptApp.getProjectTriggers().forEach((t) => {
     if (
       t.getHandlerFunction() === "runAutomaticImport" &&
-      t.getEventType() === ScriptApp.EventType.TIME_DRIVEN
+      t.getEventType() === ScriptApp.EventType.CLOCK
     ) {
       ScriptApp.deleteTrigger(t);
     }
