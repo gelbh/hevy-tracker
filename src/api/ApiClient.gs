@@ -205,6 +205,20 @@ class ApiClient {
    */
   async runFullImport() {
     try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const triggers = ScriptApp.getUserTriggers(ss);
+      const exists = triggers.some(
+        (t) =>
+          t.getHandlerFunction() === "runAutomaticImport" &&
+          t.getEventType() === ScriptApp.EventType.ON_OPEN
+      );
+      if (!exists) {
+        ScriptApp.newTrigger("runAutomaticImport")
+          .forSpreadsheet(ss)
+          .onOpen()
+          .create();
+      }
+
       if (checkForMultiLoginIssues()) {
         showProgress(
           "Multi-login warning shown. Continuing with import...",

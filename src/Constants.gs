@@ -1,7 +1,7 @@
 const AUTHORIZED_API_KEY = "PLACEHOLDER_KEY";
 
 // Template Spreadsheet ID
-const TEMPLATE_SPREADSHEET_ID = "1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68";
+const TEMPLATE_SPREADSHEET_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
 // Sheet Names
 const WORKOUTS_SHEET_NAME = "Workouts";
