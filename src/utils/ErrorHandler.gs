@@ -11,11 +11,9 @@ class ErrorHandler {
     const contextObj =
       typeof context === "string" ? { description: context } : context;
 
-    // Enhance error with standard properties
     let enhancedError = this.enhanceError(error, contextObj);
     enhancedError.errorId = errorId;
 
-    // Log the error
     console.error(`Error [${errorId}]:`, {
       message: enhancedError.message,
       context: contextObj,
@@ -23,14 +21,17 @@ class ErrorHandler {
       user: Session.getActiveUser().getEmail(),
     });
 
-    // Show user feedback if requested
     if (showToast) {
-      const userMessage = this.getUserMessage(enhancedError);
-      SpreadsheetApp.getActiveSpreadsheet().toast(
-        userMessage,
-        "Error",
-        TOAST_DURATION.NORMAL
-      );
+      try {
+        const userMessage = this.getUserMessage(enhancedError);
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          userMessage,
+          "Error",
+          TOAST_DURATION.NORMAL
+        );
+      } catch (uiError) {
+        console.warn("ErrorHandler: Unable to show toast:", uiError);
+      }
     }
 
     return enhancedError;

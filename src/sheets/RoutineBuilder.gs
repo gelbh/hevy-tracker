@@ -7,45 +7,46 @@
  * @returns {Promise<Object>} Created routine data
  */
 async function createRoutineFromSheet() {
-  try {
-    const sheet =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
-    if (!sheet) {
-      throw new ValidationError("Routine Builder sheet not found");
-    }
+  const ui = SpreadsheetApp.getUi();
+  const sheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
+  const titleCell = sheet.getRange("C2");
+  const title = String(titleCell.getValue()).trim();
+  if (!title) {
+    ui.alert(
+      "Routine title is required",
+      "Please enter a name for your routine in cell C2 before saving.",
+      ui.ButtonSet.OK
+    );
+    return;
+  }
 
-    // Get and validate routine metadata
-    const title = sheet.getRange("C2").getValue();
+  try {
     const folderValue = sheet.getRange("C3").getValue();
     const notes = sheet.getRange("C4").getValue();
 
-    if (!title) {
-      throw new ValidationError("Routine title is required");
-    }
-
-    // Handle folder assignment
     let folderId = null;
     if (folderValue?.trim()) {
       folderId = await getOrCreateRoutineFolder(folderValue.trim());
     }
 
-    // Get and validate exercise data
     const exerciseData = sheet
       .getRange("A8:H" + sheet.getLastRow())
       .getValues()
       .filter((row) => row[0] && row[2]);
 
     if (exerciseData.length === 0) {
-      throw new ValidationError(
-        "At least one exercise with a set type is required"
+      ui.alert(
+        "At least one exercise with a set type is required",
+        "Please add at least one exercise with a set type in the table.",
+        ui.ButtonSet.OK
       );
+      return;
     }
 
-    // Process and validate exercises
     const exercises = processExercises(exerciseData);
     validateRoutineData(title, exercises);
 
-    // Prepare routine data
     const routineData = {
       routine: {
         title: title,
@@ -55,7 +56,6 @@ async function createRoutineFromSheet() {
       },
     };
 
-    // Submit to API
     const response = await submitRoutine(routineData);
 
     await handleSuccessfulSubmission(response);

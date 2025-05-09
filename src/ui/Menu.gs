@@ -33,8 +33,6 @@ function onOpen(e) {
       addonMenu.addItem("🔑 Set Hevy API Key", "showInitialSetup");
     }
 
-    checkForMultiLoginIssues();
-
     if (!isTemplate) {
       const importSubmenu = ui
         .createMenu("📥 Import Data")
@@ -74,6 +72,8 @@ function onOpen(e) {
  */
 function onHomepage(e) {
   try {
+    checkForMultiLoginIssues();
+
     const spreadsheet = SpreadsheetApp.getActive();
     const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
 
