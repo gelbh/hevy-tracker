@@ -14,13 +14,15 @@ async function importAllExercises() {
     const sheet = manager.sheet;
 
     const existingData = getExistingExercises(sheet);
+    const allApiExercises = [];
     const processedExercises = [];
 
     const processExercisePage = async (exercises) => {
+      allApiExercises.push(...exercises);
+
       const newExercises = exercises.filter(
         (exercise) => !shouldSkipExercise(exercise, existingData)
       );
-
       const processedData = processExercisesData(newExercises);
       processedExercises.push(...processedData);
     };
@@ -31,6 +33,8 @@ async function importAllExercises() {
       processExercisePage,
       "exercise_templates"
     );
+
+    syncCustomExerciseIds(sheet, allApiExercises);
 
     let updateMessage = "";
 
@@ -44,7 +48,6 @@ async function importAllExercises() {
     await updateExerciseCounts(sheet);
 
     manager.formatSheet();
-    addDuplicateHighlighting(manager);
 
     showProgress(
       updateMessage + "Updated counts for all exercises!",
@@ -57,6 +60,37 @@ async function importAllExercises() {
       sheetName: EXERCISES_SHEET_NAME,
     });
   }
+}
+
+/**
+ * Syncs IDs for any custom exercises in the sheet.
+ * For each row where "Is Custom" is TRUE:
+ *  • if an API exercise with the same title exists, set the ID to its API ID
+ *  • otherwise set the ID to "N/A"
+ *
+ * @private
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The Exercises sheet
+ * @param {{id:string,title:string}[]} apiExercises Array of all exercises from the API
+ */
+function syncCustomExerciseIds(sheet, apiExercises) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idCol = headers.indexOf("ID") + 1;
+  const titleCol = headers.indexOf("Title") + 1;
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  const data = sheet
+    .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
+    .getValues();
+
+  const newIds = data.map((row) => {
+    const match = apiExercises.find(
+      (ex) => ex.title.toLowerCase() === String(row[titleCol - 1]).toLowerCase()
+    );
+    return [match ? match.id : "N/A"];
+  });
+
+  sheet.getRange(2, idCol, newIds.length, 1).setValues(newIds);
 }
 
 /**
@@ -254,55 +288,6 @@ async function updateExerciseCounts(exerciseSheet) {
     throw ErrorHandler.handle(error, {
       operation: "Updating exercise counts",
       sheetName: exerciseSheet.getName(),
-    });
-  }
-}
-
-/**
- * Adds conditional formatting rule to highlight duplicate exercise names
- * @private
- */
-function addDuplicateHighlighting(manager) {
-  try {
-    const sheet = manager.sheet;
-    const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return;
-
-    const titleColumn =
-      SHEET_HEADERS[EXERCISES_SHEET_NAME].indexOf("Title") + 1;
-    if (titleColumn === 0) return;
-
-    const range = sheet.getRange(2, titleColumn, lastRow - 1, 1);
-
-    const rules = sheet.getConditionalFormatRules().filter((rule) => {
-      try {
-        const criteria = rule.getCriteriaType();
-        return (
-          criteria !== SpreadsheetApp.BooleanCriteria.CUSTOM_FORMULA ||
-          !rule.getCriteriaValues()[0].includes("countif")
-        );
-      } catch (e) {
-        return true;
-      }
-    });
-
-    const columnLetter = columnToLetter(titleColumn);
-    const duplicateRule = SpreadsheetApp.newConditionalFormatRule()
-      .setRanges([range])
-      .whenFormulaSatisfied(
-        `=countif($${columnLetter}$2:$${columnLetter}, $${columnLetter}2)>1`
-      )
-      .setBackground("#FFE6E6")
-      .setFontColor("#B71C1C")
-      .setBold(true)
-      .build();
-
-    rules.unshift(duplicateRule);
-    sheet.setConditionalFormatRules(rules);
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Adding duplicate highlighting",
-      sheetName: manager.sheet.getName(),
     });
   }
 }

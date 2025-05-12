@@ -253,6 +253,17 @@ class ApiClient {
         TOAST_DURATION.NORMAL
       );
     } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 401) {
+        const ui = SpreadsheetApp.getUi();
+        ui.alert(
+          "Invalid API Key",
+          "Your Hevy API key appears to be invalid or expired. Please update it now.",
+          ui.ButtonSet.OK
+        );
+        showInitialSetup();
+        return;
+      }
+
       throw ErrorHandler.handle(error, {
         operation: "Initial data import",
       });

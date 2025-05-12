@@ -419,12 +419,6 @@ function saveHevyApiKey(apiKey) {
  * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
-  ScriptApp.getProjectTriggers().forEach((t) => {
-    if (t.getEventType() === ScriptApp.EventType.CLOCK) {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (ss.getId() === TEMPLATE_SPREADSHEET_ID) {

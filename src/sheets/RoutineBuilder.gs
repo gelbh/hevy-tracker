@@ -44,6 +44,21 @@ async function createRoutineFromSheet() {
       return;
     }
 
+    const missing = exerciseData.filter((row) => {
+      const id = String(row[7]).trim().toUpperCase();
+      return !id || id === "N/A";
+    });
+    if (missing.length) {
+      const names = missing.map((r) => r[0]).join(", ");
+      ui.alert(
+        "Missing Exercise IDs",
+        `The following exercises are not in your Hevy account: ${names}.\n` +
+          "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
     const exercises = processExercises(exerciseData);
     validateRoutineData(title, exercises);
 
