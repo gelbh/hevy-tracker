@@ -219,7 +219,6 @@ function importWeightFromTakeout(content) {
       }
     });
 
-    // sort newest→oldest
     points.sort((a, b) => b[0] - a[0]);
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
