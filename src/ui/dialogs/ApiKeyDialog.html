@@ -101,20 +101,20 @@
         const apiKey = document.getElementById("apiKey").value.trim();
         if (!apiKey) return;
 
-        // Disable button and show spinner
         const saveButton = document.getElementById("saveButton");
         const spinner = document.getElementById("spinner");
         saveButton.disabled = true;
         spinner.style.display = "inline-block";
 
+        google.script.host.close();
+
         google.script.run
-          .withSuccessHandler(function () {
-            google.script.host.close();
-          })
           .withFailureHandler(function (error) {
-            saveButton.disabled = false;
-            spinner.style.display = "none";
-            alert("Error saving API key: " + error);
+            SpreadsheetApp.getActiveSpreadsheet().toast(
+              "Error saving API key: " + error,
+              "Error",
+              TOAST_DURATION.NORMAL
+            );
           })
           .saveHevyApiKey(apiKey);
       }

@@ -11,8 +11,10 @@
 async function importAllWorkouts() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const sheet = manager.sheet;
-  const props = getDocumentProperties();
-  const lastUpdate = props.getProperty("LAST_WORKOUT_UPDATE");
+
+  const lastUpdate = !sheet.getRange("A2").getValue()
+    ? FALSE
+    : getDocumentProperties().getProperty("LAST_WORKOUT_UPDATE");
 
   let changes = 0;
   if (!lastUpdate) {

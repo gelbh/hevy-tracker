@@ -54,6 +54,7 @@ function onOpen(e) {
         .addSeparator()
         .addSubMenu(routineBuilderSubmenu)
         .addSeparator()
+        .addItem("❤️‍🩹 Import Body Weight from Takeout", "showImportDialog")
         .addItem("⚖️ Log Body Weight", "logWeight");
     }
 
@@ -168,6 +169,23 @@ function showGuideDialog() {
 }
 
 /**
+ * Opens the Takeout-import dialog.
+ */
+function showImportDialog() {
+  try {
+    showHtmlDialog("src/ui/dialogs/ImportWeight", {
+      title: "Import Google Fit Weight",
+      width: 600,
+      height: 420,
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing import dialog",
+    });
+  }
+}
+
+/**
  * Handles sidebar menu actions with improved response handling
  * @param {string} action - The action to perform
  * @returns {Object} Response object with status and message
@@ -214,6 +232,10 @@ function runMenuAction(action) {
       showGuideDialog: () => ({
         handler: showGuideDialog,
         successMessage: "Opening guide",
+      }),
+      showImportDialog: () => ({
+        handler: showImportDialog,
+        successMessage: "Weight import initiated",
       }),
     };
 

@@ -190,6 +190,62 @@ function isValidCellValue(range, value) {
 // -----------------
 
 /**
+ * Imports weight entries from a Google Takeout JSON.
+ * @param {string} content JSON from Google Takeout
+ */
+function importWeightFromTakeout(content) {
+  try {
+    const points = [];
+    const data = JSON.parse(content);
+    const records = Array.isArray(data["Data Points"])
+      ? data["Data Points"]
+      : (data.bucket || []).flatMap((b) =>
+          (b.dataset || []).flatMap((d) => d.point || [])
+        );
+
+    records.forEach((pt) => {
+      if (pt.dataTypeName === "com.google.weight") {
+        const nanos = pt.startTimeNanos || pt.endTimeNanos;
+        const ts = new Date(Number(nanos) / 1e6);
+        let kg = null;
+        if (pt.value && pt.value[0]?.fpVal != null) {
+          kg = pt.value[0].fpVal;
+        } else if (pt.fitValue && pt.fitValue[0]?.value?.fpVal != null) {
+          kg = pt.fitValue[0].value.fpVal;
+        }
+        if (kg != null) {
+          points.push([ts, Math.round(kg * 100) / 100]);
+        }
+      }
+    });
+
+    // sort newest→oldest
+    points.sort((a, b) => b[0] - a[0]);
+
+    const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
+    const sheet = manager.sheet;
+    if (sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).clearContent();
+    }
+    if (points.length) {
+      sheet.getRange(2, 1, points.length, 2).setValues(points);
+    }
+    manager.formatSheet();
+
+    showProgress(
+      `Imported ${points.length} entries`,
+      "Import Complete",
+      TOAST_DURATION.NORMAL
+    );
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Importing weight from Takeout data",
+      sheetName: WEIGHT_SHEET_NAME,
+    });
+  }
+}
+
+/**
  * Logs a weight entry with user input
  * @throws {Error} If weight value is invalid or sheet operations fail
  */
