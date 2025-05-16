@@ -172,7 +172,7 @@ function processExercises(exerciseData) {
       }
 
       if (currentExercise) {
-        sets.push(
+        currentExercise.sets.push(
           createSet(setType, weight, reps, templateTypeMap[templateId])
         );
       }
