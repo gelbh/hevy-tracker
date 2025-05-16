@@ -116,6 +116,19 @@ function clearRoutineBuilder() {
  */
 function processExercises(exerciseData) {
   try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const exercisesSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
+    const exerciseValues = exercisesSheet.getDataRange().getValues();
+    const headersRow = exerciseValues.shift();
+    const idCol = headersRow.indexOf("ID");
+    const typeCol = headersRow.indexOf("Type");
+    const templateTypeMap = {};
+    exerciseValues.forEach((row) => {
+      const id = String(row[idCol]).trim();
+      const type = row[typeCol];
+      if (id) templateTypeMap[id] = type;
+    });
+
     const exercises = [];
     let currentExercise = null;
     let currentTemplateId = null;
@@ -159,7 +172,9 @@ function processExercises(exerciseData) {
       }
 
       if (currentExercise) {
-        currentExercise.sets.push(createSet(setType, weight, reps));
+        sets.push(
+          createSet(setType, weight, reps, templateTypeMap[templateId])
+        );
       }
     });
 
@@ -333,12 +348,12 @@ function createNewExercise(templateId, rest, supersetId, notes) {
  * Creates a set object from processed values
  * @private
  */
-function createSet(setType, weight, reps) {
+function createSet(setType, weight, reps, templateType) {
   return {
     type: setType || "normal",
     weight_kg: weight,
-    reps: reps,
-    distance_meters: null,
+    reps: templateType === "short_distance_weight" ? null : reps,
+    distance_meters: templateType === "short_distance_weight" ? reps : null,
     duration_seconds: null,
   };
 }

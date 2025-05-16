@@ -227,7 +227,6 @@ function processWorkoutsData(workouts) {
             "",
             "",
             "",
-            "",
           ],
         ];
       }
@@ -240,8 +239,7 @@ function processWorkoutsData(workouts) {
           ex.title,
           normalizeSetType(set.type),
           normalizeWeight(set.weight_kg),
-          normalizeNumber(set.reps),
-          normalizeNumber(set.distance_meters),
+          normalizeNumber(set.reps ?? set.distance_meters),
           normalizeNumber(set.duration_seconds),
           normalizeNumber(set.rpe),
         ])

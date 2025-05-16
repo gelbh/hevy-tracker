@@ -23,7 +23,6 @@ async function importAllRoutines() {
       );
     };
 
-    // Fetch and process routines
     const totalRoutines = await apiClient.fetchPaginatedData(
       API_ENDPOINTS.ROUTINES,
       PAGE_SIZE.ROUTINES,
@@ -31,7 +30,6 @@ async function importAllRoutines() {
       "routines"
     );
 
-    // Update sheet with processed data
     if (processedRoutines.length > 0) {
       await updateRoutinesInSheet(sheet, processedRoutines);
       showProgress(
@@ -101,7 +99,8 @@ function processRoutine(routine) {
           "", // Exercise
           "", // Set Type
           "", // Weight
-          "", // Reps
+          "", // Reps / Distance (m)
+          "", // Duration (s)
         ],
       ];
     }
@@ -134,6 +133,7 @@ function processRoutineExercise(exercise, routine) {
       normalizeSetType(set.type),
       normalizeWeight(set.weight_kg),
       normalizeNumber(set.reps ?? set.distance_meters),
+      normalizeNumber(set.duration_seconds),
     ]);
   } catch (error) {
     throw ErrorHandler.handle(error, {
