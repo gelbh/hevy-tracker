@@ -133,7 +133,7 @@ function processRoutineExercise(exercise, routine) {
       exercise.title,
       normalizeSetType(set.type),
       normalizeWeight(set.weight_kg),
-      normalizeNumber(set.reps),
+      normalizeNumber(set.reps ?? set.distance_meters),
     ]);
   } catch (error) {
     throw ErrorHandler.handle(error, {
