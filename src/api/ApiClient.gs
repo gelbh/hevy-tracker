@@ -333,8 +333,8 @@ class ApiClient {
    * @throws {ApiError} If request fails after retries
    */
   async makeRequest(endpoint, options, queryParams = {}, payload = null) {
-    if (options.method === "GET" && Object.keys(queryParams).length === 0) {
-      const cacheKey = endpoint;
+    if (options.method === "GET") {
+      const cacheKey = `${endpoint}?${this.buildQueryString(queryParams)}`;
       if (this.cache[cacheKey]) {
         return this.cache[cacheKey];
       }
@@ -359,8 +359,9 @@ class ApiClient {
 
         const parsedResponse = this.handleResponse(response);
 
-        if (options.method === "GET" && Object.keys(queryParams).length === 0) {
-          this.cache[endpoint] = parsedResponse;
+        if (options.method === "GET") {
+          const cacheKey = `${endpoint}?${this.buildQueryString(queryParams)}`;
+          this.cache[cacheKey] = parsedResponse;
         }
 
         return parsedResponse;
