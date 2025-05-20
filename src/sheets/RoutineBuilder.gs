@@ -73,7 +73,7 @@ async function createRoutineFromSheet() {
 
     const response = await submitRoutine(routineData);
 
-    await handleSuccessfulSubmission(response);
+    await handleSuccessfulSubmission();
     return response.routine;
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -99,7 +99,7 @@ function clearRoutineBuilder() {
     }
 
     sheet.getRange("C2:H4").clearContent();
-    sheet.getRange("A8:G1000").clearContent();
+    sheet.getRange("A8:G").clearContent();
 
     showProgress("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
@@ -351,10 +351,14 @@ function createNewExercise(templateId, rest, supersetId, notes) {
 function createSet(setType, weight, reps, templateType) {
   return {
     type: setType || "normal",
-    weight_kg: weight,
-    reps: templateType === "short_distance_weight" ? null : reps,
-    distance_meters: templateType === "short_distance_weight" ? reps : null,
-    duration_seconds: null,
+    weight_kg: templateType?.toLowerCase().includes("duration") ? null : weight,
+    reps: templateType?.toLowerCase().includes("distance") ? null : reps,
+    distance_meters: templateType?.toLowerCase().includes("distance")
+      ? reps
+      : null,
+    duration_seconds: templateType?.toLowerCase().includes("duration")
+      ? weight
+      : null,
   };
 }
 
@@ -394,21 +398,16 @@ async function submitRoutine(routineData) {
  * Handles successful routine submission
  * @private
  */
-async function handleSuccessfulSubmission(response) {
+async function handleSuccessfulSubmission() {
   showProgress(
     "Routine created successfully!",
     "Success",
     TOAST_DURATION.NORMAL
   );
 
-  const ui = SpreadsheetApp.getUi();
-  const clearResponse = ui.alert(
-    "Success",
-    "Would you like to clear the form?",
-    ui.ButtonSet.YES_NO
-  );
-
-  if (clearResponse === ui.Button.YES) {
-    await clearRoutineBuilder();
-  }
+  await showHtmlDialog("src/ui/dialogs/RoutineCreated", {
+    width: 400,
+    height: 300,
+    title: "Routine Builder",
+  });
 }

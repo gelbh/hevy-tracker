@@ -1,0 +1,62 @@
+<style>
+  .routine-dialog {
+    font-family: Roboto, sans-serif;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .routine-dialog h2 {
+    color: #34a853;
+    margin-bottom: 16px;
+  }
+
+  .routine-dialog p {
+    font-size: 14px;
+    margin: 8px 0;
+  }
+
+  .routine-dialog a {
+    display: inline-block;
+    margin: 12px 0;
+    color: #1a73e8;
+    font-weight: bold;
+    text-decoration: none;
+  }
+
+  .routine-dialog a:hover {
+    text-decoration: underline;
+  }
+
+  .routine-dialog button {
+    margin: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .clear-btn {
+    background-color: #4604fb;
+    color: #fff;
+  }
+
+  .close-btn {
+    background-color: #e0e0e0;
+  }
+</style>
+
+<div class="routine-dialog">
+  <h2>✅ Routine Created</h2>
+  <p>Your routine has been successfully created!</p>
+  <p>
+    <a href="https://hevy.com/routines" target="_blank">View Routine on Hevy</a>
+  </p>
+  <button
+    class="clear-btn"
+    onclick="google.script.run.clearRoutineBuilder(); google.script.host.close()"
+  >
+    Clear Form
+  </button>
+  <button class="close-btn" onclick="google.script.host.close()">Close</button>
+</div>
