@@ -76,12 +76,12 @@ function syncCustomExerciseIds(sheet, apiExercises) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const idCol = headers.indexOf("ID") + 1;
   const titleCol = headers.indexOf("Title") + 1;
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return;
 
-  const data = sheet
-    .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
-    .getValues();
+  const lastColumn = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1 || lastColumn === 0) return;
+
+  const data = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
 
   const newIds = data.map((row) => {
     const match = apiExercises.find(

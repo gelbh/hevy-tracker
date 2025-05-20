@@ -313,19 +313,21 @@ function updateChartTitles(unit) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = ss.getSheetByName("Main");
     let charts = mainSheet.getCharts();
-    for (let i = 0; i < charts.length; i++) {
-      const chart = charts[i];
-      let options = chart.getOptions();
-      let oldTitle = options.get("title");
-      if (oldTitle && oldTitle.toString().includes("Volume")) {
+    const updatedCharts = [];
+
+    for (const chart of charts) {
+      const title = chart.getOptions().get("title");
+      if (title && title.toString().includes("kg", "lbs", "stone")) {
         const newChart = chart
           .modify()
-          .setOption("title", `Volume (${unit})`)
-          .setOption("backgroundColor.stroke", "#000")
-          .setOption("backgroundColor.strokeWidth", 1)
+          .setOption("title", oldTitle.replace(/kg|lbs|stone/g, unit))
           .build();
-        mainSheet.updateChart(newChart);
+        updatedCharts.push(newChart);
       }
+    }
+
+    for (const newChart of updatedCharts) {
+      mainSheet.updateChart(newChart);
     }
 
     SpreadsheetApp.flush();
