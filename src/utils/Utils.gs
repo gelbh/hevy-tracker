@@ -306,36 +306,35 @@ function promptForWeight(unit = "kg") {
 
 /**
  * Updates chart titles to reflect the current weight unit
- * @param {string} unit - The weight unit
+ * @param {string} unit - The weight unit ("kg", "lbs", or "stone")
  */
 function updateChartTitles(unit) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const mainSheet = ss.getSheetByName("Main");
-    let charts = mainSheet.getCharts();
+    const charts = mainSheet.getCharts();
     const updatedCharts = [];
 
     for (const chart of charts) {
       const title = chart.getOptions().get("title");
-      if (title && title.toString().includes("kg", "lbs", "stone")) {
-        const newChart = chart
-          .modify()
-          .setOption("title", oldTitle.replace(/kg|lbs|stone/g, unit))
-          .build();
-        updatedCharts.push(newChart);
-      }
+      if (!title || !/kg|lbs|stone/.test(title.toString())) continue;
+
+      const newTitle = title.toString().replace(/kg|lbs|stone/g, unit);
+      if (newTitle === title.toString()) continue;
+
+      const newChart = chart.modify().setOption("title", newTitle).build();
+      updatedCharts.push(newChart);
     }
 
-    for (const newChart of updatedCharts) {
-      mainSheet.updateChart(newChart);
-    }
+    updatedCharts.forEach((newChart) => mainSheet.updateChart(newChart));
 
-    SpreadsheetApp.flush();
-    showProgress(
-      `Weight unit changed to ${unit}`,
-      "Settings Updated",
-      TOAST_DURATION.NORMAL
-    );
+    if (updatedCharts.length > 0) {
+      showProgress(
+        `Weight unit changed to ${unit}`,
+        "Settings Updated",
+        TOAST_DURATION.NORMAL
+      );
+    }
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Updating chart titles",
