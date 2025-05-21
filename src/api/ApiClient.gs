@@ -140,7 +140,7 @@ class ApiClient {
           Utilities.sleep(RATE_LIMIT.API_DELAY);
         }
       } catch (error) {
-        if (this.isPaginationComplete(error)) {
+        if (error instanceof ApiError && error.statusCode === 404) {
           break;
         }
         throw ErrorHandler.handle(error, {
@@ -189,14 +189,12 @@ class ApiClient {
    * @private
    */
   async validateApiKey(apiKey) {
-    const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.EXERCISES}?page=1&page_size=1`;
+    const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUT_COUNT}`;
     const options = this.createRequestOptions(apiKey);
     const response = await this.executeRequest(url, options);
-
     if (response.getResponseCode() === 401) {
       throw new Error("Invalid or revoked API key");
     }
-
     return true;
   }
 
@@ -319,14 +317,6 @@ class ApiClient {
   }
 
   /**
-   * Checks if pagination is complete based on error
-   * @private
-   */
-  isPaginationComplete(error) {
-    return error instanceof ApiError && error.statusCode === 404;
-  }
-
-  /**
    * Makes an API request with error handling and retries
    * @async
    * @param {string} endpoint - The API endpoint to request
@@ -441,7 +431,7 @@ class ApiClient {
       this.retryConfig.baseDelay * Math.pow(2, attempt),
       this.retryConfig.maxDelay
     );
-    // Add random jitter between 50% and 100% of calculated delay
+
     return delay * (0.5 + Math.random() * 0.5);
   }
 

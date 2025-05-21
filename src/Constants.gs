@@ -1,4 +1,4 @@
-const AUTHORIZED_API_KEY = "PLACEHOLDER_KEY";
+const AUTHORIZED_API_KEY = "***REMOVED***";
 
 // Template Spreadsheet ID
 const TEMPLATE_SPREADSHEET_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
@@ -15,6 +15,7 @@ const API_ENDPOINTS = {
   BASE: "https://api.hevyapp.com/v1",
   WORKOUTS: "/workouts",
   WORKOUTS_EVENTS: "/workouts/events",
+  WORKOUTS_COUNT: "/workouts/count",
   ROUTINES: "/routines",
   EXERCISES: "/exercise_templates",
   ROUTINE_FOLDERS: "/routine_folders",
