@@ -113,7 +113,18 @@ function onEdit(e) {
     if (e.range.getSheet().getName() === "Main") {
       switch (e.range.getA1Notation()) {
         case "I5":
-          updateChartTitles(e.value);
+          const format = `#,##0 "${e.value}"`;
+
+          const dataSheet =
+            SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
+          const lastRow = dataSheet.getLastRow();
+
+          const rangeList = dataSheet.getRangeList([
+            `J4:J${lastRow}`,
+            `E4:E${lastRow}`,
+          ]);
+
+          rangeList.setNumberFormat(format);
           break;
       }
     }

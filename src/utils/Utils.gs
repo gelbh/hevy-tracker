@@ -304,44 +304,6 @@ function promptForWeight(unit = "kg") {
   return weight;
 }
 
-/**
- * Updates chart titles to reflect the current weight unit
- * @param {string} unit - The weight unit ("kg", "lbs", or "stone")
- */
-function updateChartTitles(unit) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const mainSheet = ss.getSheetByName("Main");
-    const charts = mainSheet.getCharts();
-    const updatedCharts = [];
-
-    for (const chart of charts) {
-      const title = chart.getOptions().get("title");
-      if (!title || !/kg|lbs|stone/.test(title.toString())) continue;
-
-      const newTitle = title.toString().replace(/kg|lbs|stone/g, unit);
-      if (newTitle === title.toString()) continue;
-
-      const newChart = chart.modify().setOption("title", newTitle).build();
-      updatedCharts.push(newChart);
-    }
-
-    updatedCharts.forEach((newChart) => mainSheet.updateChart(newChart));
-
-    if (updatedCharts.length > 0) {
-      showProgress(
-        `Weight unit changed to ${unit}`,
-        "Settings Updated",
-        TOAST_DURATION.NORMAL
-      );
-    }
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Updating chart titles",
-    });
-  }
-}
-
 // -----------------
 // Data Formatting
 // -----------------
