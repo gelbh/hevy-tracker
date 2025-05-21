@@ -328,10 +328,8 @@ class ApiClient {
    */
   async makeRequest(endpoint, options, queryParams = {}, payload = null) {
     if (options.method === "GET") {
-      const cacheKey = `${endpoint}?${this.buildQueryString(queryParams)}`;
-      if (this.cache[cacheKey]) {
-        return this.cache[cacheKey];
-      }
+      const k = this.getCacheKey(endpoint, queryParams);
+      if (this.cache[k]) return this.cache[k];
     }
 
     const url = this.buildUrl(endpoint, queryParams);
@@ -354,8 +352,7 @@ class ApiClient {
         const parsedResponse = this.handleResponse(response);
 
         if (options.method === "GET") {
-          const cacheKey = `${endpoint}?${this.buildQueryString(queryParams)}`;
-          this.cache[cacheKey] = parsedResponse;
+          this.cache[this.getCacheKey(endpoint, queryParams)] = parsedResponse;
         }
 
         return parsedResponse;
@@ -408,6 +405,7 @@ class ApiClient {
       muteHttpExceptions: true,
       validateHttpsCertificates: true,
       followRedirects: true,
+      timeout: 30000,
     };
   }
 
@@ -511,6 +509,16 @@ class ApiClient {
           `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
       )
       .join("&");
+  }
+
+  /**
+   * Generates a consistent cache key string for GET requests.
+   * @param {string} endpoint
+   * @param {Object} queryParams
+   * @returns {string}
+   */
+  getCacheKey(endpoint, queryParams) {
+    return `${endpoint}?${this.buildQueryString(queryParams)}`;
   }
 }
 
