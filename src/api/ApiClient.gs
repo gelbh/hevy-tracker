@@ -33,7 +33,7 @@ class ApiClient {
   /**
    * Shows the API key management dialog
    */
-  manageHevyApiKey() {
+  manageApiKey() {
     try {
       const properties = getDocumentProperties();
       const currentKey = properties.getProperty("HEVY_API_KEY");
@@ -42,7 +42,7 @@ class ApiClient {
         return;
       }
 
-      showHtmlDialog("src/ui/dialogs/ApiKeyDialog", {
+      showHtmlDialog("src/ui/dialogs/SetApiKey", {
         width: 450,
         height: 250,
         title: "Hevy API Key Setup",
@@ -56,7 +56,7 @@ class ApiClient {
    * Saves the API key and initiates initial data import if needed
    * @param {string} apiKey - The API key to save
    */
-  async saveHevyApiKey(apiKey) {
+  async saveUserApiKey(apiKey) {
     try {
       await this.validateApiKey(apiKey);
 
@@ -65,14 +65,14 @@ class ApiClient {
       properties.setProperty("HEVY_API_KEY", apiKey);
 
       if (!currentKey) {
-        showProgress(
+        showToast(
           "API key set successfully. Starting initial data import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
         this.runFullImport();
       } else {
-        showProgress(
+        showToast(
           "API key updated successfully!",
           "Success",
           TOAST_DURATION.NORMAL
@@ -166,7 +166,7 @@ class ApiClient {
       ui.alert("Hevy API Key Required", message, ui.ButtonSet.YES_NO) ===
       ui.Button.YES
     ) {
-      this.manageHevyApiKey();
+      this.manageApiKey();
     }
   }
 
@@ -220,7 +220,7 @@ class ApiClient {
       }
 
       if (checkForMultiLoginIssues()) {
-        showProgress(
+        showToast(
           "Multi-login warning shown. Continuing with import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
@@ -239,15 +239,19 @@ class ApiClient {
           );
       }
 
-      await importAllRoutineFolders();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllRoutines();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
       await importAllExercises();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllWorkouts();
 
-      showProgress(
+      const isTemplate = ss.getId() === TEMPLATE_SPREADSHEET_ID;
+      if (!isTemplate) {
+        await importAllRoutineFolders();
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+        await importAllRoutines();
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+        await importAllWorkouts();
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+      }
+
+      showToast(
         "Initial import complete. Automatic imports will now run each time you open the sheet.",
         "Setup Complete",
         TOAST_DURATION.NORMAL

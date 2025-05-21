@@ -22,7 +22,7 @@ async function importAllRoutineFolders() {
       const processedData = processFolderData(folders);
       processedFolders.push(...processedData);
 
-      showProgress(
+      showToast(
         `Processed ${processedFolders.length} folders...`,
         "Processing Progress"
       );
@@ -41,7 +41,7 @@ async function importAllRoutineFolders() {
     // Format and finish
     manager.formatSheet();
 
-    showProgress(
+    showToast(
       `Imported ${totalFolders + 1} folders successfully!`,
       "Import Complete",
       TOAST_DURATION.NORMAL

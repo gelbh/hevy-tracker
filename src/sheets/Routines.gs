@@ -17,7 +17,7 @@ async function importAllRoutines() {
       );
       processedRoutines.push(...routineData);
 
-      showProgress(
+      showToast(
         `Processed ${processedRoutines.length} routine entries...`,
         "Processing Progress"
       );
@@ -32,13 +32,13 @@ async function importAllRoutines() {
 
     if (processedRoutines.length > 0) {
       await updateRoutinesInSheet(sheet, processedRoutines);
-      showProgress(
+      showToast(
         `Imported ${totalRoutines} routines with ${processedRoutines.length} total entries!`,
         "Import Complete",
         TOAST_DURATION.NORMAL
       );
     } else {
-      showProgress(
+      showToast(
         "No routine entries found to import.",
         "Import Complete",
         TOAST_DURATION.NORMAL

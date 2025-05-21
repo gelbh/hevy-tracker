@@ -34,7 +34,11 @@ async function importAllExercises() {
       "exercise_templates"
     );
 
-    syncCustomExerciseIds(sheet, allApiExercises);
+    if (
+      SpreadsheetApp.getActiveSpreadsheet().getId() !== TEMPLATE_SPREADSHEET_ID
+    ) {
+      syncCustomExerciseIds(sheet, allApiExercises);
+    }
 
     let updateMessage = "";
 
@@ -49,7 +53,7 @@ async function importAllExercises() {
 
     manager.formatSheet();
 
-    showProgress(
+    showToast(
       updateMessage + "Updated counts for all exercises!",
       "Import Complete",
       TOAST_DURATION.NORMAL
@@ -134,8 +138,10 @@ function getExistingExercises(sheet) {
  */
 function processExercisesData(exercises) {
   try {
+    const isTemplate =
+      SpreadsheetApp.getActiveSpreadsheet().getId() === TEMPLATE_SPREADSHEET_ID;
     return exercises.map((exercise) => [
-      exercise.id,
+      isTemplate ? "" : exercise.id,
       exercise.title,
       "", // IMG
       exercise.type || "",

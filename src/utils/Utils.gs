@@ -43,7 +43,7 @@ function getDocumentProperties() {
  * @param {string} [title='Progress'] - Toast title
  * @param {number} [duration=TOAST_DURATION.SHORT] - Duration to show toast
  */
-function showProgress(
+function showToast(
   message,
   title = "Progress",
   duration = TOAST_DURATION.SHORT
@@ -231,7 +231,7 @@ function importWeightFromTakeout(content) {
     }
     manager.formatSheet();
 
-    showProgress(
+    showToast(
       `Imported ${points.length} entries`,
       "Import Complete",
       TOAST_DURATION.NORMAL
@@ -265,7 +265,7 @@ function logWeight() {
     sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
     manager.formatSheet();
 
-    showProgress(
+    showToast(
       `Weight of ${weight}${unit} logged successfully!`,
       "Success",
       TOAST_DURATION.NORMAL
@@ -421,10 +421,82 @@ function parseNumber(value, fieldName) {
 /**
  * Global function to save Hevy API key, callable from dialog
  * @param {string} apiKey - The API key to save
- * @throws {Error} If saving fails
  */
-function saveHevyApiKey(apiKey) {
-  return apiClient.saveHevyApiKey(apiKey);
+function saveUserApiKey(apiKey) {
+  return apiClient.saveUserApiKey(apiKey);
+}
+
+/**
+ * Saves a developer API key to script properties
+ *
+ * @param {*} label - The label for the API key
+ * @param {*} key - The API key to save
+ */
+function saveDevApiKey(label, key) {
+  PropertiesService.getScriptProperties().setProperty(
+    `DEV_API_KEY_${label}`,
+    key
+  );
+}
+
+/**
+ * Switches to a different API key based on the label
+ *
+ * @param {*} label - The label of the API key to switch to
+ */
+function useApiKey(label) {
+  const storedKey = PropertiesService.getScriptProperties().getProperty(
+    `DEV_API_KEY_${label}`
+  );
+  if (storedKey) {
+    const documentProperties = PropertiesService.getDocumentProperties();
+
+    documentProperties.setProperty("HEVY_API_KEY", storedKey);
+    showToast(
+      `Switched to API key: ${label}`,
+      "Developer Mode",
+      TOAST_DURATION.NORMAL
+    );
+
+    documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
+
+    apiClient.runFullImport();
+  } else {
+    SpreadsheetApp.getUi().alert(`No key found for label: ${label}`);
+  }
+}
+
+/**
+ * Removes an API key from the script properties
+ *
+ * @param {*} label - The label of the API key to remove
+ */
+function removeApiKey(label) {
+  const propKey = `DEV_API_KEY_${label}`;
+  PropertiesService.getScriptProperties().deleteProperty(propKey);
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `API Key "${label}" removed.`,
+    "Developer Action",
+    TOAST_DURATION.NORMAL
+  );
+}
+
+/**
+ * Retrieves all stored API keys and the current one for UI display
+ *
+ * @return {*} - An object containing all stored API keys and the current one
+ */
+function getApiKeyDataForUI() {
+  const props = PropertiesService.getScriptProperties().getProperties();
+  const keys = Object.entries(props)
+    .filter(([key]) => key.startsWith("DEV_API_KEY_"))
+    .map(([key, value]) => ({
+      label: key.replace("DEV_API_KEY_", ""),
+      key: value,
+    }));
+  const current =
+    PropertiesService.getDocumentProperties().getProperty("HEVY_API_KEY");
+  return { keys, current };
 }
 
 // -----------------
@@ -438,27 +510,61 @@ function saveHevyApiKey(apiKey) {
  */
 async function runAutomaticImport() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss.getId() === TEMPLATE_SPREADSHEET_ID) {
-      return;
+    await importAllExercises();
+
+    if (
+      SpreadsheetApp.getActiveSpreadsheet().getId() !== TEMPLATE_SPREADSHEET_ID
+    ) {
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+      if ((await importAllWorkouts()) > 0) {
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+        await importAllRoutineFolders();
+        Utilities.sleep(RATE_LIMIT.API_DELAY);
+        await importAllRoutines();
+      }
     }
 
-    const newWorkouts = await importAllWorkouts();
-    if (newWorkouts > 0) {
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllRoutineFolders();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllExercises();
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-      await importAllRoutines();
-    }
-
-    ss.toast(
-      "Automatic import completed successfully",
+    showToast(
+      "Importing all data completed successfully",
       "Automatic Import",
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
     ErrorHandler.handle(error, { operation: "Running import on open" }, false);
+  }
+}
+
+// -----------------
+// Developer Check
+// -----------------
+
+function isDeveloper() {
+  const email = Session.getEffectiveUser().getEmail();
+  const developerEmails = ["gelbharttomer@gmail.com"];
+  return developerEmails.includes(email);
+}
+
+// -----------------
+// Multi-Login Check
+// -----------------
+
+/**
+ * Checks if the user might be experiencing multi-login issues and shows a warning
+ * @private
+ */
+function checkForMultiLoginIssues() {
+  try {
+    const effectiveUser = Session.getEffectiveUser().getEmail();
+    const activeUser = Session.getActiveUser().getEmail();
+
+    if (!activeUser || activeUser !== effectiveUser) {
+      showMultiLoginWarning();
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    showMultiLoginWarning();
+    return true;
   }
 }

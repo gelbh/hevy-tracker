@@ -24,11 +24,7 @@ class ErrorHandler {
     if (showToast) {
       try {
         const userMessage = this.getUserMessage(enhancedError);
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          userMessage,
-          "Error",
-          TOAST_DURATION.NORMAL
-        );
+        showToast(userMessage, "Error", TOAST_DURATION.NORMAL);
       } catch (uiError) {
         console.warn("ErrorHandler: Unable to show toast:", uiError);
       }

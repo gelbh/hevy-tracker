@@ -73,7 +73,17 @@ async function createRoutineFromSheet() {
 
     const response = await submitRoutine(routineData);
 
-    await handleSuccessfulSubmission();
+    showToast(
+      "Routine created successfully!",
+      "Success",
+      TOAST_DURATION.NORMAL
+    );
+
+    await showHtmlDialog("src/ui/dialogs/RoutineCreated", {
+      width: 400,
+      height: 300,
+      title: "Routine Builder",
+    });
     return response.routine;
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -101,7 +111,7 @@ function clearRoutineBuilder() {
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G").clearContent();
 
-    showProgress("Form cleared!", "Success", TOAST_DURATION.SHORT);
+    showToast("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Clearing routine builder",
@@ -392,22 +402,4 @@ async function submitRoutine(routineData) {
       routineTitle: routineData.routine.title,
     });
   }
-}
-
-/**
- * Handles successful routine submission
- * @private
- */
-async function handleSuccessfulSubmission() {
-  showProgress(
-    "Routine created successfully!",
-    "Success",
-    TOAST_DURATION.NORMAL
-  );
-
-  await showHtmlDialog("src/ui/dialogs/RoutineCreated", {
-    width: 400,
-    height: 300,
-    title: "Routine Builder",
-  });
 }

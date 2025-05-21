@@ -110,13 +110,13 @@
 
         google.script.run
           .withFailureHandler(function (error) {
-            SpreadsheetApp.getActiveSpreadsheet().toast(
+            showToast(
               "Error saving API key: " + error,
               "Error",
               TOAST_DURATION.NORMAL
             );
           })
-          .saveHevyApiKey(apiKey);
+          .saveUserApiKey(apiKey);
       }
     </script>
   </body>

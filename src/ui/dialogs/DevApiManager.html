@@ -1,0 +1,153 @@
+<!-- src/ui/dialogs/DeveloperApiManager.html -->
+<style>
+  body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    padding: 24px;
+    background-color: #f9f9f9;
+    color: #333;
+  }
+  h2 {
+    font-size: 1.4em;
+    margin-top: 0;
+    color: #202124;
+  }
+  label {
+    display: block;
+    margin: 12px 0 6px;
+    font-weight: bold;
+  }
+  input[type="text"],
+  select {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  .section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+  }
+  .actions {
+    margin-top: 12px;
+    text-align: right;
+  }
+  .button {
+    font-size: 14px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+  .save-btn {
+    background-color: #4285f4;
+    color: white;
+  }
+  .remove-btn {
+    background-color: #d93025;
+    color: white;
+  }
+  .switch-btn {
+    background-color: #34a853;
+    color: white;
+  }
+  .cancel-btn {
+    background-color: #f1f3f4;
+    color: #202124;
+  }
+</style>
+
+<div>
+  <h2>Developer API Key Manager</h2>
+
+  <div class="section">
+    <label>Current API Key</label>
+    <p id="currentKey">Loading...</p>
+  </div>
+
+  <div class="section">
+    <label for="switchLabel">Switch to API Key</label>
+    <select id="switchLabel"></select>
+    <div class="actions">
+      <button class="button switch-btn" onclick="switchKey()">Switch</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <label for="label">New Label</label>
+    <input type="text" id="label" placeholder="e.g. main, dev" />
+
+    <label for="key">New API Key</label>
+    <input type="text" id="key" placeholder="Paste API key here" />
+    <div class="actions">
+      <button class="button save-btn" onclick="saveKey()">Save</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <label for="removeLabel">Remove API Key</label>
+    <select id="removeLabel"></select>
+    <div class="actions">
+      <button class="button remove-btn" onclick="removeKey()">Remove</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="button cancel-btn" onclick="google.script.host.close()">
+      Close
+    </button>
+  </div>
+</div>
+
+<script>
+  function refreshUI() {
+    google.script.run
+      .withSuccessHandler(({ keys, current }) => populateUI(keys, current))
+      .getApiKeyDataForUI();
+  }
+
+  function populateUI(keys, currentKey) {
+    const currentDisplay = document.getElementById("currentKey");
+    const switchDropdown = document.getElementById("switchLabel");
+    const removeDropdown = document.getElementById("removeLabel");
+
+    switchDropdown.innerHTML = "";
+    removeDropdown.innerHTML = "";
+
+    keys.forEach(({ label }) => {
+      const opt1 = new Option(label, label);
+      const opt2 = new Option(label, label);
+      switchDropdown.add(opt1);
+      removeDropdown.add(opt2);
+    });
+
+    const match = keys.find((k) => k.key === currentKey);
+    currentDisplay.textContent = match
+      ? `Label: ${match.label}, Key: ${match.key}`
+      : currentKey || "Not set";
+  }
+
+  function saveKey() {
+    const label = document.getElementById("label").value.trim();
+    const key = document.getElementById("key").value.trim();
+    if (!label || !key) return alert("Both label and key are required.");
+    google.script.run.withSuccessHandler(refreshUI).saveDevApiKey(label, key);
+  }
+
+  function switchKey() {
+    const label = document.getElementById("switchLabel").value;
+    if (!label) return;
+    google.script.run.withSuccessHandler(refreshUI).useApiKey(label);
+  }
+
+  function removeKey() {
+    const label = document.getElementById("removeLabel").value;
+    if (!label) return;
+    google.script.run.withSuccessHandler(refreshUI).removeApiKey(label);
+  }
+
+  document.addEventListener("DOMContentLoaded", refreshUI);
+</script>
