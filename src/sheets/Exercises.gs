@@ -177,34 +177,22 @@ function shouldSkipExercise(exercise, existingData) {
 }
 
 /**
- * Inserts new exercises into the sheet
+ * Appends new exercises at the end of the sheet.
  * @private
  */
 async function insertNewExercises(sheet, processedExercises) {
   try {
-    const lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.insertRowsBefore(lastRow, processedExercises.length);
-      const insertStartRow = lastRow;
-      const range = sheet.getRange(
-        insertStartRow,
-        1,
-        processedExercises.length,
-        processedExercises[0].length
-      );
-      range.setValues(processedExercises);
-    } else {
-      const range = sheet.getRange(
-        2,
-        1,
-        processedExercises.length,
-        processedExercises[0].length
-      );
-      range.setValues(processedExercises);
-    }
+    const startRow = sheet.getLastRow() + 1;
+    const range = sheet.getRange(
+      startRow,
+      1,
+      processedExercises.length,
+      processedExercises[0].length
+    );
+    range.setValues(processedExercises);
   } catch (error) {
     throw ErrorHandler.handle(error, {
-      operation: "Inserting new exercises",
+      operation: "Appending new exercises",
       sheetName: sheet.getName(),
       exerciseCount: processedExercises.length,
     });
