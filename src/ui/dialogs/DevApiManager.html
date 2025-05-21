@@ -25,13 +25,18 @@
     box-sizing: border-box;
   }
   .section {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
     border-bottom: 1px solid #ddd;
   }
-  .actions {
-    margin-top: 12px;
-    text-align: right;
+  .inline-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .inline-actions > * {
+    margin: 0;
   }
   .button {
     font-size: 14px;
@@ -67,35 +72,37 @@
 
   <div class="section">
     <label for="switchLabel">Switch to API Key</label>
-    <select id="switchLabel"></select>
-    <div class="actions">
+    <div class="inline-actions">
+      <select id="switchLabel"></select>
       <button class="button switch-btn" onclick="switchKey()">Switch</button>
     </div>
   </div>
 
   <div class="section">
-    <label for="label">New Label</label>
-    <input type="text" id="label" placeholder="e.g. main, dev" />
-
-    <label for="key">New API Key</label>
-    <input type="text" id="key" placeholder="Paste API key here" />
-    <div class="actions">
+    <label for="label">New Label and API Key</label>
+    <div class="inline-actions">
+      <input
+        type="text"
+        id="label"
+        placeholder="e.g. main, dev"
+        style="flex: 1"
+      />
+      <input
+        type="text"
+        id="key"
+        placeholder="Paste API key here"
+        style="flex: 2"
+      />
       <button class="button save-btn" onclick="saveKey()">Save</button>
     </div>
   </div>
 
   <div class="section">
     <label for="removeLabel">Remove API Key</label>
-    <select id="removeLabel"></select>
-    <div class="actions">
+    <div class="inline-actions">
+      <select id="removeLabel"></select>
       <button class="button remove-btn" onclick="removeKey()">Remove</button>
     </div>
-  </div>
-
-  <div class="actions">
-    <button class="button cancel-btn" onclick="google.script.host.close()">
-      Close
-    </button>
   </div>
 </div>
 
