@@ -93,7 +93,7 @@ function showMultiLoginWarning() {
 function showDevApiManagerDialog() {
   showHtmlDialog("src/ui/dialogs/DevApiManager", {
     width: 600,
-    height: 450,
+    height: 480,
     title: "Developer API Key Manager",
   });
 }
