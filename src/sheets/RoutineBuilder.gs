@@ -8,8 +8,20 @@
  */
 async function createRoutineFromSheet() {
   const ui = SpreadsheetApp.getUi();
+
   const sheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
+  if (!sheet) {
+    ui.alert(
+      "Missing 'Routine Builder' Sheet",
+      "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
+        "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
+        "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy",
+      ui.ButtonSet.OK
+    );
+    return null;
+  }
+
   const titleCell = sheet.getRange("C2");
   const title = String(titleCell.getValue()).trim();
   if (!title) {
@@ -102,10 +114,14 @@ function clearRoutineBuilder() {
       SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
 
     if (!sheet) {
-      throw new SheetError(
-        "Routine Builder sheet not found",
-        "Routine Builder"
+      ui.alert(
+        "Missing 'Routine Builder' Sheet",
+        "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
+          "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
+          "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy",
+        ui.ButtonSet.OK
       );
+      return null;
     }
 
     sheet.getRange("C2:H4").clearContent();

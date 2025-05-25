@@ -38,7 +38,7 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 
 ### For Users
 
-1. Open the [Hevy Tracker Template](https://gelbhart.dev/hevy-tracker/spreadsheet)
+1. Open the [Hevy Tracker Template](https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy)
 2. Click "Make a copy" to create your own version
 3. The new spreadsheet will open automatically
 4. Install the [Hevy Tracker Add-on](https://workspace.google.com/marketplace/app/hevy_tracker/221696974247)
