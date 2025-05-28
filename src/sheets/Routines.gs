@@ -19,7 +19,7 @@ async function importAllRoutines() {
       );
       processedRoutines.push(...routineData);
 
-      showToast(
+      SpreadsheetApp.getActiveSpreadsheet().toast(
         `Processed ${processedRoutines.length} routine entries...`,
         "Processing Progress"
       );
@@ -34,13 +34,13 @@ async function importAllRoutines() {
 
     if (processedRoutines.length > 0) {
       await updateRoutinesInSheet(sheet, processedRoutines);
-      showToast(
+      SpreadsheetApp.getActiveSpreadsheet().toast(
         `Imported ${totalRoutines} routines with ${processedRoutines.length} total entries!`,
         "Import Complete",
         TOAST_DURATION.NORMAL
       );
     } else {
-      showToast(
+      SpreadsheetApp.getActiveSpreadsheet().toast(
         "No routine entries found to import.",
         "Import Complete",
         TOAST_DURATION.NORMAL

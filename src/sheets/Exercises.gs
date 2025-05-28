@@ -53,7 +53,7 @@ async function importAllExercises() {
 
     manager.formatSheet();
 
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       updateMessage + "Updated counts for all exercises!",
       "Import Complete",
       TOAST_DURATION.NORMAL

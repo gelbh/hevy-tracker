@@ -110,7 +110,7 @@
 
         google.script.run
           .withFailureHandler(function (error) {
-            showToast(
+            SpreadsheetApp.getActiveSpreadsheet().toast(
               "Error saving API key: " + error,
               "Error",
               TOAST_DURATION.NORMAL

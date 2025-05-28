@@ -85,7 +85,7 @@ async function createRoutineFromSheet() {
 
     const response = await submitRoutine(routineData);
 
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       "Routine created successfully!",
       "Success",
       TOAST_DURATION.NORMAL
@@ -127,7 +127,11 @@ function clearRoutineBuilder() {
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G").clearContent();
 
-    showToast("Form cleared!", "Success", TOAST_DURATION.SHORT);
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      "Form cleared!",
+      "Success",
+      TOAST_DURATION.SHORT
+    );
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Clearing routine builder",

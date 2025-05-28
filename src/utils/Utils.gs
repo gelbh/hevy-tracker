@@ -38,20 +38,6 @@ function getDocumentProperties() {
 // -----------------
 
 /**
- * Shows a progress toast with consistent formatting
- * @param {string} message - The message to show
- * @param {string} [title='Progress'] - Toast title
- * @param {number} [duration=TOAST_DURATION.SHORT] - Duration to show toast
- */
-function showToast(
-  message,
-  title = "Progress",
-  duration = TOAST_DURATION.SHORT
-) {
-  SpreadsheetApp.getActiveSpreadsheet().toast(message, title, duration);
-}
-
-/**
  * Creates and shows an HTML dialog from a template file
  * @param {string} filename - Name of the HTML template file (without .html extension)
  * @param {Object} [options] - Configuration options
@@ -231,7 +217,7 @@ function importWeightFromTakeout(content) {
     }
     manager.formatSheet();
 
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       `Imported ${points.length} entries`,
       "Import Complete",
       TOAST_DURATION.NORMAL
@@ -265,7 +251,7 @@ function logWeight() {
     sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
     manager.formatSheet();
 
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       `Weight of ${weight}${unit} logged successfully!`,
       "Success",
       TOAST_DURATION.NORMAL
@@ -452,7 +438,7 @@ function useApiKey(label) {
     const documentProperties = PropertiesService.getDocumentProperties();
 
     documentProperties.setProperty("HEVY_API_KEY", storedKey);
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       `Switched to API key: ${label}`,
       "Developer Mode",
       TOAST_DURATION.NORMAL
@@ -524,7 +510,7 @@ async function runAutomaticImport() {
       }
     }
 
-    showToast(
+    SpreadsheetApp.getActiveSpreadsheet().toast(
       "Importing all data completed successfully",
       "Automatic Import",
       TOAST_DURATION.NORMAL

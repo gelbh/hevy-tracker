@@ -65,14 +65,14 @@ class ApiClient {
       properties.setProperty("HEVY_API_KEY", apiKey);
 
       if (!currentKey) {
-        showToast(
+        SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key set successfully. Starting initial data import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
         this.runFullImport();
       } else {
-        showToast(
+        SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key updated successfully!",
           "Success",
           TOAST_DURATION.NORMAL
@@ -218,7 +218,7 @@ class ApiClient {
       }
 
       if (checkForMultiLoginIssues()) {
-        showToast(
+        SpreadsheetApp.getActiveSpreadsheet().toast(
           "Multi-login warning shown. Continuing with import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
@@ -249,7 +249,7 @@ class ApiClient {
         Utilities.sleep(RATE_LIMIT.API_DELAY);
       }
 
-      showToast(
+      SpreadsheetApp.getActiveSpreadsheet().toast(
         "Initial import complete. Automatic imports will now run each time you open the sheet.",
         "Setup Complete",
         TOAST_DURATION.NORMAL
