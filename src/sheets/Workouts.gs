@@ -44,11 +44,7 @@ async function importAllWorkoutsFull() {
 
   props.deleteProperty("LAST_WORKOUT_UPDATE");
 
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-  if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
-  }
+  manager.clearSheet();
 
   const allWorkouts = [];
   await apiClient.fetchPaginatedData(

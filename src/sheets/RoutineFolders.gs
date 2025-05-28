@@ -10,12 +10,7 @@ async function importAllRoutineFolders() {
     const manager = SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME);
     const sheet = manager.sheet;
 
-    sheet.clear();
-
-    // Set up headers
-    sheet
-      .getRange(1, 1, 1, SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length)
-      .setValues([SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME]]);
+    manager.clearSheet();
 
     const processedFolders = [];
     const processFolderPage = async (folders) => {
@@ -28,7 +23,6 @@ async function importAllRoutineFolders() {
       );
     };
 
-    // Fetch and process folders
     const totalFolders = await apiClient.fetchPaginatedData(
       API_ENDPOINTS.ROUTINE_FOLDERS,
       PAGE_SIZE.ROUTINE_FOLDERS,
@@ -38,7 +32,6 @@ async function importAllRoutineFolders() {
 
     await updateFoldersInSheet(sheet, processedFolders);
 
-    // Format and finish
     manager.formatSheet();
 
     showToast(

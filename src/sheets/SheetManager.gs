@@ -80,21 +80,18 @@ class SheetManager {
   async ensureHeaders() {
     try {
       if (!(await this.validateHeaders())) {
-        // Clear any existing content
         if (this.sheet.getLastRow() > 0) {
           this.sheet.clear();
         }
 
         const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
 
-        // Set headers and formatting
         headerRange
           .setValues([this.headers])
           .setFontWeight("bold")
           .setBackground(this.theme.evenRowColor)
           .setFontColor(this.theme.fontColor);
 
-        // Freeze the header row
         this.sheet.setFrozenRows(1);
       }
     } catch (error) {
@@ -231,6 +228,26 @@ class SheetManager {
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Setting alternating colors",
+        sheetName: this.sheetName,
+      });
+    }
+  }
+
+  /**
+   * Clears the sheet except for headers
+   * @private
+   */
+  async clearSheet() {
+    try {
+      const lastRow = this.sheet.getLastRow();
+      if (lastRow <= 1) return;
+
+      this.sheet
+        .getRange(2, 1, lastRow - 1, this.sheet.getLastColumn())
+        .clear();
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Clearing sheet",
         sheetName: this.sheetName,
       });
     }

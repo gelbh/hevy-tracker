@@ -10,6 +10,8 @@ async function importAllRoutines() {
     const manager = SheetManager.getOrCreate(ROUTINES_SHEET_NAME);
     const sheet = manager.sheet;
 
+    manager.clearSheet();
+
     const processedRoutines = [];
     const processRoutinePage = async (routines) => {
       const routineData = routines.flatMap((routine) =>
