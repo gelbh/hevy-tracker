@@ -80,8 +80,7 @@ class ApiClient {
       }
     } catch (error) {
       if (error instanceof InvalidApiKeyError) {
-        const properties = getDocumentProperties();
-        properties.deleteProperty("HEVY_API_KEY");
+        getDocumentProperties().deleteProperty("HEVY_API_KEY");
 
         const ui = SpreadsheetApp.getUi();
         ui.alert(
@@ -91,10 +90,11 @@ class ApiClient {
         );
 
         this.promptForApiKey("Would you like to set a new API key?");
+      } else {
+        throw ErrorHandler.handle(error, {
+          operation: "Saving API key",
+        });
       }
-      throw ErrorHandler.handle(error, {
-        operation: "Saving API key",
-      });
     }
   }
 
@@ -193,7 +193,12 @@ class ApiClient {
     const options = this.createRequestOptions(apiKey);
     const response = await this.executeRequest(url, options);
     if (response.getResponseCode() === 401) {
-      throw new Error("Invalid or revoked API key");
+      throw new ErrorHandler.handle(
+        new InvalidApiKeyError("Invalid or revoked API key"),
+        {
+          operation: "Validating API key",
+        }
+      );
     }
     return true;
   }

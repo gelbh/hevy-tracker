@@ -121,23 +121,37 @@ function onEdit(e) {
   try {
     if (!e || !e.range) return;
 
-    if (e.range.getSheet().getName() === "Main") {
-      switch (e.range.getA1Notation()) {
-        case "I5":
+    const range = e?.range;
+    const sheetName = range?.getSheet()?.getName();
+    const cell = range?.getA1Notation();
+
+    if (sheetName !== "Main" || !["I5", "S16", "T16"].includes(cell)) return;
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet();
+    const mainSheet = sheet.getSheetByName("Main");
+    const dataSheet = sheet.getSheetByName("Data");
+    const lastRow = dataSheet.getLastRow();
+
+    switch (cell) {
+      case "I5":
+        if (e.value) {
           const format = `#,##0 "${e.value}"`;
-
-          const dataSheet =
-            SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
-          const lastRow = dataSheet.getLastRow();
-
           const rangeList = dataSheet.getRangeList([
             `J4:J${lastRow}`,
             `E4:E${lastRow}`,
           ]);
-
           rangeList.setNumberFormat(format);
-          break;
-      }
+        }
+        break;
+      case "S16":
+      case "T16":
+        const s16 = mainSheet.getRange("S16").getValue();
+        const t16 = mainSheet.getRange("T16").getValue();
+        const monthly = s16 === "Monthly" && t16 === "Calendar";
+        const yearly = s16 === "Yearly" && t16 === "Calendar";
+        const format = monthly ? "mmm 'yy" : yearly ? "yyyy" : "dd/mm/yyyy";
+        dataSheet.getRange(`M4:M${lastRow}`).setNumberFormat(format);
+        break;
     }
   } catch (error) {
     throw ErrorHandler.handle(error, {
