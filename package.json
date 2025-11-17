@@ -2,9 +2,6 @@
   "name": "hevy-tracker",
   "version": "1.0.0",
   "description": "Google Sheets Add-on for Hevy workout tracking",
-  "scripts": {
-    "codebase": "npx ai-digest -i . -o codebase.md --whitespace-removal --show-output-files"
-  },
   "keywords": [
     "google-apps-script",
     "hevy",

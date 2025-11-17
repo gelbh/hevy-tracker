@@ -26,7 +26,3 @@ pids
 .github/workflows/.env
 local-push.js
 .env
-
-# AI Digest
-codebase.md
-.aidigestignore
