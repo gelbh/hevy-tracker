@@ -28,37 +28,47 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 ### Git Commit Messages
 
-Format:
+**IMPORTANT:** Commit messages must be a **single line** with the following format:
 
 ```
 type(scope): description
-
-[optional body]
-
-[optional footer]
 ```
 
-Types:
+**Rules:**
+- **Single line only** - no body or footer
+- **Type** (required): feat, fix, refactor, docs, style, test, chore
+- **Scope** (optional): lowercase, no spaces - e.g., (workouts), (api), (ui)
+- **Description**: start with lowercase letter, no period at end
+- **Maximum length**: 72 characters
 
-- feat: New features
-- fix: Bug fixes
-- refactor: Code restructuring
-- docs: Documentation
-- style: Formatting
-- test: Testing
-- chore: Maintenance
-
-Example:
+**Valid examples:**
 
 ```
-feat(workouts): add weight tracking functionality
-
-- Implements weight logging feature
-- Adds validation for weight inputs
-- Updates UI to show weight history
-
-Resolves #123
+feat(workouts): add weight tracking
+fix(api): resolve rate limit error
+refactor(utils): extract common functions
+docs(readme): update installation steps
 ```
+
+**Invalid examples:**
+
+```
+# ❌ Has body/footer
+feat(workouts): add weight tracking
+
+Implements weight logging feature
+
+# ❌ Missing type
+add weight tracking
+
+# ❌ Wrong case
+FEAT(workouts): ADD WEIGHT TRACKING
+
+# ❌ Period at end
+feat(workouts): add weight tracking.
+```
+
+**Note:** Git hooks will automatically validate your commit messages. If validation fails, you'll see a helpful error message with the format requirements.
 
 ## Error Handling
 
@@ -84,13 +94,61 @@ try {
 
 ## Testing
 
-Before submitting:
+We use Jest for unit testing with mocks for Google Apps Script APIs.
 
-1. Test with different authorization states
-2. Verify error handling
-3. Check quota limitations
-4. Test with various data sizes
-5. Verify UI responsiveness
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (for development)
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Writing Tests
+
+Tests are located in the `tests/` directory. We provide mocks for common Google Apps Script APIs:
+
+- `SpreadsheetApp`
+- `UrlFetchApp`
+- `PropertiesService`
+- `Logger`
+- `Utilities`
+
+Example test:
+
+```javascript
+describe('My Feature', () => {
+  test('should work correctly', () => {
+    const result = myFunction();
+    expect(result).toBe(expectedValue);
+  });
+});
+```
+
+### Pre-Push Testing
+
+Before pushing to the repository:
+
+1. **Automated tests run via pre-push hook** - All tests must pass
+2. Test with different authorization states
+3. Verify error handling
+4. Check quota limitations
+5. Test with various data sizes
+6. Verify UI responsiveness
+
+**Note:** To bypass the pre-push hook (not recommended): `git push --no-verify`
+
+### Continuous Integration
+
+All pull requests and pushes to main/develop branches automatically run:
+- Test suite on Node.js 18.x and 20.x
+- Commit message validation
+- Coverage report generation
 
 ## Pull Request Process
 

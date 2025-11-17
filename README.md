@@ -4,6 +4,10 @@
 
 # Hevy Tracker
 
+[![CI](https://github.com/gelbh/hevy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/gelbh/hevy-tracker/actions/workflows/ci.yml)
+[![Deploy to Apps Script](https://github.com/gelbh/hevy-tracker/actions/workflows/clasp-push.yml/badge.svg)](https://github.com/gelbh/hevy-tracker/actions/workflows/clasp-push.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Google Sheets Add-on for importing and analyzing workout data from Hevy App. Automatically syncs your workouts, exercises, routines, and weight measurements to a structured spreadsheet for advanced analysis and tracking.
 
 ## Features
@@ -51,23 +55,35 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 ### For Developers
 
 1. Install Node.js and npm
-2. Install clasp globally:
-
-   ```bash
-   npm install -g @google/clasp
-   ```
-
-3. Clone the repository:
+2. Clone the repository:
 
    ```bash
    git clone https://github.com/gelbh/hevy-tracker.git
    cd hevy-tracker
    ```
 
-4. Login to Google:
+3. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+4. Install clasp globally:
+
+   ```bash
+   npm install -g @google/clasp
+   ```
+
+5. Login to Google:
 
    ```bash
    clasp login
+   ```
+
+6. Run tests to verify setup:
+
+   ```bash
+   npm test
    ```
 
 ## Project Structure
@@ -95,13 +111,19 @@ src/
 ## Development Workflow
 
 1. Make changes to local files
-2. Test changes:
+2. Run tests:
+
+   ```bash
+   npm test
+   ```
+
+3. Test changes in Apps Script:
 
    ```bash
    clasp push --watch
    ```
 
-3. Commit and push to GitHub:
+4. Commit and push to GitHub (commit message will be validated):
 
    ```bash
    git add .
@@ -109,7 +131,37 @@ src/
    git push
    ```
 
-4. GitHub Actions will automatically deploy to Apps Script
+5. GitHub Actions will automatically:
+   - Run tests and validation
+   - Deploy to Apps Script (on main branch)
+
+## Testing
+
+We use Jest for unit testing with mocks for Google Apps Script APIs.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Git Hooks
+
+This project uses Husky for Git hooks:
+
+- **commit-msg**: Validates commit message format
+- **pre-push**: Runs tests before allowing push
+
+To bypass hooks (not recommended): `git push --no-verify`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed testing guidelines.
 
 ## Security
 
