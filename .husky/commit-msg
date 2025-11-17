@@ -1,0 +1,68 @@
+#!/usr/bin/env sh
+
+# Validate commit message format
+# Expected format: type(scope): description
+# - type: feat, fix, refactor, docs, style, test, chore
+# - scope: lowercase, no spaces (optional)
+# - description: lowercase start, no period at end
+# - single line only, max 72 characters
+
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# Check if message is empty
+if [ -z "$commit_msg" ]; then
+  echo "❌ Error: Commit message cannot be empty"
+  exit 1
+fi
+
+# Check for multiple lines (reject body/footer)
+line_count=$(echo "$commit_msg" | wc -l)
+if [ "$line_count" -gt 1 ]; then
+  echo "❌ Error: Commit message must be a single line"
+  echo ""
+  echo "Your message has multiple lines:"
+  echo "$commit_msg"
+  echo ""
+  echo "Format: type(scope): description"
+  echo "Example: feat(workouts): add weight tracking"
+  exit 1
+fi
+
+# Regex pattern for commit message
+pattern="^(feat|fix|refactor|docs|style|test|chore)(\([a-z0-9-]+\))?: [a-z].+$"
+
+# Validate format
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "❌ Error: Invalid commit message format"
+  echo ""
+  echo "Your message: $commit_msg"
+  echo ""
+  echo "Required format: type(scope): description"
+  echo ""
+  echo "Rules:"
+  echo "  - type: feat, fix, refactor, docs, style, test, chore"
+  echo "  - scope: lowercase, no spaces (optional)"
+  echo "  - description: start with lowercase, no period at end"
+  echo "  - single line only"
+  echo ""
+  echo "Valid examples:"
+  echo "  ✓ feat(workouts): add weight tracking"
+  echo "  ✓ fix(api): resolve rate limit error"
+  echo "  ✓ docs(readme): update installation steps"
+  echo ""
+  exit 1
+fi
+
+# Check length (max 72 characters)
+msg_length=${#commit_msg}
+if [ "$msg_length" -gt 72 ]; then
+  echo "❌ Error: Commit message too long ($msg_length characters)"
+  echo "Maximum length: 72 characters"
+  echo ""
+  echo "Your message: $commit_msg"
+  exit 1
+fi
+
+# All checks passed
+exit 0

@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run tests before allowing push
+echo "🧪 Running tests..."
+npm test
+
+# Exit if tests fail
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Push aborted."
+  exit 1
+fi
+
+echo "✅ Tests passed. Proceeding with push..."
+
+# Allow push to proceed, then run deployment after a short delay
+# This runs in the background so it doesn't block the push
+(
+  echo ""
+  echo "🚀 Push completed. Starting local deployment..."
+  echo ""
+  
+  # Wait a moment for push to fully complete
+  sleep 2
+  
+  # Run deployment script
+  node local-push.js --deploy --clean
+) &
