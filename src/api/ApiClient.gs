@@ -64,6 +64,10 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
+      // Delete LAST_WORKOUT_UPDATE to force full import on next run
+      // This ensures imports work correctly when API keys are changed
+      properties.deleteProperty("LAST_WORKOUT_UPDATE");
+
       if (!currentKey) {
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key set successfully. Starting initial data import...",
