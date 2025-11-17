@@ -26,3 +26,11 @@ pids
 .github/workflows/.env
 local-push.js
 .env
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Temporary files
+output.txt
