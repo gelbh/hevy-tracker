@@ -1,5 +1,3 @@
-#!/usr/bin/env sh
-
 # Validate commit message format
 # Expected format: type(scope): description
 # - type: feat, fix, refactor, docs, style, test, chore

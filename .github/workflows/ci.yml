@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test:
@@ -16,71 +16,28 @@ jobs:
         node-version: [18.x, 20.x]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run tests
-      run: npm test
+      - name: Run tests
+        run: npm test
 
-    - name: Generate coverage report
-      if: matrix.node-version == '20.x'
-      run: npm run test:coverage
+      - name: Generate coverage report
+        if: matrix.node-version == '20.x'
+        run: npm run test:coverage
 
-    - name: Upload coverage to artifacts
-      if: matrix.node-version == '20.x'
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: coverage/
-
-  validate-commits:
-    name: Validate Commit Messages
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Validate commit messages
-      run: |
-        echo "Validating commit messages..."
-        
-        # Get all commits in this PR
-        commits=$(git log --format=%H origin/${{ github.base_ref }}..HEAD)
-        
-        # Validate each commit message
-        for commit in $commits; do
-          msg=$(git log --format=%s -n 1 $commit)
-          echo "Checking: $msg"
-          
-          # Check format: type(scope): description
-          if ! echo "$msg" | grep -qE "^(feat|fix|refactor|docs|style|test|chore)(\([a-z0-9-]+\))?: [a-z].+$"; then
-            echo "❌ Invalid commit message format: $msg"
-            echo ""
-            echo "Required format: type(scope): description"
-            echo "Example: feat(workouts): add weight tracking"
-            exit 1
-          fi
-          
-          # Check length
-          if [ ${#msg} -gt 72 ]; then
-            echo "❌ Commit message too long (${#msg} > 72): $msg"
-            exit 1
-          fi
-          
-          echo "✓ Valid"
-        done
-        
-        echo "✓ All commit messages are valid"
+      - name: Upload coverage to artifacts
+        if: matrix.node-version == '20.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
