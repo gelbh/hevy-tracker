@@ -67,9 +67,9 @@ jobs:
           TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
           DEPLOY_RESULT=$(clasp deploy --description "Production deployment $TIMESTAMP")
 
-          # Extract version number
-          VERSION=$(echo "$DEPLOY_RESULT" | grep -oP 'Created version \K\d+' || echo "")
+          # Extract deployment ID and version from: "Deployed AKfycb... @274"
           DEPLOYMENT_ID=$(echo "$DEPLOY_RESULT" | grep -o 'AKfycb[a-zA-Z0-9_-]*' || echo "")
+          VERSION=$(echo "$DEPLOY_RESULT" | grep -oP '@\K\d+' || echo "")
 
           if [ -z "$VERSION" ] || [ -z "$DEPLOYMENT_ID" ]; then
             echo "❌ Failed to extract deployment info"
