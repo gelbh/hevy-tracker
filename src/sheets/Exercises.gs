@@ -395,3 +395,108 @@ async function updateExerciseCounts(exerciseSheet) {
     });
   }
 }
+
+/**
+ * Syncs exercise names from workouts to the Exercises sheet.
+ * Replaces English names with localized names from workouts when available.
+ * Only updates exercises that appear in workouts.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ */
+async function syncExerciseNamesFromWorkouts(exerciseSheet) {
+  const workoutSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
+
+  if (!workoutSheet || workoutSheet.getLastRow() <= 1) {
+    return;
+  }
+
+  try {
+    // Build map of exercise_template_id -> localized title from workouts
+    const workoutData = workoutSheet.getDataRange().getValues();
+    const workoutHeaders = workoutData.shift();
+    const exerciseTemplateIdIndex = workoutHeaders.indexOf(
+      "Exercise Template ID"
+    );
+    const exerciseTitleIndex = workoutHeaders.indexOf("Exercise");
+
+    if (exerciseTemplateIdIndex === -1 || exerciseTitleIndex === -1) {
+      return; // Columns don't exist yet
+    }
+
+    const idToLocalizedName = new Map();
+    workoutData.forEach((row) => {
+      const exerciseTemplateId = String(
+        row[exerciseTemplateIdIndex] || ""
+      ).trim();
+      const localizedTitle = String(row[exerciseTitleIndex] || "").trim();
+
+      if (
+        exerciseTemplateId &&
+        localizedTitle &&
+        exerciseTemplateId !== "N/A"
+      ) {
+        // Keep the most recent name if there are duplicates
+        idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+      }
+    });
+
+    if (idToLocalizedName.size === 0) {
+      return; // No exercises to sync
+    }
+
+    // Update exercise sheet with localized names
+    const exerciseData = exerciseSheet.getDataRange().getValues();
+    const exerciseHeaders = exerciseData.shift();
+    const idIndex = exerciseHeaders.indexOf("ID");
+    const titleIndex = exerciseHeaders.indexOf("Title");
+
+    if (idIndex === -1 || titleIndex === -1) {
+      return;
+    }
+
+    const updates = [];
+    exerciseData.forEach((row, rowIndex) => {
+      const exerciseId = String(row[idIndex] || "").trim();
+      const currentTitle = String(row[titleIndex] || "").trim();
+
+      if (
+        exerciseId &&
+        exerciseId !== "N/A" &&
+        idToLocalizedName.has(exerciseId)
+      ) {
+        const localizedName = idToLocalizedName.get(exerciseId);
+        // Only update if the name is different
+        if (localizedName !== currentTitle) {
+          updates.push({
+            row: rowIndex + 2, // +2 because we removed header and arrays are 0-indexed
+            title: localizedName,
+          });
+        }
+      }
+    });
+
+    // Batch update titles
+    if (updates.length > 0) {
+      const batchSize = 1000;
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, Math.min(i + batchSize, updates.length));
+
+        // Update titles in batch
+        batch.forEach((update) => {
+          exerciseSheet
+            .getRange(update.row, titleIndex + 1)
+            .setValue(update.title);
+        });
+
+        if (i % (batchSize * 5) === 0) {
+          Utilities.sleep(RATE_LIMIT.API_DELAY);
+        }
+      }
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Syncing exercise names from workouts",
+      sheetName: exerciseSheet.getName(),
+    });
+  }
+}

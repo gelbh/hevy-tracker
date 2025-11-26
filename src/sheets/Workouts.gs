@@ -25,9 +25,9 @@ async function importAllWorkouts() {
   }
 
   if (changes > 0) {
-    await updateExerciseCounts(
-      SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet
-    );
+    const exerciseSheet = SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet;
+    await updateExerciseCounts(exerciseSheet);
+    await syncExerciseNamesFromWorkouts(exerciseSheet);
     manager.formatSheet();
   }
   return changes;
