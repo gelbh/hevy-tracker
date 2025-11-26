@@ -14,32 +14,48 @@ class ApiClient {
   }
 
   /**
+   * Gets document properties or throws ConfigurationError
+   * @returns {GoogleAppsScript.Properties.Properties} Document properties
+   * @throws {ConfigurationError} If properties cannot be accessed
+   * @private
+   */
+  _getDocumentProperties() {
+    const properties = getDocumentProperties();
+    if (!properties) {
+      throw new ConfigurationError(
+        "Unable to access document properties. Please ensure you have proper permissions."
+      );
+    }
+    return properties;
+  }
+
+  /**
+   * Gets API key from document properties
+   * @returns {string|null} API key or null if not found
+   * @private
+   */
+  _getApiKeyFromProperties() {
+    const properties = getDocumentProperties();
+    return properties?.getProperty("HEVY_API_KEY") || null;
+  }
+
+  /**
    * Gets API key or prompts user to set one if not found
+   * @returns {string|null} API key or null if not available
    * @private
    */
   getOrPromptApiKey() {
-    const properties = getDocumentProperties();
-    if (!properties) {
-      if (!this._apiKeyCheckInProgress) {
-        this.promptForApiKey(
-          "An API key is required. Would you like to set it now?"
-        );
-      }
-      return null;
+    const key = this._getApiKeyFromProperties();
+    if (key) {
+      return key;
     }
 
-    const key = properties.getProperty("HEVY_API_KEY");
-
-    if (!key) {
-      if (!this._apiKeyCheckInProgress) {
-        this.promptForApiKey(
-          "An API key is required. Would you like to set it now?"
-        );
-      }
-      return null;
+    if (!this._apiKeyCheckInProgress) {
+      this.promptForApiKey(
+        "An API key is required. Would you like to set it now?"
+      );
     }
-
-    return key;
+    return null;
   }
 
   /**
@@ -47,32 +63,29 @@ class ApiClient {
    */
   manageApiKey() {
     try {
-      const properties = getDocumentProperties();
-      if (!properties) {
-        showHtmlDialog("src/ui/dialogs/SetApiKey", {
-          width: 450,
-          height: 250,
-          title: "Hevy API Key Setup",
-        });
-        return;
-      }
-
-      const currentKey = properties.getProperty("HEVY_API_KEY");
-
+      const currentKey = this._getApiKeyFromProperties();
       if (currentKey && !this.confirmKeyReset()) {
         this._apiKeyCheckInProgress = false;
         return;
       }
 
-      showHtmlDialog("src/ui/dialogs/SetApiKey", {
-        width: 450,
-        height: 250,
-        title: "Hevy API Key Setup",
-      });
+      this._showApiKeyDialog();
     } catch (error) {
       this._apiKeyCheckInProgress = false;
       throw ErrorHandler.handle(error, "Managing API key");
     }
+  }
+
+  /**
+   * Shows the API key setup dialog
+   * @private
+   */
+  _showApiKeyDialog() {
+    showHtmlDialog("src/ui/dialogs/SetApiKey", {
+      width: 450,
+      height: 250,
+      title: "Hevy API Key Setup",
+    });
   }
 
   /**
@@ -82,22 +95,11 @@ class ApiClient {
   async saveUserApiKey(apiKey) {
     try {
       await this.validateApiKey(apiKey);
-
-      const properties = getDocumentProperties();
-      if (!properties) {
-        throw new ConfigurationError(
-          "Unable to access document properties. Please ensure you have proper permissions."
-        );
-      }
-
+      const properties = this._getDocumentProperties();
       const currentKey = properties.getProperty("HEVY_API_KEY");
+
       properties.setProperty("HEVY_API_KEY", apiKey);
-
-      // Delete LAST_WORKOUT_UPDATE to force full import on next run
-      // This ensures imports work correctly when API keys are changed
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
-
-      // Clear the prompt tracking flag since key is now saved
       this._apiKeyCheckInProgress = false;
 
       if (!currentKey) {
@@ -115,29 +117,32 @@ class ApiClient {
         );
       }
     } catch (error) {
-      // Clear the prompt tracking flag on error
       this._apiKeyCheckInProgress = false;
 
       if (error instanceof InvalidApiKeyError) {
-        const properties = getDocumentProperties();
-        if (properties) {
-          properties.deleteProperty("HEVY_API_KEY");
-        }
-
-        const ui = SpreadsheetApp.getUi();
-        ui.alert(
-          "Invalid API Key",
-          "The provided API key appears to be invalid or revoked. Please check your Hevy Developer Settings and try again.",
-          ui.ButtonSet.OK
-        );
-
-        this.promptForApiKey("Would you like to set a new API key?");
+        this._handleInvalidApiKey(error);
       } else {
-        throw ErrorHandler.handle(error, {
-          operation: "Saving API key",
-        });
+        throw ErrorHandler.handle(error, { operation: "Saving API key" });
       }
     }
+  }
+
+  /**
+   * Handles invalid API key error
+   * @param {InvalidApiKeyError} error - The invalid API key error
+   * @private
+   */
+  _handleInvalidApiKey(error) {
+    const properties = getDocumentProperties();
+    properties?.deleteProperty("HEVY_API_KEY");
+
+    SpreadsheetApp.getUi().alert(
+      "Invalid API Key",
+      "The provided API key appears to be invalid or revoked. Please check your Hevy Developer Settings and try again.",
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    this.promptForApiKey("Would you like to set a new API key?");
   }
 
   /**
@@ -235,21 +240,58 @@ class ApiClient {
 
   /**
    * Validates the API key by making a test request
+   * @param {string} apiKey - The API key to validate
+   * @returns {Promise<boolean>} True if valid
+   * @throws {InvalidApiKeyError} If API key is invalid
    * @private
    */
   async validateApiKey(apiKey) {
-    const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUT_COUNT}`;
+    const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`;
     const options = this.createRequestOptions(apiKey);
     const response = await this.executeRequest(url, options);
+
     if (response.getResponseCode() === 401) {
       throw ErrorHandler.handle(
         new InvalidApiKeyError("Invalid or revoked API key"),
-        {
-          operation: "Validating API key",
-        }
+        { operation: "Validating API key" }
       );
     }
+
     return true;
+  }
+
+  /**
+   * Ensures the automatic import trigger exists
+   * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss - The spreadsheet
+   * @private
+   */
+  _ensureImportTrigger(ss) {
+    const triggers = ScriptApp.getUserTriggers(ss);
+    const exists = triggers.some(
+      (t) =>
+        t.getHandlerFunction() === "runAutomaticImport" &&
+        t.getEventType() === ScriptApp.EventType.ON_OPEN
+    );
+
+    if (!exists) {
+      ScriptApp.newTrigger("runAutomaticImport")
+        .forSpreadsheet(ss)
+        .onOpen()
+        .create();
+    }
+  }
+
+  /**
+   * Sets up weight import formula for authorized API key
+   * @private
+   */
+  _setupAuthorizedWeightImport() {
+    SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(WEIGHT_SHEET_NAME)
+      .getRange("A2")
+      .setFormula(
+        'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'
+      );
   }
 
   /**
@@ -258,18 +300,7 @@ class ApiClient {
   async runFullImport() {
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const triggers = ScriptApp.getUserTriggers(ss);
-      const exists = triggers.some(
-        (t) =>
-          t.getHandlerFunction() === "runAutomaticImport" &&
-          t.getEventType() === ScriptApp.EventType.ON_OPEN
-      );
-      if (!exists) {
-        ScriptApp.newTrigger("runAutomaticImport")
-          .forSpreadsheet(ss)
-          .onOpen()
-          .create();
-      }
+      this._ensureImportTrigger(ss);
 
       if (checkForMultiLoginIssues()) {
         SpreadsheetApp.getActiveSpreadsheet().toast(
@@ -279,19 +310,8 @@ class ApiClient {
         );
       }
 
-      // Directly retrieve API key from properties instead of prompting
-      // This prevents re-prompting after the key was just saved
-      const properties = getDocumentProperties();
-      if (!properties) {
-        throw new ConfigurationError(
-          "Unable to access document properties. Please ensure you have proper permissions."
-        );
-      }
-
-      const apiKey = properties.getProperty("HEVY_API_KEY");
+      const apiKey = this._getApiKeyFromProperties();
       if (!apiKey) {
-        // Key not found - this shouldn't happen if saveUserApiKey succeeded
-        // but if it does, just return without prompting to avoid multiple dialogs
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
           "API Key Required",
@@ -301,12 +321,7 @@ class ApiClient {
       }
 
       if (apiKey === AUTHORIZED_API_KEY) {
-        SpreadsheetApp.getActiveSpreadsheet()
-          .getSheetByName(WEIGHT_SHEET_NAME)
-          .getRange("A2")
-          .setFormula(
-            'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'
-          );
+        this._setupAuthorizedWeightImport();
       }
 
       await importAllExercises();
@@ -327,23 +342,19 @@ class ApiClient {
         TOAST_DURATION.NORMAL
       );
     } catch (error) {
-      // Clear the prompt tracking flag on error
       this._apiKeyCheckInProgress = false;
 
       if (error instanceof ApiError && error.statusCode === 401) {
-        const ui = SpreadsheetApp.getUi();
-        ui.alert(
+        SpreadsheetApp.getUi().alert(
           "Invalid API Key",
           "Your Hevy API key appears to be invalid or expired. Please update it now.",
-          ui.ButtonSet.OK
+          SpreadsheetApp.getUi().ButtonSet.OK
         );
         showInitialSetup();
         return;
       }
 
-      throw ErrorHandler.handle(error, {
-        operation: "Initial data import",
-      });
+      throw ErrorHandler.handle(error, { operation: "Initial data import" });
     }
   }
 
@@ -392,53 +403,67 @@ class ApiClient {
   }
 
   /**
+   * Serializes payload for request
+   * @param {*} payload - Request payload
+   * @returns {string} Serialized payload
+   * @private
+   */
+  _serializePayload(payload) {
+    if (typeof payload === "string") return payload;
+    if (payload?.body) return payload.body;
+    return JSON.stringify(payload);
+  }
+
+  /**
+   * Checks if error should be retried
+   * @param {Error} error - The error to check
+   * @param {number} attempt - Current attempt number
+   * @returns {boolean} True if should retry
+   * @private
+   */
+  _shouldRetry(error, attempt) {
+    return (
+      error instanceof ApiError &&
+      error.isRetryable() &&
+      attempt < this.retryConfig.maxRetries - 1
+    );
+  }
+
+  /**
    * Makes an API request with error handling and retries
-   * @async
    * @param {string} endpoint - The API endpoint to request
    * @param {Object} options - Request options
    * @param {Object} [queryParams={}] - Query parameters
-   * @param {Object} [payload=null] - Request payload for POST/PUT requests
+   * @param {*} [payload=null] - Request payload for POST/PUT requests
    * @returns {Promise<Object>} Parsed response data
    * @throws {ApiError} If request fails after retries
    */
   async makeRequest(endpoint, options, queryParams = {}, payload = null) {
-    if (options.method === "GET") {
-      const k = this.getCacheKey(endpoint, queryParams);
-      if (this.cache[k]) return this.cache[k];
+    const cacheKey = this.getCacheKey(endpoint, queryParams);
+    if (options.method === "GET" && this.cache[cacheKey]) {
+      return this.cache[cacheKey];
     }
 
     const url = this.buildUrl(endpoint, queryParams);
-    let attempt = 0;
+    if (payload) {
+      options.payload = this._serializePayload(payload);
+    }
+
     let lastError;
-
-    while (attempt < this.retryConfig.maxRetries) {
+    for (let attempt = 0; attempt < this.retryConfig.maxRetries; attempt++) {
       try {
-        if (payload) {
-          options.payload =
-            typeof payload === "string"
-              ? payload
-              : payload.body
-              ? payload.body
-              : JSON.stringify(payload);
-        }
-
         const response = await this.executeRequest(url, options);
-
         const parsedResponse = this.handleResponse(response);
 
         if (options.method === "GET") {
-          this.cache[this.getCacheKey(endpoint, queryParams)] = parsedResponse;
+          this.cache[cacheKey] = parsedResponse;
         }
 
         return parsedResponse;
       } catch (error) {
         lastError = error;
 
-        if (
-          !(error instanceof ApiError) ||
-          !error.isRetryable() ||
-          attempt === this.retryConfig.maxRetries - 1
-        ) {
+        if (!this._shouldRetry(error, attempt)) {
           throw ErrorHandler.handle(error, {
             endpoint,
             queryParams,
@@ -449,7 +474,6 @@ class ApiClient {
 
         const delay = this.calculateBackoff(attempt);
         Utilities.sleep(delay);
-        attempt++;
       }
     }
 
