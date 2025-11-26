@@ -428,6 +428,9 @@ async function syncLocalizedExerciseNames() {
     }
 
     const idToLocalizedName = new Map();
+    // Also build a map of all exercise names seen in workouts (for fallback matching)
+    const workoutExerciseNames = new Set();
+
     workoutData.forEach((row) => {
       const exerciseTemplateId = String(
         row[exerciseTemplateIdIndex] || ""
@@ -440,6 +443,7 @@ async function syncLocalizedExerciseNames() {
         exerciseTemplateId !== "N/A"
       ) {
         idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+        workoutExerciseNames.add(localizedTitle.toLowerCase());
       }
     });
 
@@ -447,7 +451,8 @@ async function syncLocalizedExerciseNames() {
       return; // No exercises to sync
     }
 
-    // Step 2: Update Exercises sheet with localized names (by ID)
+    // Step 2: Build map of exercise names BEFORE updating Exercises sheet
+    // This ensures we capture English names that might be in other sheets
     const exerciseData = exerciseSheet.getDataRange().getValues();
     const exerciseHeaders = exerciseData.shift();
     const idIndex = exerciseHeaders.indexOf("ID");
@@ -458,7 +463,10 @@ async function syncLocalizedExerciseNames() {
     }
 
     // Build map: any exercise name (English or localized) -> localized name
+    // Include both current title (might be English) and localized name
     const exerciseNameToLocalized = new Map();
+    const exerciseUpdates = [];
+
     exerciseData.forEach((row, rowIndex) => {
       const exerciseId = String(row[idIndex] || "").trim();
       const currentTitle = String(row[titleIndex] || "").trim();
@@ -469,21 +477,23 @@ async function syncLocalizedExerciseNames() {
         idToLocalizedName.has(exerciseId)
       ) {
         const localizedName = idToLocalizedName.get(exerciseId);
-        // Map both current title and localized name to localized name
+
+        // Map current title (English) to localized name
         if (currentTitle) {
           exerciseNameToLocalized.set(
             currentTitle.toLowerCase(),
             localizedName
           );
         }
+        // Also map localized name to itself (for consistency)
         exerciseNameToLocalized.set(localizedName.toLowerCase(), localizedName);
 
-        // Update Exercises sheet if name is different
+        // Track update for Exercises sheet if name is different
         if (localizedName !== currentTitle) {
-          const actualRow = rowIndex + 2; // +2 for header and 0-index
-          exerciseSheet
-            .getRange(actualRow, titleIndex + 1)
-            .setValue(localizedName);
+          exerciseUpdates.push({
+            row: rowIndex + 2, // +2 for header and 0-index
+            value: localizedName,
+          });
         }
       } else if (currentTitle) {
         // For exercises not in workouts, map name to itself
@@ -491,7 +501,37 @@ async function syncLocalizedExerciseNames() {
       }
     });
 
-    // Step 3: Scan all sheets and replace hardcoded exercise names
+    // Update Exercises sheet with localized names
+    if (exerciseUpdates.length > 0) {
+      exerciseUpdates.forEach((update) => {
+        exerciseSheet
+          .getRange(update.row, titleIndex + 1)
+          .setValue(update.value);
+      });
+    }
+
+    // Step 3: Also build reverse map from Exercises sheet: ID -> all possible names
+    // This helps us match exercises by any name variation
+    const idToAllNames = new Map();
+    exerciseData.forEach((row) => {
+      const exerciseId = String(row[idIndex] || "").trim();
+      const currentTitle = String(row[titleIndex] || "").trim();
+
+      if (exerciseId && exerciseId !== "N/A" && currentTitle) {
+        if (!idToAllNames.has(exerciseId)) {
+          idToAllNames.set(exerciseId, new Set());
+        }
+        idToAllNames.get(exerciseId).add(currentTitle.toLowerCase());
+
+        // If we have a localized name for this ID, add it too
+        if (idToLocalizedName.has(exerciseId)) {
+          const localized = idToLocalizedName.get(exerciseId);
+          idToAllNames.get(exerciseId).add(localized.toLowerCase());
+        }
+      }
+    });
+
+    // Step 4: Scan all sheets and replace hardcoded exercise names
     const allSheets = ss.getSheets();
     const batchSize = 100;
 
@@ -538,16 +578,54 @@ async function syncLocalizedExerciseNames() {
             const cellKey = cellText.toLowerCase();
 
             // Check if this looks like an exercise name and we have a localized version
+            let localizedName = null;
+
+            // First, try direct lookup in our map
             if (exerciseNameToLocalized.has(cellKey)) {
-              const localizedName = exerciseNameToLocalized.get(cellKey);
-              // Only update if different
-              if (localizedName !== cellText) {
-                updates.push({
-                  row: actualRow,
-                  col: c + 1,
-                  value: localizedName,
-                });
+              localizedName = exerciseNameToLocalized.get(cellKey);
+            } else {
+              // Try English translation fallback
+              const englishName = getEnglishName(cellText);
+              if (englishName !== cellText) {
+                const englishKey = englishName.toLowerCase();
+                if (exerciseNameToLocalized.has(englishKey)) {
+                  localizedName = exerciseNameToLocalized.get(englishKey);
+                }
               }
+
+              // Also check if this name appears in any exercise's name set
+              // and get the localized version for that exercise
+              if (!localizedName) {
+                for (const [exerciseId, names] of idToAllNames.entries()) {
+                  if (names.has(cellKey) && idToLocalizedName.has(exerciseId)) {
+                    localizedName = idToLocalizedName.get(exerciseId);
+                    break;
+                  }
+                }
+              }
+
+              // Final fallback: check if this name is already a localized name from workouts
+              if (!localizedName && workoutExerciseNames.has(cellKey)) {
+                // Find the localized name for this exact match
+                for (const [
+                  exerciseId,
+                  localized,
+                ] of idToLocalizedName.entries()) {
+                  if (localized.toLowerCase() === cellKey) {
+                    localizedName = localized;
+                    break;
+                  }
+                }
+              }
+            }
+
+            // Update if we found a localized name and it's different
+            if (localizedName && localizedName !== cellText) {
+              updates.push({
+                row: actualRow,
+                col: c + 1,
+                value: localizedName,
+              });
             }
           }
         }
