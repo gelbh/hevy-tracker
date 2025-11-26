@@ -4,25 +4,30 @@
  */
 
 /**
+ * Gets the last workout update timestamp
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The workouts sheet
+ * @returns {string|false} Last update timestamp or false if no data
+ * @private
+ */
+function getLastWorkoutUpdate(sheet) {
+  if (!sheet.getRange("A2").getValue()) return false;
+  const properties = getDocumentProperties();
+  return properties?.getProperty("LAST_WORKOUT_UPDATE") || false;
+}
+
+/**
  * Synchronizes workout data to the 'Workouts' sheet.
  * - First run: full import of all workouts.
  * - Subsequent runs: delta import of only new/changed/deleted events.
+ * @returns {Promise<number>} Number of changes made
  */
 async function importAllWorkouts() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
-  const sheet = manager.sheet;
+  const lastUpdate = getLastWorkoutUpdate(manager.sheet);
 
-  const properties = getDocumentProperties();
-  const lastUpdate = !sheet.getRange("A2").getValue()
-    ? false
-    : properties && properties.getProperty("LAST_WORKOUT_UPDATE");
-
-  let changes = 0;
-  if (!lastUpdate) {
-    changes = await importAllWorkoutsFull();
-  } else {
-    changes = await importAllWorkoutsDelta(lastUpdate);
-  }
+  const changes = lastUpdate
+    ? await importAllWorkoutsDelta(lastUpdate)
+    : await importAllWorkoutsFull();
 
   if (changes > 0) {
     const exerciseSheet = SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet;
@@ -30,6 +35,7 @@ async function importAllWorkouts() {
     await syncLocalizedExerciseNames();
     manager.formatSheet();
   }
+
   return changes;
 }
 
@@ -37,15 +43,12 @@ async function importAllWorkouts() {
  * Performs a full import of all workouts.
  * Clears existing data rows (keeping headers), fetches all pages,
  * and writes rows in a single batch.
+ * @returns {Promise<number>} Number of workout records imported
  */
 async function importAllWorkoutsFull() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
-  const sheet = manager.sheet;
   const props = getDocumentProperties();
-
-  if (props) {
-    props.deleteProperty("LAST_WORKOUT_UPDATE");
-  }
+  props?.deleteProperty("LAST_WORKOUT_UPDATE");
 
   manager.clearSheet();
 
@@ -62,30 +65,71 @@ async function importAllWorkoutsFull() {
 
   const rows = processWorkoutsData(allWorkouts);
   if (rows.length) {
-    sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+    manager.sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 
-  if (props) {
-    props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
-  }
+  props?.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `Imported ${rows.length} workout records.`,
     "Full Import Complete",
     TOAST_DURATION.NORMAL
   );
+
   return rows.length;
+}
+
+/**
+ * Gets API key from document properties
+ * @returns {string} API key
+ * @throws {ConfigurationError} If properties or API key not found
+ * @private
+ */
+function getApiKeyForWorkouts() {
+  const properties = getDocumentProperties();
+  if (!properties) {
+    throw new ConfigurationError(
+      "Unable to access document properties. Please ensure you have proper permissions."
+    );
+  }
+  const apiKey = properties.getProperty("HEVY_API_KEY");
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
+  return apiKey;
+}
+
+/**
+ * Processes workout events into deleted and upsert ID sets
+ * @param {Array} events - Array of workout events
+ * @returns {Object} Object with deletedIds Set and upsertIds Array
+ * @private
+ */
+function processWorkoutEvents(events) {
+  const deletedIds = new Set();
+  const upsertIds = [];
+
+  events.forEach((e) => {
+    if (e.type === "deleted") {
+      const id = e.workout?.id || e.id;
+      if (id) deletedIds.add(id);
+    } else if (e.type === "updated" || e.type === "created") {
+      const id = e.workout?.id;
+      if (id) upsertIds.push(id);
+    }
+  });
+
+  return { deletedIds, upsertIds };
 }
 
 /**
  * Imports only changed or new workouts since lastUpdate.
  * Fetches full workout details for every upsert event to ensure exercise/sets data.
- *
- * @param {string} lastUpdate ISO timestamp of last import
+ * @param {string} lastUpdate - ISO timestamp of last import
+ * @returns {Promise<number>} Number of workouts imported
  */
 async function importAllWorkoutsDelta(lastUpdate) {
   try {
     const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
-    const sheet = manager.sheet;
     const props = getDocumentProperties();
     if (!props) {
       throw new ConfigurationError(
@@ -111,32 +155,18 @@ async function importAllWorkoutsDelta(lastUpdate) {
       return 0;
     }
 
-    const deletedIds = new Set();
-    const upsertIds = [];
-    events.forEach((e) => {
-      if (e.type === "deleted") {
-        const id = e.workout?.id || e.id;
-        if (id) deletedIds.add(id);
-      } else if (e.type === "updated" || e.type === "created") {
-        const id = e.workout?.id;
-        if (id) upsertIds.push(id);
-      }
-    });
+    const { deletedIds, upsertIds } = processWorkoutEvents(events);
 
     if (deletedIds.size) {
-      deleteWorkoutRows(sheet, deletedIds);
+      deleteWorkoutRows(manager.sheet, deletedIds);
     }
 
-    const properties = getDocumentProperties();
-    if (!properties) {
-      throw new ConfigurationError(
-        "Unable to access document properties. Please ensure you have proper permissions."
-      );
+    if (!upsertIds.length) {
+      props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+      return 0;
     }
-    const apiKey = properties.getProperty("HEVY_API_KEY");
-    if (!apiKey) {
-      throw new ConfigurationError("API key not found");
-    }
+
+    const apiKey = getApiKeyForWorkouts();
     const fullWorkouts = await Promise.all(
       upsertIds.map(async (id) => {
         const resp = await apiClient.makeRequest(
@@ -148,16 +178,15 @@ async function importAllWorkoutsDelta(lastUpdate) {
     );
 
     const rows = processWorkoutsData(fullWorkouts);
-    updateWorkoutData(sheet, rows);
+    updateWorkoutData(manager.sheet, rows);
+    props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
 
-    if (props) {
-      props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
-    }
     SpreadsheetApp.getActiveSpreadsheet().toast(
       `Imported ${rows.length} workout records.`,
       "Delta Import Complete",
       TOAST_DURATION.NORMAL
     );
+
     return fullWorkouts.length;
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -225,45 +254,62 @@ function updateWorkoutData(sheet, processedData) {
 }
 
 /**
- * Converts workout objects into 2D array of sheet rows.
+ * Creates a row for a workout without exercises
+ * @param {Object} workout - Workout object
+ * @returns {Array} Row data
+ * @private
+ */
+function createEmptyWorkoutRow(workout) {
+  return [
+    workout.id,
+    workout.title,
+    formatDate(workout.start_time),
+    formatDate(workout.end_time),
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+  ];
+}
+
+/**
+ * Creates rows for a workout with exercises
+ * @param {Object} workout - Workout object
+ * @returns {Array<Array>} Array of row data
+ * @private
+ */
+function createWorkoutRows(workout) {
+  return workout.exercises.flatMap((ex) =>
+    ex.sets.map((set) => [
+      workout.id,
+      workout.title,
+      formatDate(workout.start_time),
+      formatDate(workout.end_time),
+      ex.title,
+      ex.exercise_template_id || "",
+      normalizeSetType(set.type),
+      normalizeWeight(set.weight_kg),
+      normalizeNumber(set.reps ?? set.distance_meters),
+      normalizeNumber(set.duration_seconds),
+      normalizeNumber(set.rpe),
+    ])
+  );
+}
+
+/**
+ * Converts workout objects into 2D array of sheet rows
+ * @param {Array<Object>} workouts - Array of workout objects
+ * @returns {Array<Array>} 2D array of sheet rows
  * @private
  */
 function processWorkoutsData(workouts) {
   try {
-    return workouts.flatMap((w) => {
-      if (!w.exercises || !w.exercises.length) {
-        return [
-          [
-            w.id,
-            w.title,
-            formatDate(w.start_time),
-            formatDate(w.end_time),
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-        ];
-      }
-      return w.exercises.flatMap((ex) =>
-        ex.sets.map((set) => [
-          w.id,
-          w.title,
-          formatDate(w.start_time),
-          formatDate(w.end_time),
-          ex.title,
-          ex.exercise_template_id || "",
-          normalizeSetType(set.type),
-          normalizeWeight(set.weight_kg),
-          normalizeNumber(set.reps ?? set.distance_meters),
-          normalizeNumber(set.duration_seconds),
-          normalizeNumber(set.rpe),
-        ])
-      );
-    });
+    return workouts.flatMap((w) =>
+      !w.exercises?.length ? [createEmptyWorkoutRow(w)] : createWorkoutRows(w)
+    );
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Processing workout data",

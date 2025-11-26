@@ -3,13 +3,12 @@
  */
 
 /**
- * Imports all workout routine folders from Hevy API.
+ * Imports all workout routine folders from Hevy API
+ * @returns {Promise<void>}
  */
 async function importAllRoutineFolders() {
   try {
     const manager = SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME);
-    const sheet = manager.sheet;
-
     manager.clearSheet();
 
     const processedFolders = [];
@@ -30,12 +29,11 @@ async function importAllRoutineFolders() {
       "routine_folders"
     );
 
-    await updateFoldersInSheet(sheet, processedFolders);
-
+    await updateFoldersInSheet(manager.sheet, processedFolders);
     manager.formatSheet();
 
     SpreadsheetApp.getActiveSpreadsheet().toast(
-      `Imported ${totalFolders + 1} folders successfully!`,
+      `Imported ${totalFolders} folders successfully!`,
       "Import Complete",
       TOAST_DURATION.NORMAL
     );
@@ -70,20 +68,22 @@ function processFolderData(folders) {
 
 /**
  * Updates the sheet with folder data
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to update
+ * @param {Array<Array>} processedFolders - Processed folder data
  * @private
  */
 async function updateFoldersInSheet(sheet, processedFolders) {
   try {
-    if (processedFolders.length > 0) {
-      sheet
-        .getRange(
-          2,
-          1,
-          processedFolders.length,
-          SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length
-        )
-        .setValues(processedFolders);
-    }
+    if (processedFolders.length === 0) return;
+
+    sheet
+      .getRange(
+        2,
+        1,
+        processedFolders.length,
+        SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length
+      )
+      .setValues(processedFolders);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Updating folders in sheet",

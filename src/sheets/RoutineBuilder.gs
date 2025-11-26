@@ -3,24 +3,40 @@
  */
 
 /**
- * Creates a routine from the sheet data and submits it to Hevy
- * @returns {Promise<Object>} Created routine data
+ * Error message for missing Routine Builder sheet
+ * @type {string}
+ * @private
  */
-async function createRoutineFromSheet() {
-  const ui = SpreadsheetApp.getUi();
+const MISSING_SHEET_MESSAGE =
+  "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
+  "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
+  "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy";
 
+/**
+ * Gets the Routine Builder sheet or shows error
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet|null} The sheet or null if not found
+ * @private
+ */
+function getRoutineBuilderSheet() {
   const sheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
   if (!sheet) {
-    ui.alert(
+    SpreadsheetApp.getUi().alert(
       "Missing 'Routine Builder' Sheet",
-      "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
-        "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
-        "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy",
-      ui.ButtonSet.OK
+      MISSING_SHEET_MESSAGE,
+      SpreadsheetApp.getUi().ButtonSet.OK
     );
-    return null;
   }
+  return sheet;
+}
+
+/**
+ * Creates a routine from the sheet data and submits it to Hevy
+ * @returns {Promise<Object|null>} Created routine data or null if error
+ */
+async function createRoutineFromSheet() {
+  const sheet = getRoutineBuilderSheet();
+  if (!sheet) return null;
 
   const titleCell = sheet.getRange("C2");
   const title = String(titleCell.getValue()).trim();
@@ -110,19 +126,8 @@ async function createRoutineFromSheet() {
  */
 function clearRoutineBuilder() {
   try {
-    const sheet =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
-
-    if (!sheet) {
-      ui.alert(
-        "Missing 'Routine Builder' Sheet",
-        "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
-          "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
-          "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy",
-        ui.ButtonSet.OK
-      );
-      return null;
-    }
+    const sheet = getRoutineBuilderSheet();
+    if (!sheet) return;
 
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G").clearContent();
@@ -168,8 +173,13 @@ function processExercises(exerciseData) {
         .getSheetByName("Main")
         .getRange("I5")
         .getValue() || "kg";
-    const conversionFactor =
-      weightUnit === "lbs" ? 0.45359237 : weightUnit === "stone" ? 6.35029 : 1;
+
+    const conversionFactors = {
+      lbs: 0.45359237,
+      stone: 6.35029,
+      kg: 1,
+    };
+    const conversionFactor = conversionFactors[weightUnit] || 1;
 
     exerciseData.forEach((row) => {
       let [name, rest, setType, weight, reps, notes, supersetId, templateId] =
@@ -290,9 +300,12 @@ async function getOrCreateRoutineFolder(folderName) {
 }
 
 /**
- * Finds a routine folder by name
+ * Gets API key for routine operations
+ * @returns {string} API key
+ * @throws {ConfigurationError} If properties or API key not found
+ * @private
  */
-async function findRoutineFolder(folderName) {
+function getRoutineApiKey() {
   const properties = getDocumentProperties();
   if (!properties) {
     throw new ConfigurationError(
@@ -303,6 +316,16 @@ async function findRoutineFolder(folderName) {
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }
+  return apiKey;
+}
+
+/**
+ * Finds a routine folder by name
+ * @param {string} folderName - Name of the folder to find
+ * @returns {Promise<number|null>} Folder ID or null if not found
+ */
+async function findRoutineFolder(folderName) {
+  const apiKey = getRoutineApiKey();
   const options = apiClient.createRequestOptions(apiKey);
 
   try {
@@ -328,22 +351,12 @@ async function findRoutineFolder(folderName) {
 
 /**
  * Creates a new routine folder
- * @private
  * @param {string} folderName - Name for the new folder
  * @returns {Promise<number>} ID of the newly created folder
+ * @private
  */
 async function createNewRoutineFolder(folderName) {
-  const properties = getDocumentProperties();
-  if (!properties) {
-    throw new ConfigurationError(
-      "Unable to access document properties. Please ensure you have proper permissions."
-    );
-  }
-  const apiKey = properties.getProperty("HEVY_API_KEY");
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-
+  const apiKey = getRoutineApiKey();
   const options = apiClient.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
   });
@@ -408,22 +421,12 @@ function createSet(setType, weight, reps, templateType) {
 
 /**
  * Submits routine to the API
- * @private
  * @param {Object} routineData - The routine payload to send
  * @returns {Promise<Object>} Parsed response from the API
+ * @private
  */
 async function submitRoutine(routineData) {
-  const properties = getDocumentProperties();
-  if (!properties) {
-    throw new ConfigurationError(
-      "Unable to access document properties. Please ensure you have proper permissions."
-    );
-  }
-  const apiKey = properties.getProperty("HEVY_API_KEY");
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-
+  const apiKey = getRoutineApiKey();
   const options = apiClient.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
   });

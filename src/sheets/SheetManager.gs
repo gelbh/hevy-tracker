@@ -1,8 +1,6 @@
 /**
- * SheetManager.gs
  * Centralized class for handling all sheet formatting and manipulation operations
  */
-
 class SheetManager {
   /**
    * Creates a new SheetManager instance
@@ -25,7 +23,7 @@ class SheetManager {
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "SheetManager initialization",
-        sheetName: sheetName,
+        sheetName,
       });
     }
   }
@@ -33,7 +31,7 @@ class SheetManager {
   /**
    * Creates or gets a sheet and returns a manager instance
    * @param {string} sheetName - Name of the sheet
-   * @return {SheetManager} manager instance
+   * @returns {SheetManager} Manager instance
    */
   static getOrCreate(sheetName) {
     try {
@@ -48,7 +46,7 @@ class SheetManager {
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Creating/getting sheet",
-        sheetName: sheetName,
+        sheetName,
       });
     }
   }
@@ -60,11 +58,11 @@ class SheetManager {
     try {
       await this.ensureHeaders();
 
-      if (this.sheet.getLastRow() > 1) {
-        await this.formatData();
-        await this.removeEmptyRowsAndColumns();
-        await this.setAlternatingColors();
-      }
+      if (this.sheet.getLastRow() <= 1) return;
+
+      await this.formatData();
+      await this.removeEmptyRowsAndColumns();
+      await this.setAlternatingColors();
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Formatting sheet",
@@ -104,8 +102,8 @@ class SheetManager {
 
   /**
    * Validates existing headers against expected headers
-   * @private
    * @returns {Promise<boolean>} True if headers are valid
+   * @private
    */
   async validateHeaders() {
     try {
@@ -127,20 +125,20 @@ class SheetManager {
 
   /**
    * Formats data with consistent styling
+   * @param {number} [numRows] - Number of rows to format (defaults to all data rows)
+   * @param {number} [startRow=2] - Starting row index
    * @private
    */
   async formatData(numRows, startRow = 2) {
     try {
-      if (!numRows) {
-        numRows = Math.max(0, this.sheet.getLastRow() - startRow + 1);
-      }
-
-      if (numRows <= 0) return;
+      const rowsToFormat =
+        numRows ?? Math.max(0, this.sheet.getLastRow() - startRow + 1);
+      if (rowsToFormat <= 0) return;
 
       const range = this.sheet.getRange(
         startRow,
         1,
-        numRows,
+        rowsToFormat,
         this.sheet.getLastColumn()
       );
 
@@ -162,8 +160,8 @@ class SheetManager {
       throw ErrorHandler.handle(error, {
         operation: "Formatting data",
         sheetName: this.sheetName,
-        startRow: startRow,
-        numRows: numRows,
+        startRow,
+        numRows,
       });
     }
   }

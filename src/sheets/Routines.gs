@@ -3,13 +3,12 @@
  */
 
 /**
- * Imports all workout routines from Hevy API into the Routines sheet.
+ * Imports all workout routines from Hevy API into the Routines sheet
+ * @returns {Promise<void>}
  */
 async function importAllRoutines() {
   try {
     const manager = SheetManager.getOrCreate(ROUTINES_SHEET_NAME);
-    const sheet = manager.sheet;
-
     manager.clearSheet();
 
     const processedRoutines = [];
@@ -33,7 +32,7 @@ async function importAllRoutines() {
     );
 
     if (processedRoutines.length > 0) {
-      await updateRoutinesInSheet(sheet, processedRoutines);
+      await updateRoutinesInSheet(manager.sheet, processedRoutines);
       SpreadsheetApp.getActiveSpreadsheet().toast(
         `Imported ${totalRoutines} routines with ${processedRoutines.length} total entries!`,
         "Import Complete",
@@ -48,8 +47,6 @@ async function importAllRoutines() {
     }
 
     manager.formatSheet();
-    
-    // Sync exercise names from workouts to match localized names
     await syncLocalizedExerciseNames();
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -88,26 +85,38 @@ async function updateRoutinesInSheet(sheet, processedRoutines) {
 }
 
 /**
+ * Creates an empty routine row (no exercises)
+ * @param {Object} routine - Routine object
+ * @returns {Array} Row data
+ * @private
+ */
+function createEmptyRoutineRow(routine) {
+  return [
+    [
+      routine.id,
+      routine.title,
+      routine.folder_id || "",
+      formatDate(routine.updated_at),
+      formatDate(routine.created_at),
+      "",
+      "",
+      "",
+      "",
+      "",
+    ],
+  ];
+}
+
+/**
  * Processes routine data into sheet format
+ * @param {Object} routine - Routine object
+ * @returns {Array<Array>} Array of row data
  * @private
  */
 function processRoutine(routine) {
   try {
-    if (!routine.exercises || routine.exercises.length === 0) {
-      return [
-        [
-          routine.id,
-          routine.title,
-          routine.folder_id || "",
-          formatDate(routine.updated_at),
-          formatDate(routine.created_at),
-          "", // Exercise
-          "", // Set Type
-          "", // Weight
-          "", // Reps / Distance (m)
-          "", // Duration (s)
-        ],
-      ];
+    if (!routine.exercises?.length) {
+      return createEmptyRoutineRow(routine);
     }
 
     return routine.exercises.flatMap((exercise) =>
@@ -148,4 +157,3 @@ function processRoutineExercise(exercise, routine) {
     });
   }
 }
-
