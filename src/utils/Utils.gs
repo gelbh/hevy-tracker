@@ -46,20 +46,31 @@ function getDocumentProperties() {
  */
 
 /**
+ * @typedef {Object} HtmlDialogOptions
+ * @property {number} [width] - Dialog width in pixels
+ * @property {number} [height] - Dialog height in pixels
+ * @property {string} [title] - Dialog title
+ * @property {string} [modalTitle] - Title shown in the modal header
+ * @property {Object} [templateData] - Data to pass to the template
+ * @property {boolean} [showAsSidebar] - Whether to show as sidebar instead of modal
+ */
+
+/**
  * Creates and shows an HTML dialog from a template file
  * @param {string} filename - Name of the HTML template file (without .html extension)
- * @param {Object} [options] - Configuration options
- * @param {number} [options.width=500] - Dialog width in pixels
- * @param {number} [options.height=500] - Dialog height in pixels
- * @param {string} [options.title=''] - Dialog title
- * @param {string} [options.modalTitle=''] - Title shown in the modal header
- * @param {Object} [options.templateData={}] - Data to pass to the template
- * @param {boolean} [options.showAsSidebar=false] - Whether to show as sidebar
+ * @param {HtmlDialogOptions} [options={}] - Configuration options
+ * @throws {Error} If dialog creation or display fails
+ * @example
+ * showHtmlDialog("src/ui/dialogs/SetApiKey", {
+ *   width: 450,
+ *   height: 250,
+ *   title: "API Key Setup"
+ * });
  */
 function showHtmlDialog(filename, options = {}) {
   const {
-    width = 500,
-    height = 500,
+    width = DIALOG_DIMENSIONS.DEFAULT_WIDTH,
+    height = DIALOG_DIMENSIONS.DEFAULT_HEIGHT,
     title = "",
     modalTitle = "",
     templateData = {},
@@ -200,8 +211,15 @@ function extractWeightFromPoint(point) {
 }
 
 /**
- * Imports weight entries from a Google Takeout JSON
- * @param {string} content - JSON content from Google Takeout
+ * Imports weight entries from a Google Takeout JSON file
+ * Parses Google Takeout JSON format and extracts weight data points
+ * @param {string} content - JSON content from Google Takeout file
+ * @returns {void}
+ * @throws {Error} If JSON parsing fails or sheet operations fail
+ * @example
+ * // User uploads Google Takeout JSON file
+ * const fileContent = "{\"Data Points\": [...]}";
+ * importWeightFromTakeout(fileContent);
  */
 function importWeightFromTakeout(content) {
   try {
@@ -218,7 +236,9 @@ function importWeightFromTakeout(content) {
         const nanos = pt.startTimeNanos || pt.endTimeNanos;
         const ts = new Date(Number(nanos) / 1e6);
         const kg = extractWeightFromPoint(pt);
-        return kg != null ? [ts, Math.round(kg * 100) / 100] : null;
+        if (kg == null) return null;
+        const multiplier = Math.pow(10, WEIGHT_CONFIG.PRECISION_DECIMALS);
+        return [ts, Math.round(kg * multiplier) / multiplier];
       })
       .filter(Boolean)
       .sort((a, b) => b[0] - a[0]);
@@ -248,7 +268,13 @@ function importWeightFromTakeout(content) {
 
 /**
  * Logs a weight entry with user input
- * @throws {Error} If weight value is invalid or sheet operations fail
+ * Prompts user for weight value and adds it to the Weight History sheet
+ * @returns {void}
+ * @throws {ValidationError} If weight value is invalid
+ * @throws {SheetError} If sheet operations fail
+ * @example
+ * // User is prompted to enter weight
+ * logWeight();
  */
 function logWeight() {
   try {
@@ -285,11 +311,11 @@ function logWeight() {
  */
 function getMaxWeight(unit) {
   const maxWeights = {
-    lbs: 1100,
-    stone: 78.5,
-    kg: 500,
+    lbs: WEIGHT_CONFIG.MAX_WEIGHT_LBS,
+    stone: WEIGHT_CONFIG.MAX_WEIGHT_STONE,
+    kg: WEIGHT_CONFIG.MAX_WEIGHT_KG,
   };
-  return maxWeights[unit] || 500;
+  return maxWeights[unit] || WEIGHT_CONFIG.MAX_WEIGHT_KG;
 }
 
 /**
@@ -357,11 +383,12 @@ function formatDate(dateString) {
 /**
  * Normalizes weight values for consistency
  * @param {number|null} weight - Weight value to normalize
- * @returns {number|string} Normalized weight value rounded to 2 decimal places or empty string
+ * @returns {number|string} Normalized weight value rounded to configured precision or empty string
  */
 function normalizeWeight(weight) {
   if (weight === null || weight === undefined) return "";
-  return Math.round(weight * 100) / 100;
+  const multiplier = Math.pow(10, WEIGHT_CONFIG.PRECISION_DECIMALS);
+  return Math.round(weight * multiplier) / multiplier;
 }
 
 /**
@@ -497,6 +524,52 @@ function serializeErrorForHtml(error) {
 }
 
 /**
+ * Async Error Boundaries
+ */
+
+/**
+ * Wraps an async function with error boundary to prevent error propagation
+ * @template T
+ * @param {() => Promise<T>} asyncFn - Async function to wrap
+ * @param {string|Object} context - Error context
+ * @param {T} [defaultValue] - Default value to return on error
+ * @returns {Promise<T>} Result of async function or default value on error
+ */
+async function withErrorBoundary(asyncFn, context, defaultValue = null) {
+  try {
+    return await asyncFn();
+  } catch (error) {
+    ErrorHandler.handle(error, context, false);
+    return defaultValue;
+  }
+}
+
+/**
+ * Executes multiple async operations with error aggregation
+ * Continues even if some operations fail
+ * @template T
+ * @param {Array<() => Promise<T>>} asyncFns - Array of async functions to execute
+ * @param {string|Object} context - Error context
+ * @returns {Promise<Array<{success: boolean, result?: T, error?: Error}>>} Results with success status
+ */
+async function executeWithErrorAggregation(asyncFns, context) {
+  const results = await Promise.allSettled(asyncFns.map((fn) => fn()));
+
+  return results.map((result, index) => {
+    if (result.status === "fulfilled") {
+      return { success: true, result: result.value };
+    } else {
+      const errorContext =
+        typeof context === "string"
+          ? { ...context, operationIndex: index }
+          : { ...context, operationIndex: index };
+      ErrorHandler.handle(result.reason, errorContext, false);
+      return { success: false, error: result.reason };
+    }
+  });
+}
+
+/**
  * Global function to save Hevy API key, callable from dialog
  * This wrapper ensures errors are properly serialized for HTML service
  * @param {string} apiKey - The API key to save
@@ -592,6 +665,8 @@ function getApiKeyDataForUI() {
  * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
+  const startTime = Date.now();
+
   // Check for API key first - prompt if not set
   const properties = getDocumentProperties();
   const apiKey = properties?.getProperty("HEVY_API_KEY");
@@ -619,12 +694,26 @@ async function runAutomaticImport() {
       }
     }
 
+    // Track execution time
+    const executionTime = Date.now() - startTime;
+    QuotaTracker.recordExecutionTime(executionTime);
+
+    // Check quota warnings
+    const quotaWarning = QuotaTracker.checkQuotaWarnings();
+    if (quotaWarning) {
+      console.warn("Quota warning:", quotaWarning);
+    }
+
     spreadsheet.toast(
       "Importing all data completed successfully",
       "Automatic Import",
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
+    // Track execution time even on error
+    const executionTime = Date.now() - startTime;
+    QuotaTracker.recordExecutionTime(executionTime);
+
     ErrorHandler.handle(error, { operation: "Running import on open" }, false);
   }
 }
@@ -639,8 +728,7 @@ async function runAutomaticImport() {
  */
 function isDeveloper() {
   const email = Session.getEffectiveUser().getEmail();
-  const developerEmails = ["gelbharttomer@gmail.com"];
-  return developerEmails.includes(email);
+  return DEVELOPER_CONFIG.EMAILS.includes(email);
 }
 
 /**
