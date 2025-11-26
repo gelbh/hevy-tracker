@@ -3,7 +3,6 @@
 
 # Allow Apps Script files
 !appsscript.json
-!src/**/*.gs
 !src/**/*.js
 !src/**/*.html
 
