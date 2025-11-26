@@ -51,7 +51,7 @@ jobs:
         run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
 
       - name: Update API key constant
-        run: sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
+        run: sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/config/Constants.gs
 
       - name: List files to be pushed
         run: |
