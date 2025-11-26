@@ -109,14 +109,12 @@ class ApiClient {
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
-        // Pass API key directly to avoid any property read timing issues
+        // Pass API key directly to avoid property read timing issues
         // Fire-and-forget: start import in background, don't wait for it
-        // This allows saveUserApiKey to return immediately
         this.runFullImport(apiKey).catch((error) => {
-          // Handle errors silently - they're already logged by ErrorHandler
+          // Errors are already logged by ErrorHandler
           console.error("Background import failed:", error);
         });
-        // Function returns immediately here, import continues in background
       } else {
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key updated successfully!",
