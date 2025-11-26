@@ -101,7 +101,7 @@ class ApiClient {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "Api-Key": apiKey,
+        "api-key": apiKey,
       },
       muteHttpExceptions: true,
       validateHttpsCertificates: true,
@@ -244,7 +244,7 @@ describe("API Key Saving Integration", () => {
         `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`,
         expect.objectContaining({
           headers: expect.objectContaining({
-            "Api-Key": apiKey,
+            "api-key": apiKey,
           }),
         })
       );

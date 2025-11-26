@@ -58,7 +58,7 @@ class ApiClient {
   createRequestOptions(apiKey) {
     return {
       method: "GET",
-      headers: { "Api-Key": apiKey },
+      headers: { "api-key": apiKey },
       muteHttpExceptions: true,
     };
   }

@@ -116,7 +116,7 @@ class ApiClient {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "Api-Key": apiKey,
+        "api-key": apiKey,
         ...additionalHeaders,
       },
       muteHttpExceptions: true,
@@ -247,7 +247,7 @@ describe("ApiClient - validateApiKey", () => {
       `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`,
       expect.objectContaining({
         headers: expect.objectContaining({
-          "Api-Key": apiKey,
+          "api-key": apiKey,
         }),
         timeout: 15000,
       })

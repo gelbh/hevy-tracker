@@ -774,7 +774,7 @@ class ApiClient {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "Api-Key": apiKey,
+        "api-key": apiKey,
         ...additionalHeaders,
       },
       muteHttpExceptions: true,
@@ -996,13 +996,25 @@ class ApiClient {
   /**
    * Clears all caches (memory and persistent)
    * Useful for testing or when cache needs to be invalidated
+   * Note: CacheService doesn't provide a way to enumerate all keys,
+   * so we can only clear keys that are currently in memory cache.
    */
   clearCache() {
+    // Store cache keys before clearing in-memory cache
+    const cacheKeys = Object.keys(this.cache);
+
+    // Clear in-memory cache
     this.cache = {};
     this._cacheSize = 0;
+
+    // Remove known cache keys from persistent cache
     try {
       const persistentCache = CacheService.getDocumentCache();
-      persistentCache.removeAll(Object.keys(this.cache));
+      cacheKeys.forEach((key) => {
+        persistentCache.remove(key);
+      });
+      // Also remove rate limit info if it exists
+      persistentCache.remove("RATE_LIMIT_INFO");
     } catch (error) {
       console.warn("Failed to clear persistent cache:", error);
     }

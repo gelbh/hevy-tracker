@@ -143,7 +143,7 @@ class ApiClient {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "Api-Key": apiKey,
+        "api-key": apiKey,
         ...additionalHeaders,
       },
       muteHttpExceptions: true,
@@ -197,7 +197,11 @@ class ApiClient {
         return JSON.parse(responseText);
       } catch (error) {
         throw ErrorHandler.handle(
-          new ApiError("Invalid JSON response from API", statusCode, responseText),
+          new ApiError(
+            "Invalid JSON response from API",
+            statusCode,
+            responseText
+          ),
           { operation: "Parsing API response" }
         );
       }
@@ -229,7 +233,8 @@ class ApiClient {
 
     const url = this.buildUrl(endpoint, queryParams);
     if (payload) {
-      options.payload = typeof payload === "string" ? payload : JSON.stringify(payload);
+      options.payload =
+        typeof payload === "string" ? payload : JSON.stringify(payload);
     }
 
     let lastError;
@@ -304,7 +309,7 @@ describe("ApiClient - Extended Methods", () => {
       const options = apiClient.createRequestOptions("test-key");
 
       expect(options.method).toBe("GET");
-      expect(options.headers["Api-Key"]).toBe("test-key");
+      expect(options.headers["api-key"]).toBe("test-key");
       expect(options.headers["Accept"]).toBe("application/json");
     });
 
@@ -484,4 +489,3 @@ describe("ApiClient - Extended Methods", () => {
     });
   });
 });
-
