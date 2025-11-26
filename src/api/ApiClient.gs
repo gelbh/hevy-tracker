@@ -109,7 +109,14 @@ class ApiClient {
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
-        this.runFullImport();
+        // Pass API key directly to avoid any property read timing issues
+        // Fire-and-forget: start import in background, don't wait for it
+        // This allows saveUserApiKey to return immediately
+        this.runFullImport(apiKey).catch((error) => {
+          // Handle errors silently - they're already logged by ErrorHandler
+          console.error("Background import failed:", error);
+        });
+        // Function returns immediately here, import continues in background
       } else {
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key updated successfully!",
@@ -340,8 +347,9 @@ class ApiClient {
 
   /**
    * Runs initial data import sequence for new API key setup
+   * @param {string} [apiKeyOverride=null] - Optional API key to use instead of reading from properties
    */
-  async runFullImport() {
+  async runFullImport(apiKeyOverride = null) {
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       this._ensureImportTrigger(ss);
@@ -354,7 +362,8 @@ class ApiClient {
         );
       }
 
-      const apiKey = this._getApiKeyFromProperties();
+      // Use provided API key or get from properties
+      const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
       if (!apiKey) {
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",

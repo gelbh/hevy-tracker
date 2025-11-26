@@ -597,6 +597,16 @@ function getApiKeyDataForUI() {
  * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
+  // Check for API key first - return early if not set
+  const properties = getDocumentProperties();
+  const apiKey = properties?.getProperty("HEVY_API_KEY");
+
+  if (!apiKey) {
+    // No API key set - return early without attempting import
+    // Don't show toast to avoid spam on every spreadsheet open
+    return;
+  }
+
   try {
     await importAllExercises();
 
