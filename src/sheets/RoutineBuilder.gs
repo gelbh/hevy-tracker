@@ -293,9 +293,17 @@ async function getOrCreateRoutineFolder(folderName) {
  * Finds a routine folder by name
  */
 async function findRoutineFolder(folderName) {
-  const options = apiClient.createRequestOptions(
-    getDocumentProperties().getProperty("HEVY_API_KEY")
-  );
+  const properties = getDocumentProperties();
+  if (!properties) {
+    throw new ConfigurationError(
+      "Unable to access document properties. Please ensure you have proper permissions."
+    );
+  }
+  const apiKey = properties.getProperty("HEVY_API_KEY");
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
+  const options = apiClient.createRequestOptions(apiKey);
 
   try {
     const response = await apiClient.makeRequest(
@@ -325,7 +333,13 @@ async function findRoutineFolder(folderName) {
  * @returns {Promise<number>} ID of the newly created folder
  */
 async function createNewRoutineFolder(folderName) {
-  const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
+  const properties = getDocumentProperties();
+  if (!properties) {
+    throw new ConfigurationError(
+      "Unable to access document properties. Please ensure you have proper permissions."
+    );
+  }
+  const apiKey = properties.getProperty("HEVY_API_KEY");
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }
@@ -399,7 +413,13 @@ function createSet(setType, weight, reps, templateType) {
  * @returns {Promise<Object>} Parsed response from the API
  */
 async function submitRoutine(routineData) {
-  const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
+  const properties = getDocumentProperties();
+  if (!properties) {
+    throw new ConfigurationError(
+      "Unable to access document properties. Please ensure you have proper permissions."
+    );
+  }
+  const apiKey = properties.getProperty("HEVY_API_KEY");
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }

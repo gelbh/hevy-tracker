@@ -18,6 +18,13 @@ class ApiClient {
    */
   getOrPromptApiKey() {
     const properties = getDocumentProperties();
+    if (!properties) {
+      this.promptForApiKey(
+        "An API key is required. Would you like to set it now?"
+      );
+      return null;
+    }
+
     const key = properties.getProperty("HEVY_API_KEY");
 
     if (!key) {
@@ -36,6 +43,15 @@ class ApiClient {
   manageApiKey() {
     try {
       const properties = getDocumentProperties();
+      if (!properties) {
+        showHtmlDialog("src/ui/dialogs/SetApiKey", {
+          width: 450,
+          height: 250,
+          title: "Hevy API Key Setup",
+        });
+        return;
+      }
+
       const currentKey = properties.getProperty("HEVY_API_KEY");
 
       if (currentKey && !this.confirmKeyReset()) {
@@ -61,6 +77,12 @@ class ApiClient {
       await this.validateApiKey(apiKey);
 
       const properties = getDocumentProperties();
+      if (!properties) {
+        throw new ConfigurationError(
+          "Unable to access document properties. Please ensure you have proper permissions."
+        );
+      }
+
       const currentKey = properties.getProperty("HEVY_API_KEY");
       properties.setProperty("HEVY_API_KEY", apiKey);
 
@@ -84,7 +106,10 @@ class ApiClient {
       }
     } catch (error) {
       if (error instanceof InvalidApiKeyError) {
-        getDocumentProperties().deleteProperty("HEVY_API_KEY");
+        const properties = getDocumentProperties();
+        if (properties) {
+          properties.deleteProperty("HEVY_API_KEY");
+        }
 
         const ui = SpreadsheetApp.getUi();
         ui.alert(

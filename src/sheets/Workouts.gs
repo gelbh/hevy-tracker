@@ -12,9 +12,10 @@ async function importAllWorkouts() {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const sheet = manager.sheet;
 
+  const properties = getDocumentProperties();
   const lastUpdate = !sheet.getRange("A2").getValue()
     ? false
-    : getDocumentProperties().getProperty("LAST_WORKOUT_UPDATE");
+    : properties && properties.getProperty("LAST_WORKOUT_UPDATE");
 
   let changes = 0;
   if (!lastUpdate) {
@@ -42,7 +43,9 @@ async function importAllWorkoutsFull() {
   const sheet = manager.sheet;
   const props = getDocumentProperties();
 
-  props.deleteProperty("LAST_WORKOUT_UPDATE");
+  if (props) {
+    props.deleteProperty("LAST_WORKOUT_UPDATE");
+  }
 
   manager.clearSheet();
 
@@ -62,7 +65,9 @@ async function importAllWorkoutsFull() {
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 
-  props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+  if (props) {
+    props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+  }
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `Imported ${rows.length} workout records.`,
     "Full Import Complete",
@@ -82,6 +87,11 @@ async function importAllWorkoutsDelta(lastUpdate) {
     const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
     const sheet = manager.sheet;
     const props = getDocumentProperties();
+    if (!props) {
+      throw new ConfigurationError(
+        "Unable to access document properties. Please ensure you have proper permissions."
+      );
+    }
 
     const events = [];
     await apiClient.fetchPaginatedData(
@@ -117,7 +127,16 @@ async function importAllWorkoutsDelta(lastUpdate) {
       deleteWorkoutRows(sheet, deletedIds);
     }
 
-    const apiKey = getDocumentProperties().getProperty("HEVY_API_KEY");
+    const properties = getDocumentProperties();
+    if (!properties) {
+      throw new ConfigurationError(
+        "Unable to access document properties. Please ensure you have proper permissions."
+      );
+    }
+    const apiKey = properties.getProperty("HEVY_API_KEY");
+    if (!apiKey) {
+      throw new ConfigurationError("API key not found");
+    }
     const fullWorkouts = await Promise.all(
       upsertIds.map(async (id) => {
         const resp = await apiClient.makeRequest(
@@ -131,7 +150,9 @@ async function importAllWorkoutsDelta(lastUpdate) {
     const rows = processWorkoutsData(fullWorkouts);
     updateWorkoutData(sheet, rows);
 
-    props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+    if (props) {
+      props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
+    }
     SpreadsheetApp.getActiveSpreadsheet().toast(
       `Imported ${rows.length} workout records.`,
       "Delta Import Complete",
