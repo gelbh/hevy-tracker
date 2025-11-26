@@ -3,26 +3,33 @@
  */
 
 /**
+ * Default dialog options for API key setup
+ * @type {Object}
+ * @private
+ */
+const API_KEY_DIALOG_OPTIONS = {
+  width: 450,
+  height: 250,
+  title: "Hevy API Key Setup",
+};
+
+/**
  * Shows initial setup dialog and handles authorization
  */
 function showInitialSetup() {
   try {
-    const properties = getDocumentProperties();
-    const hasApiKey = properties && properties.getProperty("HEVY_API_KEY");
+    const hasApiKey = getDocumentProperties()?.getProperty("HEVY_API_KEY");
 
     if (hasApiKey) {
       apiClient.manageApiKey();
     } else {
       showHtmlDialog("src/ui/dialogs/SetApiKey", {
-        width: 450,
-        height: 250,
+        ...API_KEY_DIALOG_OPTIONS,
         title: "Hevy Tracker Setup",
       });
     }
   } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing initial setup",
-    });
+    throw ErrorHandler.handle(error, { operation: "Showing initial setup" });
   }
 }
 
@@ -45,7 +52,7 @@ function showGuideDialog() {
 }
 
 /**
- * Opens the Takeout-import dialog.
+ * Opens the Takeout-import dialog
  */
 function showTakeoutDialog() {
   try {
@@ -55,9 +62,7 @@ function showTakeoutDialog() {
       height: 420,
     });
   } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Showing import dialog",
-    });
+    throw ErrorHandler.handle(error, { operation: "Showing import dialog" });
   }
 }
 
@@ -88,7 +93,7 @@ function showMultiLoginWarning() {
 }
 
 /**
- * Show the Developer API Key Manager dialog
+ * Shows the Developer API Key Manager dialog
  */
 function showDevApiManagerDialog() {
   showHtmlDialog("src/ui/dialogs/DevApiManager", {
