@@ -63,6 +63,15 @@
           transform: rotate(360deg);
         }
       }
+      .error-message {
+        display: none;
+        color: #d32f2f;
+        background-color: #ffebee;
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-size: 14px;
+      }
     </style>
   </head>
   <body>
@@ -78,6 +87,7 @@
         placeholder="Enter API key"
         oninput="validateInput()"
       />
+      <div id="errorMessage" class="error-message"></div>
       <div class="button-container">
         <button class="secondary" onclick="closeDialog()">Cancel</button>
         <button id="saveButton" class="primary" onclick="saveApiKey()" disabled>
@@ -103,13 +113,34 @@
 
         const saveButton = document.getElementById("saveButton");
         const spinner = document.getElementById("spinner");
+        const errorMessage = document.getElementById("errorMessage");
+        const apiKeyInput = document.getElementById("apiKey");
+        
+        // Hide any previous error messages
+        errorMessage.style.display = "none";
+        errorMessage.textContent = "";
+        
+        // Disable input and button, show spinner
         saveButton.disabled = true;
+        apiKeyInput.disabled = true;
         spinner.style.display = "inline-block";
 
-        google.script.host.close();
-
         google.script.run
+          .withSuccessHandler(function () {
+            // Close dialog only on successful save
+            google.script.host.close();
+          })
           .withFailureHandler(function (error) {
+            // Show error in dialog
+            errorMessage.textContent = "Error: " + error;
+            errorMessage.style.display = "block";
+            
+            // Re-enable input and button, hide spinner
+            saveButton.disabled = false;
+            apiKeyInput.disabled = false;
+            spinner.style.display = "none";
+            
+            // Also show toast for visibility
             SpreadsheetApp.getActiveSpreadsheet().toast(
               "Error saving API key: " + error,
               "Error",

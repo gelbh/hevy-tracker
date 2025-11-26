@@ -10,6 +10,7 @@ class ApiClient {
       maxDelay: 10000,
     };
     this.cache = {};
+    this._apiKeyCheckInProgress = false;
   }
 
   /**
@@ -19,18 +20,22 @@ class ApiClient {
   getOrPromptApiKey() {
     const properties = getDocumentProperties();
     if (!properties) {
-      this.promptForApiKey(
-        "An API key is required. Would you like to set it now?"
-      );
+      if (!this._apiKeyCheckInProgress) {
+        this.promptForApiKey(
+          "An API key is required. Would you like to set it now?"
+        );
+      }
       return null;
     }
 
     const key = properties.getProperty("HEVY_API_KEY");
 
     if (!key) {
-      this.promptForApiKey(
-        "An API key is required. Would you like to set it now?"
-      );
+      if (!this._apiKeyCheckInProgress) {
+        this.promptForApiKey(
+          "An API key is required. Would you like to set it now?"
+        );
+      }
       return null;
     }
 
@@ -55,6 +60,7 @@ class ApiClient {
       const currentKey = properties.getProperty("HEVY_API_KEY");
 
       if (currentKey && !this.confirmKeyReset()) {
+        this._apiKeyCheckInProgress = false;
         return;
       }
 
@@ -64,6 +70,7 @@ class ApiClient {
         title: "Hevy API Key Setup",
       });
     } catch (error) {
+      this._apiKeyCheckInProgress = false;
       throw ErrorHandler.handle(error, "Managing API key");
     }
   }
@@ -90,6 +97,9 @@ class ApiClient {
       // This ensures imports work correctly when API keys are changed
       properties.deleteProperty("LAST_WORKOUT_UPDATE");
 
+      // Clear the prompt tracking flag since key is now saved
+      this._apiKeyCheckInProgress = false;
+
       if (!currentKey) {
         SpreadsheetApp.getActiveSpreadsheet().toast(
           "API key set successfully. Starting initial data import...",
@@ -105,6 +115,9 @@ class ApiClient {
         );
       }
     } catch (error) {
+      // Clear the prompt tracking flag on error
+      this._apiKeyCheckInProgress = false;
+
       if (error instanceof InvalidApiKeyError) {
         const properties = getDocumentProperties();
         if (properties) {
@@ -190,12 +203,19 @@ class ApiClient {
    * @private
    */
   promptForApiKey(message) {
+    if (this._apiKeyCheckInProgress) {
+      return;
+    }
+
+    this._apiKeyCheckInProgress = true;
     const ui = SpreadsheetApp.getUi();
     if (
       ui.alert("Hevy API Key Required", message, ui.ButtonSet.YES_NO) ===
       ui.Button.YES
     ) {
       this.manageApiKey();
+    } else {
+      this._apiKeyCheckInProgress = false;
     }
   }
 
@@ -222,7 +242,7 @@ class ApiClient {
     const options = this.createRequestOptions(apiKey);
     const response = await this.executeRequest(url, options);
     if (response.getResponseCode() === 401) {
-      throw new ErrorHandler.handle(
+      throw ErrorHandler.handle(
         new InvalidApiKeyError("Invalid or revoked API key"),
         {
           operation: "Validating API key",
@@ -259,8 +279,26 @@ class ApiClient {
         );
       }
 
-      const apiKey = this.getOrPromptApiKey();
-      if (!apiKey) return;
+      // Directly retrieve API key from properties instead of prompting
+      // This prevents re-prompting after the key was just saved
+      const properties = getDocumentProperties();
+      if (!properties) {
+        throw new ConfigurationError(
+          "Unable to access document properties. Please ensure you have proper permissions."
+        );
+      }
+
+      const apiKey = properties.getProperty("HEVY_API_KEY");
+      if (!apiKey) {
+        // Key not found - this shouldn't happen if saveUserApiKey succeeded
+        // but if it does, just return without prompting to avoid multiple dialogs
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
+          "API Key Required",
+          TOAST_DURATION.NORMAL
+        );
+        return;
+      }
 
       if (apiKey === AUTHORIZED_API_KEY) {
         SpreadsheetApp.getActiveSpreadsheet()
@@ -289,6 +327,9 @@ class ApiClient {
         TOAST_DURATION.NORMAL
       );
     } catch (error) {
+      // Clear the prompt tracking flag on error
+      this._apiKeyCheckInProgress = false;
+
       if (error instanceof ApiError && error.statusCode === 401) {
         const ui = SpreadsheetApp.getUi();
         ui.alert(
