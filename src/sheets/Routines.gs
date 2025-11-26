@@ -48,6 +48,9 @@ async function importAllRoutines() {
     }
 
     manager.formatSheet();
+    
+    // Sync exercise names from workouts to match localized names
+    await syncRoutineExerciseNamesFromWorkouts(sheet);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Importing routines",
@@ -142,6 +145,97 @@ function processRoutineExercise(exercise, routine) {
       operation: "Processing routine exercise",
       routineId: routine.id,
       exerciseTitle: exercise.title,
+    });
+  }
+}
+
+/**
+ * Syncs exercise names from the Exercises sheet to the Routines sheet.
+ * Replaces exercise names in routines with localized names from Exercises sheet when available.
+ * Uses Exercises sheet as source of truth for localized names (already synced from workouts).
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} routineSheet - The routines sheet
+ */
+async function syncRoutineExerciseNamesFromWorkouts(routineSheet) {
+  const exerciseSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(EXERCISES_SHEET_NAME);
+
+  if (!exerciseSheet || exerciseSheet.getLastRow() <= 1) {
+    return;
+  }
+
+  try {
+    // Build map of exercise name -> localized name from Exercises sheet
+    const exerciseData = exerciseSheet.getDataRange().getValues();
+    const exerciseHeaders = exerciseData.shift();
+    const titleIndex = exerciseHeaders.indexOf("Title");
+
+    if (titleIndex === -1) {
+      return; // Column doesn't exist
+    }
+
+    // Get all exercise names from Exercises sheet (these are already localized)
+    const exerciseNameMap = new Map();
+    exerciseData.forEach((row) => {
+      const localizedName = String(row[titleIndex] || "").trim();
+      if (localizedName) {
+        // Use lowercase key for case-insensitive matching
+        exerciseNameMap.set(localizedName.toLowerCase(), localizedName);
+      }
+    });
+
+    if (exerciseNameMap.size === 0) {
+      return; // No exercises to sync
+    }
+
+    // Update routine sheet with localized names from Exercises sheet
+    const routineData = routineSheet.getDataRange().getValues();
+    const routineHeaders = routineData.shift();
+    const exerciseIndex = routineHeaders.indexOf("Exercise");
+
+    if (exerciseIndex === -1) {
+      return;
+    }
+
+    const updates = [];
+    routineData.forEach((row, rowIndex) => {
+      const currentExerciseName = String(row[exerciseIndex] || "").trim();
+      
+      if (currentExerciseName) {
+        const exerciseKey = currentExerciseName.toLowerCase();
+        
+        // Check if we have a localized name for this exercise in Exercises sheet
+        if (exerciseNameMap.has(exerciseKey)) {
+          const localizedName = exerciseNameMap.get(exerciseKey);
+          // Only update if the name is different
+          if (localizedName !== currentExerciseName) {
+            updates.push({
+              row: rowIndex + 2, // +2 because we removed header and arrays are 0-indexed
+              name: localizedName,
+            });
+          }
+        }
+      }
+    });
+
+    // Batch update exercise names
+    if (updates.length > 0) {
+      const batchSize = 1000;
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, Math.min(i + batchSize, updates.length));
+        
+        batch.forEach((update) => {
+          routineSheet.getRange(update.row, exerciseIndex + 1).setValue(update.name);
+        });
+
+        if (i % (batchSize * 5) === 0) {
+          Utilities.sleep(RATE_LIMIT.API_DELAY);
+        }
+      }
+    }
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Syncing routine exercise names from Exercises sheet",
+      sheetName: routineSheet.getName(),
     });
   }
 }
