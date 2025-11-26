@@ -1,6 +1,33 @@
 /**
+ * @typedef {Object} Workout
+ * @property {string} id - Workout ID
+ * @property {string} title - Workout title
+ * @property {string} start_time - Workout start time (ISO 8601)
+ * @property {string} [end_time] - Workout end time (ISO 8601)
+ * @property {Array<WorkoutExercise>} exercises - Array of exercises in the workout
+ */
+
+/**
+ * @typedef {Object} WorkoutExercise
+ * @property {string} exercise_template_id - Exercise template ID
+ * @property {string} title - Exercise name
+ * @property {Array<WorkoutSet>} sets - Array of sets for this exercise
+ */
+
+/**
+ * @typedef {Object} WorkoutSet
+ * @property {string} type - Set type (e.g., "normal")
+ * @property {number|null} weight_kg - Weight in kilograms
+ * @property {number|null} reps - Number of reps
+ * @property {number|null} distance_meters - Distance in meters (for cardio)
+ * @property {number|null} duration_seconds - Duration in seconds
+ * @property {number|null} rpe - Rate of Perceived Exertion
+ */
+
+/**
  * Functions for importing and managing workout data.
  * Requires shared constants and utilities defined elsewhere.
+ * @module Workouts
  */
 
 /**
@@ -167,7 +194,7 @@ async function importAllWorkoutsDelta(lastUpdate) {
     }
 
     const apiKey = getApiKeyForWorkouts();
-    const fullWorkouts = await Promise.all(
+    const workoutResults = await Promise.allSettled(
       upsertIds.map(async (id) => {
         const resp = await apiClient.makeRequest(
           `${API_ENDPOINTS.WORKOUTS}/${id}`,
@@ -176,6 +203,29 @@ async function importAllWorkoutsDelta(lastUpdate) {
         return resp.workout || resp;
       })
     );
+
+    // Extract successful results and log failures
+    const fullWorkouts = [];
+    const failedIds = [];
+    workoutResults.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        fullWorkouts.push(result.value);
+      } else {
+        failedIds.push(upsertIds[index]);
+        console.error(
+          `Failed to fetch workout ${upsertIds[index]}:`,
+          result.reason
+        );
+      }
+    });
+
+    if (failedIds.length > 0) {
+      console.warn(
+        `Failed to fetch ${failedIds.length} workout(s): ${failedIds.join(
+          ", "
+        )}`
+      );
+    }
 
     const rows = processWorkoutsData(fullWorkouts);
     updateWorkoutData(manager.sheet, rows);

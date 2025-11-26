@@ -60,9 +60,9 @@ class SheetManager {
 
       if (this.sheet.getLastRow() <= 1) return;
 
-      await this.formatData();
-      await this.removeEmptyRowsAndColumns();
-      await this.setAlternatingColors();
+      this.formatData();
+      this.removeEmptyRowsAndColumns();
+      this.setAlternatingColors();
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Formatting sheet",
@@ -77,7 +77,7 @@ class SheetManager {
    */
   async ensureHeaders() {
     try {
-      if (!(await this.validateHeaders())) {
+      if (!this.validateHeaders()) {
         if (this.sheet.getLastRow() > 0) {
           this.sheet.clear();
         }
@@ -102,10 +102,10 @@ class SheetManager {
 
   /**
    * Validates existing headers against expected headers
-   * @returns {Promise<boolean>} True if headers are valid
+   * @returns {boolean} True if headers are valid
    * @private
    */
-  async validateHeaders() {
+  validateHeaders() {
     try {
       if (this.sheet.getLastRow() === 0) return false;
 
@@ -129,7 +129,7 @@ class SheetManager {
    * @param {number} [startRow=2] - Starting row index
    * @private
    */
-  async formatData(numRows, startRow = 2) {
+  formatData(numRows, startRow = 2) {
     try {
       const rowsToFormat =
         numRows ?? Math.max(0, this.sheet.getLastRow() - startRow + 1);
@@ -170,7 +170,7 @@ class SheetManager {
    * Removes empty rows and columns from the sheet
    * @private
    */
-  async removeEmptyRowsAndColumns() {
+  removeEmptyRowsAndColumns() {
     try {
       const maxRows = this.sheet.getMaxRows();
       const maxCols = this.sheet.getMaxColumns();
@@ -196,7 +196,7 @@ class SheetManager {
    * Sets alternating row colors for the entire sheet
    * @private
    */
-  async setAlternatingColors() {
+  setAlternatingColors() {
     try {
       const lastRow = this.sheet.getLastRow();
       if (lastRow <= 1) return;
@@ -235,7 +235,7 @@ class SheetManager {
    * Clears the sheet except for headers
    * @private
    */
-  async clearSheet() {
+  clearSheet() {
     try {
       const lastRow = this.sheet.getLastRow();
       if (lastRow <= 1) return;
