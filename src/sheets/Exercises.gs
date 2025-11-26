@@ -531,41 +531,56 @@ async function syncLocalizedExerciseNames() {
       }
     });
 
-    // Step 4: Scan all sheets and replace hardcoded exercise names
-    const allSheets = ss.getSheets();
-    const batchSize = 100;
+    // Step 4: Update exercise names in specific ranges only
+    // Target specific columns to avoid replacing formula outputs
+    const rangesToUpdate = [
+      { sheetName: "Strength Standards", column: 1, startRow: 2 }, // A2:A
+      { sheetName: ROUTINES_SHEET_NAME, column: 6, startRow: 2 }, // F2:F
+      { sheetName: EXERCISES_SHEET_NAME, column: 2, startRow: 2 }, // B2:B
+    ];
 
-    for (const sheet of allSheets) {
-      // Skip if sheet is empty
-      if (sheet.getLastRow() <= 1 || sheet.getLastColumn() === 0) {
+    for (const rangeConfig of rangesToUpdate) {
+      const sheet = ss.getSheetByName(rangeConfig.sheetName);
+      if (!sheet || sheet.getLastRow() < rangeConfig.startRow) {
         continue;
       }
 
-      const dataRange = sheet.getDataRange();
-      const numRows = dataRange.getNumRows();
-      const numCols = dataRange.getNumColumns();
+      try {
+        const exerciseCol = rangeConfig.column;
+        const numRows = sheet.getLastRow();
 
-      // Process in batches to avoid memory issues
-      for (let startRow = 1; startRow <= numRows; startRow += batchSize) {
-        const endRow = Math.min(startRow + batchSize - 1, numRows);
-        const range = sheet.getRange(
-          startRow,
-          1,
-          endRow - startRow + 1,
-          numCols
-        );
-        const values = range.getValues();
-        const formulas = range.getFormulas();
+        // Process in batches
+        const batchSize = 1000;
+        for (
+          let startRow = rangeConfig.startRow;
+          startRow <= numRows;
+          startRow += batchSize
+        ) {
+          const endRow = Math.min(startRow + batchSize - 1, numRows);
+          const range = sheet.getRange(
+            startRow,
+            exerciseCol,
+            endRow - startRow + 1,
+            1
+          );
+          const values = range.getValues();
+          const formulas = range.getFormulas();
 
-        const updates = [];
-        for (let r = 0; r < values.length; r++) {
-          const actualRow = startRow + r;
-          for (let c = 0; c < numCols; c++) {
-            const cellValue = values[r][c];
-            const cellFormula = formulas[r][c];
+          const updates = [];
+          for (let r = 0; r < values.length; r++) {
+            const actualRow = startRow + r;
+            const cellValue = values[r][0];
+            const cellFormula = formulas[r][0];
 
             // Skip if cell contains a formula
             if (cellFormula && cellFormula.trim() !== "") {
+              continue;
+            }
+
+            // Double-check by reading the actual cell formula
+            const cell = sheet.getRange(actualRow, exerciseCol);
+            const actualFormula = cell.getFormula();
+            if (actualFormula && actualFormula.trim() !== "") {
               continue;
             }
 
@@ -594,25 +609,10 @@ async function syncLocalizedExerciseNames() {
               }
 
               // Also check if this name appears in any exercise's name set
-              // and get the localized version for that exercise
               if (!localizedName) {
                 for (const [exerciseId, names] of idToAllNames.entries()) {
                   if (names.has(cellKey) && idToLocalizedName.has(exerciseId)) {
                     localizedName = idToLocalizedName.get(exerciseId);
-                    break;
-                  }
-                }
-              }
-
-              // Final fallback: check if this name is already a localized name from workouts
-              if (!localizedName && workoutExerciseNames.has(cellKey)) {
-                // Find the localized name for this exact match
-                for (const [
-                  exerciseId,
-                  localized,
-                ] of idToLocalizedName.entries()) {
-                  if (localized.toLowerCase() === cellKey) {
-                    localizedName = localized;
                     break;
                   }
                 }
@@ -623,23 +623,28 @@ async function syncLocalizedExerciseNames() {
             if (localizedName && localizedName !== cellText) {
               updates.push({
                 row: actualRow,
-                col: c + 1,
                 value: localizedName,
               });
             }
           }
-        }
 
-        // Apply updates
-        if (updates.length > 0) {
-          updates.forEach((update) => {
-            sheet.getRange(update.row, update.col).setValue(update.value);
-          });
-        }
+          // Apply updates
+          if (updates.length > 0) {
+            updates.forEach((update) => {
+              sheet.getRange(update.row, exerciseCol).setValue(update.value);
+            });
+          }
 
-        if (startRow % (batchSize * 10) === 0) {
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
+          if (startRow % (batchSize * 10) === 0) {
+            Utilities.sleep(RATE_LIMIT.API_DELAY);
+          }
         }
+      } catch (error) {
+        // Log error but continue with other ranges
+        console.warn(
+          `Error updating ${rangeConfig.sheetName} column ${rangeConfig.column}:`,
+          error
+        );
       }
     }
   } catch (error) {
