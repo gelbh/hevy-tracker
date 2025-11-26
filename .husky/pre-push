@@ -9,23 +9,3 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✅ Tests passed. Proceeding with push..."
-
-# Allow push to proceed, then run deployment after a short delay
-# This runs in the background so it doesn't block the push
-# Redirect all I/O to prevent terminal from hanging
-{
-  echo ""
-  echo "🚀 Push completed. Starting local deployment..."
-  echo ""
-  
-  # Wait a moment for push to fully complete
-  sleep 2
-  
-  # Run deployment script with all I/O redirected
-  # This prevents the process from keeping the terminal open
-  node local-push.js --deploy --clean < /dev/null > deployment.log 2>&1
-} &
-
-# Disown the background job to fully detach it from the shell
-# This allows the terminal to return control immediately
-disown 2>/dev/null || true
