@@ -52,6 +52,7 @@ const SHEET_HEADERS = {
     "Start Time",
     "End Time",
     "Exercise",
+    "Exercise Template ID",
     "Set Type",
     "Weight (kg)",
     "Reps / Distance (m)",

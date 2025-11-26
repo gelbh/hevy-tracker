@@ -103,7 +103,8 @@ function syncCustomExerciseIds(sheet, apiExercises) {
  */
 function getExistingExercises(sheet) {
   try {
-    const existingData = new Map();
+    const existingDataById = new Map();
+    const existingDataByTitle = new Map();
     if (sheet.getLastRow() > 1) {
       const data = sheet.getDataRange().getValues();
       const headers = data.shift();
@@ -114,15 +115,30 @@ function getExistingExercises(sheet) {
       };
 
       data.forEach((row) => {
-        if (row[indices.title]) {
-          existingData.set(row[indices.title].toLowerCase(), {
-            id: row[indices.id],
-            hasRank: row[indices.rank] !== "",
+        const id = String(row[indices.id] || "").trim();
+        const title = String(row[indices.title] || "").trim();
+        const hasRank = row[indices.rank] !== "";
+
+        if (id && id !== "N/A") {
+          existingDataById.set(id, {
+            id: id,
+            title: title,
+            hasRank: hasRank,
+          });
+        }
+        if (title) {
+          existingDataByTitle.set(title.toLowerCase(), {
+            id: id,
+            title: title,
+            hasRank: hasRank,
           });
         }
       });
     }
-    return existingData;
+    return {
+      byId: existingDataById,
+      byTitle: existingDataByTitle,
+    };
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Getting existing exercises",
@@ -160,17 +176,31 @@ function processExercisesData(exercises) {
 }
 
 /**
- * Determines if an exercise should be skipped based on existing data
+ * Determines if an exercise should be skipped based on existing data.
+ * Checks by ID first, then by title (with English translation fallback).
  * @param {Object} exercise - Exercise object from API
- * @param {Map} existingData - Map of existing exercise data
+ * @param {Object} existingData - Object with byId and byTitle Maps
  * @return {boolean} True if exercise should be skipped
  */
 function shouldSkipExercise(exercise, existingData) {
-  const titleKey = exercise.title.toLowerCase();
-  const existingEntry = existingData.get(titleKey);
-
-  if (existingEntry) {
+  // Check by ID first (most reliable)
+  if (exercise.id && existingData.byId.has(exercise.id)) {
     return true;
+  }
+
+  // Check by title (exact match)
+  const titleKey = exercise.title.toLowerCase();
+  if (existingData.byTitle.has(titleKey)) {
+    return true;
+  }
+
+  // Check by English translation (fallback)
+  const englishTitle = getEnglishName(exercise.title);
+  if (englishTitle !== exercise.title) {
+    const englishTitleKey = englishTitle.toLowerCase();
+    if (existingData.byTitle.has(englishTitleKey)) {
+      return true;
+    }
   }
 
   return false;
@@ -200,7 +230,8 @@ async function insertNewExercises(sheet, processedExercises) {
 }
 
 /**
- * Updates exercise counts based on workout data using batched processing
+ * Updates exercise counts based on workout data using batched processing.
+ * Matches exercises by exercise_template_id first, then falls back to title matching.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
  */
 async function updateExerciseCounts(exerciseSheet) {
@@ -212,14 +243,38 @@ async function updateExerciseCounts(exerciseSheet) {
   }
 
   try {
+    // Build maps from exercise sheet: ID -> title, title -> count
+    const exerciseData = exerciseSheet.getDataRange().getValues();
+    const exerciseHeaders = exerciseData.shift();
+    const idIndex = exerciseHeaders.indexOf("ID");
+    const titleIndex = exerciseHeaders.indexOf("Title");
+    const countIndex = exerciseHeaders.indexOf("Count");
+
+    const idToTitleMap = new Map();
+    const titleToIdMap = new Map();
+    exerciseData.forEach((row) => {
+      const id = String(row[idIndex] || "").trim();
+      const title = String(row[titleIndex] || "").trim();
+      if (id && id !== "N/A") {
+        idToTitleMap.set(id, title);
+      }
+      if (title) {
+        titleToIdMap.set(title.toLowerCase(), id);
+      }
+    });
+
+    // Process workout data
     const workoutData = workoutSheet.getDataRange().getValues();
     const workoutHeaders = workoutData.shift();
     const indices = {
       workoutId: workoutHeaders.indexOf("ID"),
       exercise: workoutHeaders.indexOf("Exercise"),
+      exerciseTemplateId: workoutHeaders.indexOf("Exercise Template ID"),
     };
 
-    const exerciseCounts = new Map();
+    // Count exercises by ID first, then by title (with English translation fallback)
+    const exerciseCountsById = new Map();
+    const exerciseCountsByTitle = new Map();
     const processedWorkouts = new Set();
 
     const batchSize = 1000;
@@ -232,17 +287,53 @@ async function updateExerciseCounts(exerciseSheet) {
 
       batch.forEach((row) => {
         const workoutId = row[indices.workoutId];
-        const exerciseTitle = row[indices.exercise];
+        const exerciseTitle = String(row[indices.exercise] || "").trim();
+        const exerciseTemplateId = String(
+          row[indices.exerciseTemplateId] || ""
+        ).trim();
 
         if (exerciseTitle && workoutId) {
-          const key = `${workoutId}_${exerciseTitle}`;
+          const key = `${workoutId}_${exerciseTemplateId || exerciseTitle}`;
 
           if (!processedWorkouts.has(key)) {
             processedWorkouts.add(key);
-            exerciseCounts.set(
-              exerciseTitle,
-              (exerciseCounts.get(exerciseTitle) || 0) + 1
-            );
+
+            // Try matching by ID first
+            if (exerciseTemplateId && idToTitleMap.has(exerciseTemplateId)) {
+              const matchedTitle = idToTitleMap.get(exerciseTemplateId);
+              exerciseCountsById.set(
+                exerciseTemplateId,
+                (exerciseCountsById.get(exerciseTemplateId) || 0) + 1
+              );
+            } else {
+              // Fallback to title matching (with English translation)
+              const englishTitle = getEnglishName(exerciseTitle);
+              const titleKey = exerciseTitle.toLowerCase();
+              const englishTitleKey = englishTitle.toLowerCase();
+
+              // Try exact match first
+              if (titleToIdMap.has(titleKey)) {
+                exerciseCountsByTitle.set(
+                  exerciseTitle,
+                  (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+                );
+              } else if (
+                englishTitle !== exerciseTitle &&
+                titleToIdMap.has(englishTitleKey)
+              ) {
+                // Try English translation
+                exerciseCountsByTitle.set(
+                  englishTitle,
+                  (exerciseCountsByTitle.get(englishTitle) || 0) + 1
+                );
+              } else {
+                // No match found, count by original title
+                exerciseCountsByTitle.set(
+                  exerciseTitle,
+                  (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+                );
+              }
+            }
           }
         }
       });
@@ -252,11 +343,7 @@ async function updateExerciseCounts(exerciseSheet) {
       }
     }
 
-    const exerciseData = exerciseSheet.getDataRange().getValues();
-    const exerciseHeaders = exerciseData.shift();
-    const titleIndex = exerciseHeaders.indexOf("Title");
-    const countIndex = exerciseHeaders.indexOf("Count");
-
+    // Update counts in exercise sheet
     for (let i = 0; i < exerciseData.length; i += batchSize) {
       const batch = exerciseData.slice(
         i,
@@ -269,9 +356,32 @@ async function updateExerciseCounts(exerciseSheet) {
         1
       );
 
-      const counts = batch.map((row) => [
-        exerciseCounts.get(row[titleIndex]) || 0,
-      ]);
+      const counts = batch.map((row) => {
+        const id = String(row[idIndex] || "").trim();
+        const title = String(row[titleIndex] || "").trim();
+        let count = 0;
+
+        // Check ID-based count first
+        if (id && id !== "N/A" && exerciseCountsById.has(id)) {
+          count = exerciseCountsById.get(id);
+        } else if (title) {
+          // Check title-based count (exact match)
+          if (exerciseCountsByTitle.has(title)) {
+            count = exerciseCountsByTitle.get(title);
+          } else {
+            // Check English translation match
+            const englishTitle = getEnglishName(title);
+            if (
+              englishTitle !== title &&
+              exerciseCountsByTitle.has(englishTitle)
+            ) {
+              count = exerciseCountsByTitle.get(englishTitle);
+            }
+          }
+        }
+
+        return [count];
+      });
       updateRange.setValues(counts);
 
       if (i % (batchSize * 5) === 0) {

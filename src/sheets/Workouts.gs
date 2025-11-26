@@ -244,6 +244,7 @@ function processWorkoutsData(workouts) {
             "",
             "",
             "",
+            "",
           ],
         ];
       }
@@ -254,6 +255,7 @@ function processWorkoutsData(workouts) {
           formatDate(w.start_time),
           formatDate(w.end_time),
           ex.title,
+          ex.exercise_template_id || "",
           normalizeSetType(set.type),
           normalizeWeight(set.weight_kg),
           normalizeNumber(set.reps ?? set.distance_meters),
