@@ -1,5 +1,16 @@
 /**
+ * @typedef {Object} ExerciseTemplate
+ * @property {string} id - Exercise template ID
+ * @property {string} title - Exercise name
+ * @property {string} type - Exercise type (e.g., "weight_reps")
+ * @property {string} primary_muscle_group - Primary muscle group
+ * @property {Array<string>} secondary_muscle_groups - Secondary muscle groups
+ * @property {boolean} is_custom - Whether this is a custom exercise
+ */
+
+/**
  * Functions for importing and managing exercise data.
+ * @module Exercises
  */
 
 /**
@@ -277,7 +288,7 @@ async function updateExerciseCounts(exerciseSheet) {
     const exerciseCountsByTitle = new Map();
     const processedWorkouts = new Set();
 
-    const batchSize = 1000;
+    const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
 
     for (let i = 0; i < workoutData.length; i += batchSize) {
       const batch = workoutData.slice(
@@ -550,7 +561,7 @@ async function syncLocalizedExerciseNames() {
         const numRows = sheet.getLastRow();
 
         // Process in batches
-        const batchSize = 1000;
+        const batchSize = BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE;
         for (
           let startRow = rangeConfig.startRow;
           startRow <= numRows;

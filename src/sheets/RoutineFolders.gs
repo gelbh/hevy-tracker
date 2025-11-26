@@ -1,5 +1,15 @@
 /**
+ * @typedef {Object} RoutineFolder
+ * @property {number} id - Folder ID
+ * @property {string} title - Folder name
+ * @property {string} updated_at - Last update timestamp (ISO 8601)
+ * @property {string} created_at - Creation timestamp (ISO 8601)
+ * @property {number} index - Folder index for ordering
+ */
+
+/**
  * Functions for importing and managing routine folders.
+ * @module RoutineFolders
  */
 
 /**

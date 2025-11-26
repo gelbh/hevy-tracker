@@ -1,5 +1,36 @@
 /**
+ * @typedef {Object} RoutineSet
+ * @property {string} type - Set type (e.g., "normal")
+ * @property {number|null} weight_kg - Weight in kilograms
+ * @property {number|null} reps - Number of reps
+ * @property {number|null} distance_meters - Distance in meters (for cardio)
+ * @property {number|null} duration_seconds - Duration in seconds (for time-based exercises)
+ * @property {Object|null} rep_range - Rep range with start and end
+ * @property {number} rep_range.start - Starting rep count
+ * @property {number} rep_range.end - Ending rep count
+ */
+
+/**
+ * @typedef {Object} RoutineExercise
+ * @property {string} exercise_template_id - The ID of the exercise template
+ * @property {number|null} superset_id - ID if this exercise is part of a superset
+ * @property {number} rest_seconds - Rest period in seconds between sets
+ * @property {string} notes - Notes for this exercise
+ * @property {Array<RoutineSet>} sets - Array of sets for this exercise
+ */
+
+/**
+ * @typedef {Object} RoutineData
+ * @property {Object} routine - Routine object
+ * @property {string} routine.title - Routine title
+ * @property {number|null} routine.folder_id - Folder ID for organization
+ * @property {string|null} routine.notes - Routine notes
+ * @property {Array<RoutineExercise>} routine.exercises - Array of exercises in the routine
+ */
+
+/**
  * Handles routine creation and submission to Hevy API with enhanced UI and validation
+ * @module RoutineBuilder
  */
 
 /**
@@ -31,8 +62,14 @@ function getRoutineBuilderSheet() {
 }
 
 /**
- * Creates a routine from the sheet data and submits it to Hevy
- * @returns {Promise<Object|null>} Created routine data or null if error
+ * Creates a routine from the sheet data and submits it to Hevy API
+ * Reads exercise data from the Routine Builder sheet, validates it,
+ * and creates a new routine in the user's Hevy account.
+ *
+ * @returns {Promise<Object|null>} Created routine data with id, title, and exercises, or null if error/validation fails
+ * @throws {ValidationError} If routine data is invalid
+ * @throws {ApiError} If API request fails
+ * @throws {SheetError} If sheet operations fail
  */
 async function createRoutineFromSheet() {
   const sheet = getRoutineBuilderSheet();
@@ -41,10 +78,10 @@ async function createRoutineFromSheet() {
   const titleCell = sheet.getRange("C2");
   const title = String(titleCell.getValue()).trim();
   if (!title) {
-    ui.alert(
+    SpreadsheetApp.getUi().alert(
       "Routine title is required",
       "Please enter a name for your routine in cell C2 before saving.",
-      ui.ButtonSet.OK
+      SpreadsheetApp.getUi().ButtonSet.OK
     );
     return;
   }
@@ -64,10 +101,10 @@ async function createRoutineFromSheet() {
       .filter((row) => row[0] && row[2]);
 
     if (exerciseData.length === 0) {
-      ui.alert(
+      SpreadsheetApp.getUi().alert(
         "At least one exercise with a set type is required",
         "Please add at least one exercise with a set type in the table.",
-        ui.ButtonSet.OK
+        SpreadsheetApp.getUi().ButtonSet.OK
       );
       return;
     }
@@ -78,11 +115,11 @@ async function createRoutineFromSheet() {
     });
     if (missing.length) {
       const names = missing.map((r) => r[0]).join(", ");
-      ui.alert(
+      SpreadsheetApp.getUi().alert(
         "Missing Exercise IDs",
         `The following exercises are not in your Hevy account: ${names}.\n` +
           "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
-        ui.ButtonSet.OK
+        SpreadsheetApp.getUi().ButtonSet.OK
       );
       return;
     }
@@ -108,8 +145,8 @@ async function createRoutineFromSheet() {
     );
 
     await showHtmlDialog("src/ui/dialogs/RoutineCreated", {
-      width: 400,
-      height: 300,
+      width: DIALOG_DIMENSIONS.ROUTINE_CREATED_WIDTH,
+      height: DIALOG_DIMENSIONS.ROUTINE_CREATED_HEIGHT,
       title: "Routine Builder",
     });
     return response.routine;
@@ -175,8 +212,8 @@ function processExercises(exerciseData) {
         .getValue() || "kg";
 
     const conversionFactors = {
-      lbs: 0.45359237,
-      stone: 6.35029,
+      lbs: WEIGHT_CONVERSION.LBS_TO_KG,
+      stone: WEIGHT_CONVERSION.STONE_TO_KG,
       kg: 1,
     };
     const conversionFactor = conversionFactors[weightUnit] || 1;
@@ -232,7 +269,11 @@ function processExercises(exerciseData) {
 }
 
 /**
- * Validates the routine data before submission
+ * Validates the routine data before submission to ensure all required fields are present
+ * @param {string} title - Routine title to validate
+ * @param {Array<RoutineExercise>} exercises - Array of exercises to validate
+ * @throws {ValidationError} If validation fails with detailed error messages
+ * @private
  */
 function validateRoutineData(title, exercises) {
   const errors = [];
@@ -271,7 +312,11 @@ function validateRoutineData(title, exercises) {
 }
 
 /**
- * Gets or creates a routine folder
+ * Gets or creates a routine folder by name
+ * First attempts to find an existing folder, then creates one if not found
+ * @param {string} folderName - Name of the folder to get or create
+ * @returns {Promise<number|null>} Folder ID if found/created, null if folderName is empty or "(No Folder)"
+ * @throws {ApiError} If folder creation fails
  * @private
  */
 async function getOrCreateRoutineFolder(folderName) {

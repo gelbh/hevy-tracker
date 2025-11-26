@@ -1,5 +1,35 @@
 /**
+ * @typedef {Object} Routine
+ * @property {string} id - Routine ID
+ * @property {string} title - Routine title
+ * @property {number|null} folder_id - Folder ID for organization
+ * @property {string} updated_at - Last update timestamp (ISO 8601)
+ * @property {string} created_at - Creation timestamp (ISO 8601)
+ * @property {Array<RoutineExercise>} exercises - Array of exercises in the routine
+ */
+
+/**
+ * @typedef {Object} RoutineExercise
+ * @property {string} exercise_template_id - Exercise template ID
+ * @property {string} title - Exercise name
+ * @property {Array<RoutineSet>} sets - Array of sets for this exercise
+ */
+
+/**
+ * @typedef {Object} RoutineSet
+ * @property {string} type - Set type (e.g., "normal")
+ * @property {number|null} weight_kg - Weight in kilograms
+ * @property {number|null} reps - Number of reps
+ * @property {number|null} distance_meters - Distance in meters
+ * @property {number|null} duration_seconds - Duration in seconds
+ * @property {Object|null} rep_range - Rep range with start and end
+ * @property {number} rep_range.start - Starting rep count
+ * @property {number} rep_range.end - Ending rep count
+ */
+
+/**
  * Functions for importing and managing workout routines.
+ * @module Routines
  */
 
 /**
@@ -62,7 +92,7 @@ async function importAllRoutines() {
  */
 async function updateRoutinesInSheet(sheet, processedRoutines) {
   try {
-    const batchSize = RATE_LIMIT.BATCH_SIZE;
+    const batchSize = BATCH_CONFIG.DEFAULT_BATCH_SIZE;
     for (let i = 0; i < processedRoutines.length; i += batchSize) {
       const batch = processedRoutines.slice(i, i + batchSize);
       const startRow = i + 2;
