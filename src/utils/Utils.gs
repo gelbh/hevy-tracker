@@ -572,12 +572,14 @@ async function executeWithErrorAggregation(asyncFns, context) {
 /**
  * Global function to save Hevy API key, callable from dialog
  * This wrapper ensures errors are properly serialized for HTML service
+ * Save is synchronous for reliability - validation happens in background
  * @param {string} apiKey - The API key to save
  */
-async function saveUserApiKey(apiKey) {
+function saveUserApiKey(apiKey) {
   try {
-    // Await to ensure proper error handling and completion
-    await apiClient.saveUserApiKey(apiKey);
+    // Save is now synchronous - completes immediately
+    // Validation happens in background in ApiClient
+    apiClient.saveUserApiKey(apiKey);
   } catch (error) {
     // Serialize error for HTML service compatibility
     throw serializeErrorForHtml(error);

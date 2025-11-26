@@ -145,65 +145,75 @@ class ApiClient {
 
   /**
    * Saves the API key and initiates initial data import if needed
+   * Saves synchronously first, then validates in background for reliability
    * @param {string} apiKey - The API key to save
-   * @throws {Error} Serialized error for HTML service compatibility
    */
-  async saveUserApiKey(apiKey) {
-    try {
-      await this.validateApiKey(apiKey);
-      const properties = this._getDocumentProperties();
-      const currentKey = properties.getProperty("HEVY_API_KEY");
+  saveUserApiKey(apiKey) {
+    // Save API key first (synchronously) - this ensures immediate completion
+    const properties = this._getDocumentProperties();
+    const currentKey = properties.getProperty("HEVY_API_KEY");
 
-      properties.setProperty("HEVY_API_KEY", apiKey);
-      properties.deleteProperty("LAST_WORKOUT_UPDATE");
-      this._apiKeyCheckInProgress = false;
+    properties.setProperty("HEVY_API_KEY", apiKey);
+    properties.deleteProperty("LAST_WORKOUT_UPDATE");
+    this._apiKeyCheckInProgress = false;
 
-      if (!currentKey) {
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          "API key set successfully. Starting initial data import...",
-          "Setup Progress",
-          TOAST_DURATION.NORMAL
-        );
-        // Pass API key directly to avoid property read timing issues
-        // Fire-and-forget: start import in background, don't wait for it
-        this.runFullImport(apiKey).catch((error) => {
-          // Errors are already logged by ErrorHandler
-          console.error("Background import failed:", error);
-        });
-      } else {
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          "API key updated successfully!",
-          "Success",
-          TOAST_DURATION.NORMAL
-        );
-      }
-    } catch (error) {
-      this._apiKeyCheckInProgress = false;
-
-      // Handle invalid API key with user-friendly message
-      if (error instanceof InvalidApiKeyError) {
-        // Create a serializable error for HTML service
-        const serializedError = new Error(
-          "Invalid API key. Please check your Hevy Developer Settings and reset your API key."
-        );
-        serializedError.name = "InvalidApiKeyError";
-        throw serializedError;
-      }
-
-      // Handle other errors - ensure they're serializable
-      const handledError = ErrorHandler.handle(
-        error,
-        {
-          operation: "Saving API key",
-        },
-        false
-      ); // Don't show toast here, let HTML dialog handle it
-
-      // Convert to plain Error for HTML service
-      const serializedError = new Error(handledError.message);
-      serializedError.name = handledError.name || "Error";
-      throw serializedError;
+    // Start import immediately (fire-and-forget) - don't wait for validation
+    if (!currentKey) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "API key set successfully. Starting initial data import...",
+        "Setup Progress",
+        TOAST_DURATION.NORMAL
+      );
+      // Pass API key directly to avoid property read timing issues
+      // Fire-and-forget: start import in background, don't wait for it
+      this.runFullImport(apiKey).catch((error) => {
+        // Errors are already logged by ErrorHandler
+        console.error("Background import failed:", error);
+      });
+    } else {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "API key updated successfully!",
+        "Success",
+        TOAST_DURATION.NORMAL
+      );
     }
+
+    // Validate API key in background - if it fails, remove the key
+    this.validateApiKey(apiKey)
+      .then(() => {
+        // Validation succeeded - key is valid
+        console.log("API key validation succeeded");
+      })
+      .catch((error) => {
+        // Validation failed - remove the key and notify user
+        console.error("API key validation failed:", error);
+        
+        // Remove the invalid key
+        const props = this._getDocumentProperties();
+        props.deleteProperty("HEVY_API_KEY");
+        props.deleteProperty("LAST_WORKOUT_UPDATE");
+        
+        // Show error toast to user
+        const errorMessage = error instanceof InvalidApiKeyError
+          ? "Invalid API key. Please check your Hevy Developer Settings and reset your API key."
+          : "API key validation failed. Please check your connection and try again.";
+        
+        SpreadsheetApp.getActiveSpreadsheet().toast(
+          errorMessage,
+          "API Key Error",
+          TOAST_DURATION.LONG
+        );
+        
+        // Log for debugging
+        ErrorHandler.handle(
+          error,
+          {
+            operation: "Validating API key (background)",
+            context: "Key was saved but validation failed, key has been removed"
+          },
+          false // Don't show additional toast, we already showed one
+        );
+      });
   }
 
   /**
