@@ -503,11 +503,10 @@ function serializeErrorForHtml(error) {
  */
 async function saveUserApiKey(apiKey) {
   try {
-    // Await the async method to ensure proper error handling and completion
-    // google.script.run properly handles async functions and waits for them
+    // Await to ensure proper error handling and completion
     await apiClient.saveUserApiKey(apiKey);
   } catch (error) {
-    // Ensure error is serializable for HTML service
+    // Serialize error for HTML service compatibility
     throw serializeErrorForHtml(error);
   }
 }
@@ -593,22 +592,24 @@ function getApiKeyDataForUI() {
  * @returns {Promise<void>}
  */
 async function runAutomaticImport() {
-  // Check for API key first - return early if not set
+  // Check for API key first - prompt if not set
   const properties = getDocumentProperties();
   const apiKey = properties?.getProperty("HEVY_API_KEY");
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
 
   if (!apiKey) {
-    // No API key set - return early without attempting import
-    // Don't show toast to avoid spam on every spreadsheet open
+    // No API key set - prompt user to set it up (only for non-template spreadsheets)
+    if (!isTemplate) {
+      showInitialSetup();
+    }
     return;
   }
 
   try {
     await importAllExercises();
 
-    if (
-      SpreadsheetApp.getActiveSpreadsheet().getId() !== TEMPLATE_SPREADSHEET_ID
-    ) {
+    if (!isTemplate) {
       Utilities.sleep(RATE_LIMIT.API_DELAY);
       if ((await importAllWorkouts()) > 0) {
         Utilities.sleep(RATE_LIMIT.API_DELAY);
@@ -618,7 +619,7 @@ async function runAutomaticImport() {
       }
     }
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
+    spreadsheet.toast(
       "Importing all data completed successfully",
       "Automatic Import",
       TOAST_DURATION.NORMAL
