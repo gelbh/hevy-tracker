@@ -26,10 +26,11 @@
  */
 class ApiClient {
   constructor() {
+    const config = this._getApiClientConfig();
     this.retryConfig = {
       maxRetries: 3,
-      baseDelay: API_CLIENT_CONFIG.BASE_DELAY_MS,
-      maxDelay: API_CLIENT_CONFIG.MAX_DELAY_MS,
+      baseDelay: config.BASE_DELAY_MS,
+      maxDelay: config.MAX_DELAY_MS,
     };
     this.cache = {};
     this._cacheSize = 0; // Track cache size for LRU eviction
@@ -39,8 +40,31 @@ class ApiClient {
       failures: 0,
       lastFailureTime: null,
       state: "CLOSED", // CLOSED, OPEN, HALF_OPEN
-      failureThreshold: API_CLIENT_CONFIG.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
-      resetTimeout: API_CLIENT_CONFIG.CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
+      failureThreshold: config.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+      resetTimeout: config.CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
+    };
+  }
+
+  /**
+   * Gets API client configuration with fallback defaults
+   * Handles cases where API_CLIENT_CONFIG may not be loaded yet due to file load order
+   * @returns {Object} API client configuration object
+   * @private
+   */
+  _getApiClientConfig() {
+    // Use fallback defaults if constant is not yet loaded
+    if (typeof API_CLIENT_CONFIG !== "undefined") {
+      return API_CLIENT_CONFIG;
+    }
+
+    // Fallback defaults matching Constants.gs values
+    return {
+      BASE_DELAY_MS: 1000,
+      MAX_DELAY_MS: 10000,
+      VALIDATION_TIMEOUT_MS: 15000,
+      REQUEST_TIMEOUT_MS: 30000,
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5,
+      CIRCUIT_BREAKER_RESET_TIMEOUT_MS: 60000,
     };
   }
 
@@ -323,9 +347,10 @@ class ApiClient {
   async validateApiKey(apiKey) {
     const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`;
     // Use shorter timeout for validation since it's just a quick check
+    const config = this._getApiClientConfig();
     const options = {
       ...this.createRequestOptions(apiKey),
-      timeout: API_CLIENT_CONFIG.VALIDATION_TIMEOUT_MS,
+      timeout: config.VALIDATION_TIMEOUT_MS,
     };
 
     try {
@@ -743,6 +768,7 @@ class ApiClient {
    * });
    */
   createRequestOptions(apiKey, method = "get", additionalHeaders = {}) {
+    const config = this._getApiClientConfig();
     return {
       method: method.toUpperCase(),
       headers: {
@@ -754,7 +780,7 @@ class ApiClient {
       muteHttpExceptions: true,
       validateHttpsCertificates: true,
       followRedirects: true,
-      timeout: API_CLIENT_CONFIG.REQUEST_TIMEOUT_MS,
+      timeout: config.REQUEST_TIMEOUT_MS,
     };
   }
 
