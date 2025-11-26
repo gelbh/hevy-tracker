@@ -94,10 +94,21 @@ jobs:
           echo "Step 2: Copy our .gs files to .js files (Apps Script format)"
           find src -name "*.gs" | while read gs_file; do
             js_file="${gs_file%.gs}.js"
+            echo "  Copying $gs_file -> $js_file"
             cp "$gs_file" "$js_file"
           done
           echo ""
-          echo "Step 3: Force push with --force flag"
+          echo "Step 3: Add deployment marker to force change detection"
+          TIMESTAMP=$(date +%s)
+          COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          # Add a comment to Constants.js to ensure change is detected
+          if ! head -1 src/Constants.js 2>/dev/null | grep -q "// Deployed:"; then
+            sed -i "1i // Deployed: $TIMESTAMP (commit: $COMMIT_SHA)" src/Constants.js
+          else
+            sed -i "1s|// Deployed:.*|// Deployed: $TIMESTAMP (commit: $COMMIT_SHA)|" src/Constants.js
+          fi
+          echo ""
+          echo "Step 4: Force push with --force flag"
           clasp push --force
           echo ""
           echo "✅ Push completed"
