@@ -1,16 +1,47 @@
 /**
- * Enhanced API utility functions with better type handling and resilience.
+ * @typedef {Object} ApiRequestOptions
+ * @property {string} method - HTTP method (GET, POST, PUT, DELETE)
+ * @property {Object<string, string>} headers - HTTP headers
+ * @property {string} [payload] - Request payload for POST/PUT requests
+ * @property {boolean} muteHttpExceptions - Whether to mute HTTP exceptions
+ * @property {boolean} validateHttpsCertificates - Whether to validate HTTPS certificates
+ * @property {boolean} followRedirects - Whether to follow redirects
+ * @property {number} timeout - Request timeout in milliseconds
  */
 
+/**
+ * @typedef {Object} ApiResponse
+ * @property {*} [workout] - Workout data (if applicable)
+ * @property {*} [workouts] - Array of workouts (if applicable)
+ * @property {*} [routines] - Array of routines (if applicable)
+ * @property {*} [exercises] - Array of exercises (if applicable)
+ * @property {*} [events] - Array of events (if applicable)
+ * @property {number} [page_count] - Total number of pages (for paginated responses)
+ * @property {number} [workout_count] - Total workout count (for count endpoint)
+ */
+
+/**
+ * Enhanced API utility functions with better type handling and resilience.
+ * @class ApiClient
+ */
 class ApiClient {
   constructor() {
     this.retryConfig = {
       maxRetries: 3,
-      baseDelay: 1000,
-      maxDelay: 10000,
+      baseDelay: API_CLIENT_CONFIG.BASE_DELAY_MS,
+      maxDelay: API_CLIENT_CONFIG.MAX_DELAY_MS,
     };
     this.cache = {};
+    this._cacheSize = 0; // Track cache size for LRU eviction
     this._apiKeyCheckInProgress = false;
+    // Circuit breaker state
+    this.circuitBreaker = {
+      failures: 0,
+      lastFailureTime: null,
+      state: "CLOSED", // CLOSED, OPEN, HALF_OPEN
+      failureThreshold: API_CLIENT_CONFIG.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+      resetTimeout: API_CLIENT_CONFIG.CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
+    };
   }
 
   /**
@@ -82,8 +113,8 @@ class ApiClient {
    */
   _showApiKeyDialog() {
     showHtmlDialog("src/ui/dialogs/SetApiKey", {
-      width: 450,
-      height: 250,
+      width: DIALOG_DIMENSIONS.API_KEY_WIDTH,
+      height: DIALOG_DIMENSIONS.API_KEY_HEIGHT,
       title: "Hevy API Key Setup",
     });
   }
@@ -170,7 +201,23 @@ class ApiClient {
   }
 
   /**
-   * Makes a paginated API request
+   * Makes a paginated API request with automatic page handling
+   * Fetches all pages of data and processes them incrementally
+   *
+   * @param {string} endpoint - API endpoint to fetch from
+   * @param {number} pageSize - Number of items per page
+   * @param {Function} processFn - Async function to process each page of data
+   * @param {string} dataKey - Key in API response containing the data array
+   * @param {Object} [additionalParams={}] - Additional query parameters
+   * @returns {Promise<number>} Total number of items processed across all pages
+   * @throws {ApiError} If API request fails
+   * @example
+   * await apiClient.fetchPaginatedData(
+   *   API_ENDPOINTS.WORKOUTS,
+   *   PAGE_SIZE.WORKOUTS,
+   *   async (workouts) => { /* process workouts *\/ },
+   *   "workouts"
+   * );
    */
   async fetchPaginatedData(
     endpoint,
@@ -211,7 +258,10 @@ class ApiClient {
           Utilities.sleep(RATE_LIMIT.API_DELAY);
         }
       } catch (error) {
-        if (error instanceof ApiError && error.statusCode === 404) {
+        if (
+          error instanceof ApiError &&
+          error.statusCode === HTTP_STATUS.NOT_FOUND
+        ) {
           break;
         }
         throw ErrorHandler.handle(error, {
@@ -272,16 +322,16 @@ class ApiClient {
    */
   async validateApiKey(apiKey) {
     const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`;
-    // Use shorter timeout for validation (15 seconds) since it's just a quick check
+    // Use shorter timeout for validation since it's just a quick check
     const options = {
       ...this.createRequestOptions(apiKey),
-      timeout: 15000, // 15 seconds for validation
+      timeout: API_CLIENT_CONFIG.VALIDATION_TIMEOUT_MS,
     };
 
     try {
       const response = await this.executeRequest(url, options);
 
-      if (response.getResponseCode() === 401) {
+      if (response.getResponseCode() === HTTP_STATUS.UNAUTHORIZED) {
         throw ErrorHandler.handle(
           new InvalidApiKeyError("Invalid or revoked API key"),
           { operation: "Validating API key" },
@@ -348,6 +398,8 @@ class ApiClient {
    * @param {string} [apiKeyOverride=null] - Optional API key to use instead of reading from properties
    */
   async runFullImport(apiKeyOverride = null) {
+    const startTime = Date.now();
+
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       this._ensureImportTrigger(ss);
@@ -387,15 +439,32 @@ class ApiClient {
         Utilities.sleep(RATE_LIMIT.API_DELAY);
       }
 
+      // Track execution time
+      const executionTime = Date.now() - startTime;
+      QuotaTracker.recordExecutionTime(executionTime);
+
+      // Check quota warnings
+      const quotaWarning = QuotaTracker.checkQuotaWarnings();
+      if (quotaWarning) {
+        console.warn("Quota warning:", quotaWarning);
+      }
+
       SpreadsheetApp.getActiveSpreadsheet().toast(
         "Initial import complete. Automatic imports will now run each time you open the sheet.",
         "Setup Complete",
         TOAST_DURATION.NORMAL
       );
     } catch (error) {
+      // Track execution time even on error
+      const executionTime = Date.now() - startTime;
+      QuotaTracker.recordExecutionTime(executionTime);
+
       this._apiKeyCheckInProgress = false;
 
-      if (error instanceof ApiError && error.statusCode === 401) {
+      if (
+        error instanceof ApiError &&
+        error.statusCode === HTTP_STATUS.UNAUTHORIZED
+      ) {
         SpreadsheetApp.getUi().alert(
           "Invalid API Key",
           "Your Hevy API key appears to be invalid or expired. Please update it now.",
@@ -481,6 +550,77 @@ class ApiClient {
   }
 
   /**
+   * Checks circuit breaker state and throws if circuit is open
+   * @param {string} endpoint - API endpoint for context
+   * @throws {ApiError} If circuit breaker is open
+   * @private
+   */
+  _checkCircuitBreaker(endpoint) {
+    const cb = this.circuitBreaker;
+    const now = Date.now();
+
+    // Check if we should transition from OPEN to HALF_OPEN
+    if (
+      cb.state === "OPEN" &&
+      cb.lastFailureTime &&
+      now - cb.lastFailureTime > cb.resetTimeout
+    ) {
+      cb.state = "HALF_OPEN";
+      cb.failures = 0;
+    }
+
+    // If circuit is open, reject immediately
+    if (cb.state === "OPEN") {
+      throw new ApiError(
+        "Circuit breaker is open. API is temporarily unavailable.",
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
+        null,
+        {
+          endpoint,
+          circuitBreakerState: cb.state,
+          lastFailureTime: cb.lastFailureTime,
+        }
+      );
+    }
+  }
+
+  /**
+   * Records a successful request for circuit breaker
+   * @private
+   */
+  _recordSuccess() {
+    const cb = this.circuitBreaker;
+    if (cb.state === "HALF_OPEN") {
+      // Success in half-open state, close the circuit
+      cb.state = "CLOSED";
+      cb.failures = 0;
+      cb.lastFailureTime = null;
+    } else if (cb.state === "CLOSED") {
+      // Reset failure count on success
+      cb.failures = 0;
+    }
+  }
+
+  /**
+   * Records a failed request for circuit breaker
+   * @param {Error} error - The error that occurred
+   * @private
+   */
+  _recordFailure(error) {
+    const cb = this.circuitBreaker;
+    cb.failures++;
+    cb.lastFailureTime = Date.now();
+
+    // Open circuit if threshold exceeded
+    if (cb.failures >= cb.failureThreshold) {
+      cb.state = "OPEN";
+      console.warn(
+        `Circuit breaker opened after ${cb.failures} failures. Will retry after ${cb.resetTimeout}ms.`
+      );
+    }
+  }
+
+  /**
    * Makes an API request with error handling and retries
    * @param {string} endpoint - The API endpoint to request
    * @param {Object} options - Request options
@@ -490,9 +630,31 @@ class ApiClient {
    * @throws {ApiError} If request fails after retries
    */
   async makeRequest(endpoint, options, queryParams = {}, payload = null) {
+    // Check circuit breaker before making request
+    this._checkCircuitBreaker(endpoint);
+
     const cacheKey = this.getCacheKey(endpoint, queryParams);
+
+    // Check in-memory cache first
     if (options.method === "GET" && this.cache[cacheKey]) {
       return this.cache[cacheKey];
+    }
+
+    // Check persistent cache (CacheService) for GET requests
+    if (options.method === "GET") {
+      const persistentCache = CacheService.getDocumentCache();
+      const cached = persistentCache.get(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // Also store in memory cache for faster access
+          this.cache[cacheKey] = parsed;
+          return parsed;
+        } catch (parseError) {
+          // If parsing fails, remove from cache and continue
+          persistentCache.remove(cacheKey);
+        }
+      }
     }
 
     const url = this.buildUrl(endpoint, queryParams);
@@ -506,13 +668,46 @@ class ApiClient {
         const response = await this.executeRequest(url, options);
         const parsedResponse = this.handleResponse(response);
 
+        // Record success for circuit breaker
+        this._recordSuccess();
+
+        // Cache successful GET responses
         if (options.method === "GET") {
+          // Store in memory cache with LRU eviction
+          if (!this.cache[cacheKey]) {
+            // Check if we need to evict old entries
+            if (this._cacheSize >= CACHE_CONFIG.MAX_MEMORY_CACHE_SIZE) {
+              this._evictOldestCacheEntry();
+            }
+            this._cacheSize++;
+          }
           this.cache[cacheKey] = parsedResponse;
+
+          // Store in persistent cache with configured TTL
+          try {
+            const persistentCache = CacheService.getDocumentCache();
+            persistentCache.put(
+              cacheKey,
+              JSON.stringify(parsedResponse),
+              CACHE_CONFIG.TTL_SECONDS
+            );
+          } catch (cacheError) {
+            // If cache fails, log but don't fail the request
+            console.warn("Failed to cache response:", cacheError);
+          }
         }
 
         return parsedResponse;
       } catch (error) {
         lastError = error;
+
+        // Record failure for circuit breaker (only for non-retryable or final attempt)
+        if (
+          !this._shouldRetry(error, attempt) ||
+          attempt === this.retryConfig.maxRetries - 1
+        ) {
+          this._recordFailure(error);
+        }
 
         if (!this._shouldRetry(error, attempt)) {
           throw ErrorHandler.handle(error, {
@@ -539,9 +734,13 @@ class ApiClient {
   /**
    * Creates standardized request options for API calls
    * @param {string} apiKey - API key for authentication
-   * @param {string} [method='get'] - HTTP method to use
-   * @param {Object} [additionalHeaders={}] - Additional HTTP headers
-   * @returns {Object} Request options object for UrlFetchApp
+   * @param {string} [method='get'] - HTTP method to use (GET, POST, PUT, DELETE)
+   * @param {Object} [additionalHeaders={}] - Additional HTTP headers to include
+   * @returns {ApiRequestOptions} Request options object for UrlFetchApp
+   * @example
+   * const options = apiClient.createRequestOptions(apiKey, "POST", {
+   *   "Custom-Header": "value"
+   * });
    */
   createRequestOptions(apiKey, method = "get", additionalHeaders = {}) {
     return {
@@ -555,18 +754,29 @@ class ApiClient {
       muteHttpExceptions: true,
       validateHttpsCertificates: true,
       followRedirects: true,
-      timeout: 30000,
+      timeout: API_CLIENT_CONFIG.REQUEST_TIMEOUT_MS,
     };
   }
 
   /**
    * Executes an HTTP request using UrlFetchApp
+   * Wrapped in Promise for proper async/await support
    * @param {string} url - The URL to request
    * @param {Object} options - Request options
-   * @returns {GoogleAppsScript.URL_Fetch.HTTPResponse} Response object
+   * @returns {Promise<GoogleAppsScript.URL_Fetch.HTTPResponse>} Response object
    */
-  executeRequest(url, options) {
-    return UrlFetchApp.fetch(url, options);
+  async executeRequest(url, options) {
+    try {
+      // Track quota usage
+      QuotaTracker.recordUrlFetch(1);
+
+      return UrlFetchApp.fetch(url, options);
+    } catch (error) {
+      throw ErrorHandler.handle(error, {
+        operation: "Executing HTTP request",
+        url: url,
+      });
+    }
   }
 
   /**
@@ -585,6 +795,7 @@ class ApiClient {
 
   /**
    * Handles API response parsing and error checking
+   * Also extracts and stores rate limit information from response headers
    * @param {GoogleAppsScript.URL_Fetch.HTTPResponse} response - Response from UrlFetchApp
    * @returns {Object} Parsed response data
    * @throws {ApiError} If response indicates an error
@@ -592,10 +803,17 @@ class ApiClient {
   handleResponse(response) {
     const statusCode = response.getResponseCode();
     const responseText = response.getContentText();
+    const headers = response.getHeaders();
 
-    if (statusCode === 204) return null;
+    // Extract and store rate limit information from headers
+    this._updateRateLimitInfo(headers);
 
-    if (statusCode >= 200 && statusCode < 300) {
+    if (statusCode === HTTP_STATUS.NO_CONTENT) return null;
+
+    if (
+      statusCode >= HTTP_STATUS_RANGE.SUCCESS_START &&
+      statusCode <= HTTP_STATUS_RANGE.SUCCESS_END
+    ) {
       try {
         return JSON.parse(responseText);
       } catch (error) {
@@ -613,11 +831,11 @@ class ApiClient {
     }
 
     const errorMessages = {
-      400: "Invalid request parameters",
-      401: "Invalid API key",
-      403: "Access forbidden",
-      404: "Resource not found",
-      429: "Rate limit exceeded",
+      [HTTP_STATUS.BAD_REQUEST]: "Invalid request parameters",
+      [HTTP_STATUS.UNAUTHORIZED]: "Invalid API key",
+      [HTTP_STATUS.FORBIDDEN]: "Access forbidden",
+      [HTTP_STATUS.NOT_FOUND]: "Resource not found",
+      [HTTP_STATUS.TOO_MANY_REQUESTS]: "Rate limit exceeded",
     };
 
     throw ErrorHandler.handle(
@@ -669,6 +887,99 @@ class ApiClient {
    */
   getCacheKey(endpoint, queryParams) {
     return `${endpoint}?${this.buildQueryString(queryParams)}`;
+  }
+
+  /**
+   * Evicts the oldest cache entry when cache size limit is reached
+   * Uses simple FIFO eviction (first key in cache object)
+   * @private
+   */
+  _evictOldestCacheEntry() {
+    const keys = Object.keys(this.cache);
+    if (keys.length > 0) {
+      const oldestKey = keys[0];
+      delete this.cache[oldestKey];
+      this._cacheSize--;
+    }
+  }
+
+  /**
+   * Updates rate limit information from API response headers
+   * Stores rate limit state in CacheService for persistence across executions
+   * @param {Object<string, string>} headers - Response headers
+   * @private
+   */
+  _updateRateLimitInfo(headers) {
+    const rateLimitRemaining =
+      headers["X-RateLimit-Remaining"] || headers["x-ratelimit-remaining"];
+    const rateLimitReset =
+      headers["X-RateLimit-Reset"] || headers["x-ratelimit-reset"];
+    const rateLimitLimit =
+      headers["X-RateLimit-Limit"] || headers["x-ratelimit-limit"];
+
+    if (rateLimitRemaining || rateLimitReset || rateLimitLimit) {
+      const rateLimitInfo = {
+        remaining: rateLimitRemaining ? parseInt(rateLimitRemaining) : null,
+        reset: rateLimitReset ? parseInt(rateLimitReset) : null,
+        limit: rateLimitLimit ? parseInt(rateLimitLimit) : null,
+        timestamp: Date.now(),
+      };
+
+      // Store in persistent cache for cross-execution access
+      try {
+        const cache = CacheService.getDocumentCache();
+        cache.put(
+          "RATE_LIMIT_INFO",
+          JSON.stringify(rateLimitInfo),
+          CACHE_CONFIG.TTL_SECONDS
+        );
+      } catch (error) {
+        console.warn("Failed to store rate limit info:", error);
+      }
+
+      // Warn if approaching rate limit
+      if (
+        rateLimitInfo.remaining !== null &&
+        rateLimitInfo.limit !== null &&
+        rateLimitInfo.remaining / rateLimitInfo.limit < 0.1
+      ) {
+        console.warn(
+          `Rate limit warning: ${rateLimitInfo.remaining}/${rateLimitInfo.limit} requests remaining`
+        );
+      }
+    }
+  }
+
+  /**
+   * Gets current rate limit information from cache
+   * @returns {Object|null} Rate limit info or null if not available
+   */
+  getRateLimitInfo() {
+    try {
+      const cache = CacheService.getDocumentCache();
+      const cached = cache.get("RATE_LIMIT_INFO");
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.warn("Failed to get rate limit info:", error);
+    }
+    return null;
+  }
+
+  /**
+   * Clears all caches (memory and persistent)
+   * Useful for testing or when cache needs to be invalidated
+   */
+  clearCache() {
+    this.cache = {};
+    this._cacheSize = 0;
+    try {
+      const persistentCache = CacheService.getDocumentCache();
+      persistentCache.removeAll(Object.keys(this.cache));
+    } catch (error) {
+      console.warn("Failed to clear persistent cache:", error);
+    }
   }
 }
 
