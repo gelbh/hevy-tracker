@@ -67,32 +67,22 @@ jobs:
           echo "Checking clasp status before push..."
           clasp status || true
           echo ""
-          echo "Force pushing all files (ignoring 'up to date' check)..."
-          # Force push by touching appsscript.json to ensure change detection
-          touch appsscript.json
+          echo "Force pushing all files..."
+          # Force change by adding a harmless comment to a source file
+          # This ensures clasp detects a change and pushes everything
+          TIMESTAMP=$(date +%s)
+          if ! grep -q "// Deployment timestamp" src/Constants.gs; then
+            # Add comment at the top of Constants.gs if it doesn't exist
+            sed -i "1i // Deployment timestamp: $TIMESTAMP" src/Constants.gs
+          else
+            # Update existing timestamp
+            sed -i "s|// Deployment timestamp:.*|// Deployment timestamp: $TIMESTAMP|" src/Constants.gs
+          fi
           clasp push --force
           echo ""
           echo "Verifying push completed..."
           clasp status || true
           echo "✅ Push completed"
-
-      - name: Create new version
-        id: version
-        run: |
-          TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
-          VERSION_DESCRIPTION="Auto-deployed: $TIMESTAMP"
-          VERSION_RESULT=$(clasp version "$VERSION_DESCRIPTION")
-
-          # Extract version number from: "Created version 277."
-          VERSION_NUM=$(echo "$VERSION_RESULT" | grep -oP 'version \K\d+' || echo "")
-
-          if [ -z "$VERSION_NUM" ]; then
-            echo "⚠️ Failed to extract version number, but continuing..."
-            echo "Version result: $VERSION_RESULT"
-          else
-            echo "version_number=$VERSION_NUM" >> $GITHUB_OUTPUT
-            echo "✅ Created version $VERSION_NUM"
-          fi
 
       - name: Clean old deployments
         run: |
