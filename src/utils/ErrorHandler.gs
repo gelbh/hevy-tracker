@@ -1,17 +1,30 @@
+/**
+ * User-friendly error messages mapped by error type
+ * @type {Object<string>}
+ * @private
+ */
+const ERROR_MESSAGES = {
+  DRIVE_PERMISSION:
+    "Unable to access file. Please ensure you have permission and try again.",
+  INVALID_API_KEY:
+    "Invalid API key. Please check your Hevy Developer Settings and reset your API key.",
+  API_KEY_VALIDATION: "API key validation failed. Please reset your API key.",
+  DEFAULT: (errorId) => `An error occurred. Reference ID: ${errorId}`,
+};
+
 class ErrorHandler {
   /**
    * Handles errors consistently across the application with logging and user feedback
    * @param {Error} error - The error to handle
    * @param {string|Object} context - Context where the error occurred
    * @param {boolean} [showToast=true] - Whether to show a toast notification
-   * @throws {Error} Enhanced error with ID and context
+   * @returns {Error} Enhanced error with ID and context
    */
   static handle(error, context, showToast = true) {
     const errorId = Utilities.getUuid();
     const contextObj =
       typeof context === "string" ? { description: context } : context;
-
-    let enhancedError = this.enhanceError(error, contextObj);
+    const enhancedError = this.enhanceError(error, contextObj);
     enhancedError.errorId = errorId;
 
     console.error(`Error [${errorId}]:`, {
@@ -39,6 +52,9 @@ class ErrorHandler {
 
   /**
    * Enhances error with appropriate type and context
+   * @param {Error} error - The error to enhance
+   * @param {Object} context - Error context
+   * @returns {Error} Enhanced error
    * @private
    */
   static enhanceError(error, context) {
@@ -47,10 +63,7 @@ class ErrorHandler {
       return error;
     }
 
-    if (
-      error.message?.includes("Access denied") ||
-      error.message?.includes("Insufficient permissions")
-    ) {
+    if (this.isPermissionError(error)) {
       return new DrivePermissionError(
         "Unable to access file. This may be due to permission restrictions.",
         context
@@ -87,26 +100,30 @@ class ErrorHandler {
 
   /**
    * Gets user-friendly error message
+   * @param {Error} error - The error to get message for
+   * @returns {string} User-friendly error message
    * @private
    */
   static getUserMessage(error) {
     if (error instanceof DrivePermissionError) {
-      return "Unable to access file. Please ensure you have permission and try again.";
+      return ERROR_MESSAGES.DRIVE_PERMISSION;
     }
 
     if (error instanceof InvalidApiKeyError) {
-      return "Invalid API key. Please check your Hevy Developer Settings and reset your API key.";
+      return ERROR_MESSAGES.INVALID_API_KEY;
     }
 
     if (error instanceof ApiError && error.statusCode === 401) {
-      return "API key validation failed. Please reset your API key.";
+      return ERROR_MESSAGES.API_KEY_VALIDATION;
     }
 
-    return `An error occurred. Reference ID: ${error.errorId}`;
+    return ERROR_MESSAGES.DEFAULT(error.errorId);
   }
 
   /**
    * Checks if error is already an enhanced type
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if error is a custom type
    * @private
    */
   static isCustomErrorType(error) {
@@ -116,6 +133,20 @@ class ErrorHandler {
       error instanceof ConfigurationError ||
       error instanceof SheetError ||
       error instanceof InvalidApiKeyError
+    );
+  }
+
+  /**
+   * Checks if error is a permission-related error
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if error is permission-related
+   * @private
+   */
+  static isPermissionError(error) {
+    const message = error.message || "";
+    return (
+      message.includes("Access denied") ||
+      message.includes("Insufficient permissions")
     );
   }
 }

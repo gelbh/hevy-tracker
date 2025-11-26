@@ -3,39 +3,47 @@
  * @module Utils
  */
 
-// -----------------
-// Property Management
-// -----------------
+/**
+ * Gets properties service safely with error handling
+ * @param {Function} serviceGetter - Function to get the properties service
+ * @param {string} serviceName - Name of the service for error logging
+ * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
+ * @private
+ */
+function getPropertiesSafely(serviceGetter, serviceName) {
+  try {
+    return serviceGetter();
+  } catch (error) {
+    console.error(`Failed to get ${serviceName}:`, error);
+    return null;
+  }
+}
 
 /**
  * Gets user properties safely
  * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
 function getUserProperties() {
-  try {
-    return PropertiesService.getUserProperties();
-  } catch (error) {
-    console.error("Failed to get user properties:", error);
-    return null;
-  }
+  return getPropertiesSafely(
+    () => PropertiesService.getUserProperties(),
+    "user properties"
+  );
 }
 
 /**
  * Gets document properties safely
- * @returns {GoogleAppsScript.Properties.Properties|null}
+ * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
 function getDocumentProperties() {
-  try {
-    return PropertiesService.getDocumentProperties();
-  } catch (error) {
-    console.error("Failed to get document properties:", error);
-    return null;
-  }
+  return getPropertiesSafely(
+    () => PropertiesService.getDocumentProperties(),
+    "document properties"
+  );
 }
 
-// -----------------
-// UI Utilities
-// -----------------
+/**
+ * UI Utilities
+ */
 
 /**
  * Creates and shows an HTML dialog from a template file
@@ -109,9 +117,9 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
   }
 }
 
-// -----------------
-// Cell Management
-// -----------------
+/**
+ * Cell Management
+ */
 
 /**
  * Syncs a value to a specified cell in a sheet
@@ -171,17 +179,32 @@ function isValidCellValue(range, value) {
   }
 }
 
-// -----------------
-// Weight Management
-// -----------------
+/**
+ * Weight Management
+ */
 
 /**
- * Imports weight entries from a Google Takeout JSON.
- * @param {string} content JSON from Google Takeout
+ * Extracts weight value from a data point
+ * @param {Object} point - Data point from Google Takeout
+ * @returns {number|null} Weight in kg or null
+ * @private
+ */
+function extractWeightFromPoint(point) {
+  if (point.value?.[0]?.fpVal != null) {
+    return point.value[0].fpVal;
+  }
+  if (point.fitValue?.[0]?.value?.fpVal != null) {
+    return point.fitValue[0].value.fpVal;
+  }
+  return null;
+}
+
+/**
+ * Imports weight entries from a Google Takeout JSON
+ * @param {string} content - JSON content from Google Takeout
  */
 function importWeightFromTakeout(content) {
   try {
-    const points = [];
     const data = JSON.parse(content);
     const records = Array.isArray(data["Data Points"])
       ? data["Data Points"]
@@ -189,23 +212,16 @@ function importWeightFromTakeout(content) {
           (b.dataset || []).flatMap((d) => d.point || [])
         );
 
-    records.forEach((pt) => {
-      if (pt.dataTypeName === "com.google.weight") {
+    const points = records
+      .filter((pt) => pt.dataTypeName === "com.google.weight")
+      .map((pt) => {
         const nanos = pt.startTimeNanos || pt.endTimeNanos;
         const ts = new Date(Number(nanos) / 1e6);
-        let kg = null;
-        if (pt.value && pt.value[0]?.fpVal != null) {
-          kg = pt.value[0].fpVal;
-        } else if (pt.fitValue && pt.fitValue[0]?.value?.fpVal != null) {
-          kg = pt.fitValue[0].value.fpVal;
-        }
-        if (kg != null) {
-          points.push([ts, Math.round(kg * 100) / 100]);
-        }
-      }
-    });
-
-    points.sort((a, b) => b[0] - a[0]);
+        const kg = extractWeightFromPoint(pt);
+        return kg != null ? [ts, Math.round(kg * 100) / 100] : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b[0] - a[0]);
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const sheet = manager.sheet;
@@ -262,9 +278,37 @@ function logWeight() {
 }
 
 /**
- * Prompts user for weight input
+ * Gets maximum weight value for a given unit
+ * @param {string} unit - Weight unit (kg, lbs, stone)
+ * @returns {number} Maximum weight value
  * @private
+ */
+function getMaxWeight(unit) {
+  const maxWeights = {
+    lbs: 1100,
+    stone: 78.5,
+    kg: 500,
+  };
+  return maxWeights[unit] || 500;
+}
+
+/**
+ * Validates weight input
+ * @param {number} weight - Weight value to validate
+ * @param {string} unit - Weight unit
+ * @returns {boolean} True if weight is valid
+ * @private
+ */
+function isValidWeight(weight, unit) {
+  const maxWeight = getMaxWeight(unit);
+  return !isNaN(weight) && weight > 0 && weight <= maxWeight;
+}
+
+/**
+ * Prompts user for weight input
+ * @param {string} [unit="kg"] - Weight unit
  * @returns {number|null} Weight value or null if canceled/invalid
+ * @private
  */
 function promptForWeight(unit = "kg") {
   const ui = SpreadsheetApp.getUi();
@@ -277,10 +321,9 @@ function promptForWeight(unit = "kg") {
   if (result.getSelectedButton() !== ui.Button.OK) return null;
 
   const weight = parseFloat(result.getResponseText().replace(",", "."));
+  const maxWeight = getMaxWeight(unit);
 
-  const maxWeight = unit === "lbs" ? 1100 : unit === "stone" ? 78.5 : 500;
-
-  if (!(!isNaN(weight) && weight > 0 && weight <= maxWeight)) {
+  if (!isValidWeight(weight, unit)) {
     ui.alert(
       `Invalid weight value. Please enter a number between 0 and ${maxWeight} ${unit}.`
     );
@@ -290,9 +333,9 @@ function promptForWeight(unit = "kg") {
   return weight;
 }
 
-// -----------------
-// Data Formatting
-// -----------------
+/**
+ * Data Formatting
+ */
 
 /**
  * Formats a date string consistently accounting for timezone
@@ -400,9 +443,21 @@ function parseNumber(value, fieldName) {
   return n;
 }
 
-// -----------------
-// API Key Management
-// -----------------
+/**
+ * API Key Management
+ */
+
+const DEV_API_KEY_PREFIX = "DEV_API_KEY_";
+
+/**
+ * Gets the property key for a developer API key
+ * @param {string} label - The label for the API key
+ * @returns {string} Property key
+ * @private
+ */
+function getDevApiKeyPropertyKey(label) {
+  return `${DEV_API_KEY_PREFIX}${label}`;
+}
 
 /**
  * Global function to save Hevy API key, callable from dialog
@@ -414,52 +469,51 @@ function saveUserApiKey(apiKey) {
 
 /**
  * Saves a developer API key to script properties
- *
- * @param {*} label - The label for the API key
- * @param {*} key - The API key to save
+ * @param {string} label - The label for the API key
+ * @param {string} key - The API key to save
  */
 function saveDevApiKey(label, key) {
   PropertiesService.getScriptProperties().setProperty(
-    `DEV_API_KEY_${label}`,
+    getDevApiKeyPropertyKey(label),
     key
   );
 }
 
 /**
  * Switches to a different API key based on the label
- *
- * @param {*} label - The label of the API key to switch to
+ * @param {string} label - The label of the API key to switch to
  */
 function useApiKey(label) {
   const storedKey = PropertiesService.getScriptProperties().getProperty(
-    `DEV_API_KEY_${label}`
+    getDevApiKeyPropertyKey(label)
   );
-  if (storedKey) {
-    const documentProperties = PropertiesService.getDocumentProperties();
 
-    documentProperties.setProperty("HEVY_API_KEY", storedKey);
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      `Switched to API key: ${label}`,
-      "Developer Mode",
-      TOAST_DURATION.NORMAL
-    );
-
-    documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
-
-    apiClient.runFullImport();
-  } else {
+  if (!storedKey) {
     SpreadsheetApp.getUi().alert(`No key found for label: ${label}`);
+    return;
   }
+
+  const documentProperties = PropertiesService.getDocumentProperties();
+  documentProperties.setProperty("HEVY_API_KEY", storedKey);
+  documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `Switched to API key: ${label}`,
+    "Developer Mode",
+    TOAST_DURATION.NORMAL
+  );
+
+  apiClient.runFullImport();
 }
 
 /**
  * Removes an API key from the script properties
- *
- * @param {*} label - The label of the API key to remove
+ * @param {string} label - The label of the API key to remove
  */
 function removeApiKey(label) {
-  const propKey = `DEV_API_KEY_${label}`;
-  PropertiesService.getScriptProperties().deleteProperty(propKey);
+  PropertiesService.getScriptProperties().deleteProperty(
+    getDevApiKeyPropertyKey(label)
+  );
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `API Key "${label}" removed.`,
     "Developer Action",
@@ -469,15 +523,14 @@ function removeApiKey(label) {
 
 /**
  * Retrieves all stored API keys and the current one for UI display
- *
- * @return {*} - An object containing all stored API keys and the current one
+ * @returns {Object} Object containing all stored API keys and the current one
  */
 function getApiKeyDataForUI() {
   const props = PropertiesService.getScriptProperties().getProperties();
   const keys = Object.entries(props)
-    .filter(([key]) => key.startsWith("DEV_API_KEY_"))
+    .filter(([key]) => key.startsWith(DEV_API_KEY_PREFIX))
     .map(([key, value]) => ({
-      label: key.replace("DEV_API_KEY_", ""),
+      label: key.replace(DEV_API_KEY_PREFIX, ""),
       key: value,
     }));
   const current =
@@ -485,9 +538,9 @@ function getApiKeyDataForUI() {
   return { keys, current };
 }
 
-// -----------------
-// Trigger Management
-// -----------------
+/**
+ * Trigger Management
+ */
 
 /**
  * Runs the automatic import process
@@ -520,19 +573,23 @@ async function runAutomaticImport() {
   }
 }
 
-// -----------------
-// Developer Check
-// -----------------
+/**
+ * Developer Check
+ */
 
+/**
+ * Checks if the current user is a developer
+ * @returns {boolean} True if user is a developer
+ */
 function isDeveloper() {
   const email = Session.getEffectiveUser().getEmail();
   const developerEmails = ["gelbharttomer@gmail.com"];
   return developerEmails.includes(email);
 }
 
-// -----------------
-// Multi-Login Check
-// -----------------
+/**
+ * Multi-Login Check
+ */
 
 /**
  * Checks if the user might be experiencing multi-login issues and shows a warning
