@@ -61,90 +61,20 @@ jobs:
           echo "📄 Checking specific files:"
           ls -la src/api/ApiClient.gs src/sheets/Workouts.gs src/sheets/RoutineBuilder.gs || echo "Files not found"
 
-      - name: Debug clasp configuration
-        run: |
-          echo "🔍 Clasp Debug Information"
-          echo "========================"
-          echo "Clasp version:"
-          clasp --version || echo "Could not get version"
-          echo ""
-          echo "Clasp configuration:"
-          cat .clasp.json || echo "No .clasp.json found"
-          echo ""
-          echo ".claspignore contents:"
-          cat .claspignore || echo "No .claspignore found"
-          echo ""
-          echo "Files that should be pushed:"
-          find src -name "*.gs" -o -name "*.html" | wc -l
-          echo ""
-          echo "Sample of files that should be pushed:"
-          find src -name "*.gs" -o -name "*.html" | head -5
-          echo ""
-          echo "Checking if key files exist:"
-          ls -la src/Constants.gs src/api/ApiClient.gs 2>/dev/null || echo "Some files missing"
-          echo ""
-
       - name: Push to Apps Script
         run: |
           echo "📤 Pushing files to Apps Script..."
           echo ""
-          echo "Step 1: Pull from Apps Script to sync file extensions (.js)"
+          echo "Pulling from Apps Script to sync file extensions..."
           clasp pull --force || true
           echo ""
-          echo "Step 2: Copy our .gs files to .js files (Apps Script format)"
+          echo "Copying .gs files to .js files (Apps Script format)..."
           find src -name "*.gs" | while read gs_file; do
             js_file="${gs_file%.gs}.js"
-            echo "  Copying $gs_file -> $js_file"
             cp "$gs_file" "$js_file"
           done
           echo ""
-          echo "Step 3: Add deployment marker to force change detection"
-          TIMESTAMP=$(date +%s)
-          COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-          # Ensure Constants.js exists (it should after the copy step)
-          if [ ! -f "src/Constants.js" ]; then
-            echo "⚠️ Warning: src/Constants.js not found, creating it..."
-            cp src/Constants.gs src/Constants.js
-          fi
-          # Add deployment marker using a more reliable method
-          # First, check if marker exists and remove it
-          if head -1 src/Constants.js 2>/dev/null | grep -q "// Deployed:"; then
-            echo "  Removing existing deployment marker..."
-            sed -i '/^\/\/ Deployed:/d' src/Constants.js
-          fi
-          # Add new marker at the very beginning of the file
-          echo "  Adding deployment marker to Constants.js..."
-          DEPLOY_MARKER="// Deployed: $TIMESTAMP (commit: $COMMIT_SHA)"
-          # Use a temp file to ensure the marker is added correctly
-          echo "$DEPLOY_MARKER" > /tmp/constants_header.txt
-          cat src/Constants.js >> /tmp/constants_header.txt
-          mv /tmp/constants_header.txt src/Constants.js
-          # Verify the marker was added
-          echo "  Verification - first 2 lines of Constants.js:"
-          head -2 src/Constants.js || echo "  Could not read file"
-          echo "  File size: $(wc -c < src/Constants.js) bytes"
-          echo ""
-          echo "Step 4: Add deployment constant to Constants.js (code change, not just comment)"
-          # Add a harmless constant that changes each deployment - clasp should detect this
-          # Remove any existing DEPLOYMENT_TIMESTAMP constant
-          if grep -q "const DEPLOYMENT_TIMESTAMP" src/Constants.js 2>/dev/null; then
-            sed -i '/^const DEPLOYMENT_TIMESTAMP/d' src/Constants.js
-          fi
-          # Find the line with AUTHORIZED_API_KEY and add our constant after it
-          if grep -q "const AUTHORIZED_API_KEY" src/Constants.js 2>/dev/null; then
-            # Add the constant right after AUTHORIZED_API_KEY line
-            sed -i "/const AUTHORIZED_API_KEY/a const DEPLOYMENT_TIMESTAMP = $TIMESTAMP; // $COMMIT_SHA" src/Constants.js
-            echo "  Added DEPLOYMENT_TIMESTAMP constant to Constants.js"
-          else
-            # Fallback: just add it at the top after the marker
-            sed -i "1a const DEPLOYMENT_TIMESTAMP = $TIMESTAMP; // $COMMIT_SHA" src/Constants.js
-            echo "  Added DEPLOYMENT_TIMESTAMP constant (fallback location)"
-          fi
-          echo ""
-          echo "Step 5: Check what clasp sees as changed"
-          clasp status || true
-          echo ""
-          echo "Step 6: Force push with --force flag"
+          echo "Pushing to Apps Script..."
           clasp push --force
           echo ""
           echo "✅ Push completed"

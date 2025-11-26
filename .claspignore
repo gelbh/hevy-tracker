@@ -7,10 +7,6 @@
 !src/**/*.js
 !src/**/*.html
 
-# Ignore non-Apps Script files even in src
-src/**/*.[!g][!s]
-src/**/*.[!h][!t][!m][!l]
-
 # Explicitly ignore certain files/folders
 .git/**
 node_modules/**
