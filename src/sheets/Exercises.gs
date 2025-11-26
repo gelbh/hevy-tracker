@@ -397,21 +397,25 @@ async function updateExerciseCounts(exerciseSheet) {
 }
 
 /**
- * Syncs exercise names from workouts to the Exercises sheet.
- * Replaces English names with localized names from workouts when available.
- * Only updates exercises that appear in workouts.
- * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * Syncs localized exercise names across all sheets.
+ * First updates Exercises sheet with localized names from workouts (by ID).
+ * Then scans all sheets and replaces hardcoded exercise names (non-formula) with localized names.
  */
-async function syncExerciseNamesFromWorkouts(exerciseSheet) {
-  const workoutSheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
+async function syncLocalizedExerciseNames() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
+  const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
 
   if (!workoutSheet || workoutSheet.getLastRow() <= 1) {
     return;
   }
 
+  if (!exerciseSheet || exerciseSheet.getLastRow() <= 1) {
+    return;
+  }
+
   try {
-    // Build map of exercise_template_id -> localized title from workouts
+    // Step 1: Build map of exercise_template_id -> localized name from workouts
     const workoutData = workoutSheet.getDataRange().getValues();
     const workoutHeaders = workoutData.shift();
     const exerciseTemplateIdIndex = workoutHeaders.indexOf(
@@ -435,7 +439,6 @@ async function syncExerciseNamesFromWorkouts(exerciseSheet) {
         localizedTitle &&
         exerciseTemplateId !== "N/A"
       ) {
-        // Keep the most recent name if there are duplicates
         idToLocalizedName.set(exerciseTemplateId, localizedTitle);
       }
     });
@@ -444,7 +447,7 @@ async function syncExerciseNamesFromWorkouts(exerciseSheet) {
       return; // No exercises to sync
     }
 
-    // Update exercise sheet with localized names
+    // Step 2: Update Exercises sheet with localized names (by ID)
     const exerciseData = exerciseSheet.getDataRange().getValues();
     const exerciseHeaders = exerciseData.shift();
     const idIndex = exerciseHeaders.indexOf("ID");
@@ -454,7 +457,8 @@ async function syncExerciseNamesFromWorkouts(exerciseSheet) {
       return;
     }
 
-    const updates = [];
+    // Build map: any exercise name (English or localized) -> localized name
+    const exerciseNameToLocalized = new Map();
     exerciseData.forEach((row, rowIndex) => {
       const exerciseId = String(row[idIndex] || "").trim();
       const currentTitle = String(row[titleIndex] || "").trim();
@@ -465,38 +469,104 @@ async function syncExerciseNamesFromWorkouts(exerciseSheet) {
         idToLocalizedName.has(exerciseId)
       ) {
         const localizedName = idToLocalizedName.get(exerciseId);
-        // Only update if the name is different
-        if (localizedName !== currentTitle) {
-          updates.push({
-            row: rowIndex + 2, // +2 because we removed header and arrays are 0-indexed
-            title: localizedName,
-          });
+        // Map both current title and localized name to localized name
+        if (currentTitle) {
+          exerciseNameToLocalized.set(
+            currentTitle.toLowerCase(),
+            localizedName
+          );
         }
+        exerciseNameToLocalized.set(localizedName.toLowerCase(), localizedName);
+
+        // Update Exercises sheet if name is different
+        if (localizedName !== currentTitle) {
+          const actualRow = rowIndex + 2; // +2 for header and 0-index
+          exerciseSheet
+            .getRange(actualRow, titleIndex + 1)
+            .setValue(localizedName);
+        }
+      } else if (currentTitle) {
+        // For exercises not in workouts, map name to itself
+        exerciseNameToLocalized.set(currentTitle.toLowerCase(), currentTitle);
       }
     });
 
-    // Batch update titles
-    if (updates.length > 0) {
-      const batchSize = 1000;
-      for (let i = 0; i < updates.length; i += batchSize) {
-        const batch = updates.slice(i, Math.min(i + batchSize, updates.length));
+    // Step 3: Scan all sheets and replace hardcoded exercise names
+    const allSheets = ss.getSheets();
+    const batchSize = 100;
 
-        // Update titles in batch
-        batch.forEach((update) => {
-          exerciseSheet
-            .getRange(update.row, titleIndex + 1)
-            .setValue(update.title);
-        });
+    for (const sheet of allSheets) {
+      // Skip if sheet is empty
+      if (sheet.getLastRow() <= 1 || sheet.getLastColumn() === 0) {
+        continue;
+      }
 
-        if (i % (batchSize * 5) === 0) {
+      const dataRange = sheet.getDataRange();
+      const numRows = dataRange.getNumRows();
+      const numCols = dataRange.getNumColumns();
+
+      // Process in batches to avoid memory issues
+      for (let startRow = 1; startRow <= numRows; startRow += batchSize) {
+        const endRow = Math.min(startRow + batchSize - 1, numRows);
+        const range = sheet.getRange(
+          startRow,
+          1,
+          endRow - startRow + 1,
+          numCols
+        );
+        const values = range.getValues();
+        const formulas = range.getFormulas();
+
+        const updates = [];
+        for (let r = 0; r < values.length; r++) {
+          const actualRow = startRow + r;
+          for (let c = 0; c < numCols; c++) {
+            const cellValue = values[r][c];
+            const cellFormula = formulas[r][c];
+
+            // Skip if cell contains a formula
+            if (cellFormula && cellFormula.trim() !== "") {
+              continue;
+            }
+
+            // Skip if cell is empty
+            if (!cellValue || String(cellValue).trim() === "") {
+              continue;
+            }
+
+            const cellText = String(cellValue).trim();
+            const cellKey = cellText.toLowerCase();
+
+            // Check if this looks like an exercise name and we have a localized version
+            if (exerciseNameToLocalized.has(cellKey)) {
+              const localizedName = exerciseNameToLocalized.get(cellKey);
+              // Only update if different
+              if (localizedName !== cellText) {
+                updates.push({
+                  row: actualRow,
+                  col: c + 1,
+                  value: localizedName,
+                });
+              }
+            }
+          }
+        }
+
+        // Apply updates
+        if (updates.length > 0) {
+          updates.forEach((update) => {
+            sheet.getRange(update.row, update.col).setValue(update.value);
+          });
+        }
+
+        if (startRow % (batchSize * 10) === 0) {
           Utilities.sleep(RATE_LIMIT.API_DELAY);
         }
       }
     }
   } catch (error) {
     throw ErrorHandler.handle(error, {
-      operation: "Syncing exercise names from workouts",
-      sheetName: exerciseSheet.getName(),
+      operation: "Syncing localized exercise names across all sheets",
     });
   }
 }
