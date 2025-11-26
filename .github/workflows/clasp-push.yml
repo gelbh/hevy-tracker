@@ -53,8 +53,46 @@ jobs:
       - name: Update API key constant
         run: sed -i 's/AUTHORIZED_API_KEY = ".*"/AUTHORIZED_API_KEY = "${{ secrets.AUTHORIZED_API_KEY }}"/' src/Constants.gs
 
+      - name: List files to be pushed
+        run: |
+          echo "📋 Files that will be pushed (checking .claspignore):"
+          find src -name "*.gs" -o -name "*.html" | head -20
+          echo ""
+          echo "📄 Checking specific files:"
+          ls -la src/api/ApiClient.gs src/sheets/Workouts.gs src/sheets/RoutineBuilder.gs || echo "Files not found"
+
       - name: Push to Apps Script
-        run: clasp push --force
+        run: |
+          echo "📤 Pushing files to Apps Script..."
+          echo "Checking clasp status before push..."
+          clasp status || true
+          echo ""
+          echo "Force pushing all files (ignoring 'up to date' check)..."
+          # Force push by touching appsscript.json to ensure change detection
+          touch appsscript.json
+          clasp push --force
+          echo ""
+          echo "Verifying push completed..."
+          clasp status || true
+          echo "✅ Push completed"
+
+      - name: Create new version
+        id: version
+        run: |
+          TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+          VERSION_DESCRIPTION="Auto-deployed: $TIMESTAMP"
+          VERSION_RESULT=$(clasp version "$VERSION_DESCRIPTION")
+
+          # Extract version number from: "Created version 277."
+          VERSION_NUM=$(echo "$VERSION_RESULT" | grep -oP 'version \K\d+' || echo "")
+
+          if [ -z "$VERSION_NUM" ]; then
+            echo "⚠️ Failed to extract version number, but continuing..."
+            echo "Version result: $VERSION_RESULT"
+          else
+            echo "version_number=$VERSION_NUM" >> $GITHUB_OUTPUT
+            echo "✅ Created version $VERSION_NUM"
+          fi
 
       - name: Clean old deployments
         run: |
