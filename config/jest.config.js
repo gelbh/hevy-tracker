@@ -1,12 +1,17 @@
 /**
  * Jest configuration for Hevy Tracker tests
  */
+const path = require("path");
+
 module.exports = {
   // Use Node.js environment for Google Apps Script testing
   testEnvironment: "node",
 
+  // Root directory is parent of config directory
+  rootDir: path.resolve(__dirname, ".."),
+
   // Setup file that mocks Google Apps Script APIs
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  setupFilesAfterEnv: ["<rootDir>/tests/setup.js"],
 
   // Test file pattern
   testMatch: ["**/tests/**/*.test.js"],

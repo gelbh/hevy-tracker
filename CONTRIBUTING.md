@@ -111,13 +111,28 @@ npm run test:coverage
 
 ### Writing Tests
 
-Tests are located in the `tests/` directory. We provide mocks for common Google Apps Script APIs:
+Tests are located in the `tests/` directory and mirror the `src/` structure for easy navigation:
 
-- `SpreadsheetApp`
-- `UrlFetchApp`
-- `PropertiesService`
+- `tests/api/` - API layer tests
+- `tests/config/` - Configuration tests
+- `tests/integration/` - Integration tests
+- `tests/sheets/` - Sheet operation tests
+- `tests/ui/` - UI component tests
+- `tests/utils/` - Utility function tests
+
+Test mocks for Google Apps Script APIs are located in `tests/__mocks__/google-apps-script/`:
+
+- `SpreadsheetApp.js`
+- `UrlFetchApp.js`
+- `PropertiesService.js`
+
+Additional mocks are set up in `tests/setup.js`:
+
 - `Logger`
 - `Utilities`
+- `Session`
+- `ScriptApp`
+- `HtmlService`
 
 Example test:
 

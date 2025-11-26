@@ -1,5 +1,5 @@
 <p align="center">
-   <img src="https://gelbhart.dev/assets/hevy-tracker/hevy-tracker-logo.svg" alt="hevy-tracker-logo" width="200" style="max-width: 50%; margin-top: 20px;" />
+   <img src="https://gelbhart.dev/assets/hevy-tracker/hevy-tracker-logo-9b55b4f6b3278c357336f17c81573a08862a6a68a803af24a549b672c3f030c8.svg" alt="hevy-tracker-logo" width="200" style="max-width: 50%; margin-top: 20px;" />
 </p>
 
 # Hevy Tracker
@@ -89,9 +89,14 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 ## Project Structure
 
 ```text
+config/
+└── jest.config.js              # Jest configuration
+
 src/
 ├── api/
 │   └── ApiClient.gs            # API client implementation
+├── config/
+│   └── Constants.gs            # Global constants
 ├── sheets/
 │   ├── SheetManager.gs         # Sheet management
 │   ├── Exercises.gs            # Exercise tracking
@@ -101,11 +106,23 @@ src/
 │   └── Workouts.gs            # Workout tracking
 ├── ui/
 │   ├── Menu.gs                # Menu interface
+│   ├── Dialogs.gs             # Dialog handlers
 │   └── dialogs/               # HTML dialogs
-├── utils/
-│   ├── ErrorHandler.gs        # Error management
-│   └── Utils.gs               # Common utilities
-└── Constants.gs               # Global constants
+└── utils/
+    ├── ErrorHandler.gs        # Error management
+    ├── ExerciseTranslator.gs  # Exercise translation
+    └── Utils.gs               # Common utilities
+
+tests/
+├── __mocks__/
+│   └── google-apps-script/    # Google Apps Script API mocks
+├── api/                       # API tests
+├── config/                    # Config tests
+├── integration/               # Integration tests
+├── sheets/                    # Sheet tests
+├── ui/                        # UI tests
+├── utils/                     # Utility tests
+└── setup.js                   # Test setup and mocks
 ```
 
 ## Development Workflow
