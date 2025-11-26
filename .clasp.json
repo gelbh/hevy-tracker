@@ -1,4 +1,20 @@
 {
   "scriptId": "1_yrhBuyqGvgDJNUlzKxC4_mppkVvGv0TnTVB-qGeQAnx9RejdOY8dQy5",
-  "projectId": "221696974247"
+  "projectId": "221696974247",
+  "filePushOrder": [
+    "src/config/Constants.gs",
+    "src/utils/ErrorHandler.gs",
+    "src/utils/Utils.gs",
+    "src/utils/QuotaTracker.gs",
+    "src/utils/ExerciseTranslator.gs",
+    "src/api/ApiClient.gs",
+    "src/sheets/SheetManager.gs",
+    "src/sheets/Workouts.gs",
+    "src/sheets/Exercises.gs",
+    "src/sheets/Routines.gs",
+    "src/sheets/RoutineFolders.gs",
+    "src/sheets/RoutineBuilder.gs",
+    "src/ui/Dialogs.gs",
+    "src/ui/Menu.gs"
+  ]
 }
