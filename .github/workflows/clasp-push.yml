@@ -61,28 +61,119 @@ jobs:
           echo "📄 Checking specific files:"
           ls -la src/api/ApiClient.gs src/sheets/Workouts.gs src/sheets/RoutineBuilder.gs || echo "Files not found"
 
+      - name: Debug clasp configuration
+        run: |
+          echo "🔍 Clasp Debug Information"
+          echo "========================"
+          echo "Clasp version:"
+          clasp --version || echo "Could not get version"
+          echo ""
+          echo "Clasp configuration:"
+          cat .clasp.json || echo "No .clasp.json found"
+          echo ""
+          echo ".claspignore contents:"
+          cat .claspignore || echo "No .claspignore found"
+          echo ""
+          echo "Files that should be pushed:"
+          find src -name "*.gs" -o -name "*.html" | wc -l
+          echo ""
+          echo "Sample of files that should be pushed:"
+          find src -name "*.gs" -o -name "*.html" | head -5
+          echo ""
+          echo "Checking if key files exist:"
+          ls -la src/Constants.gs src/api/ApiClient.gs 2>/dev/null || echo "Some files missing"
+          echo ""
+
       - name: Push to Apps Script
         run: |
           echo "📤 Pushing files to Apps Script..."
+          echo ""
+          echo "=== BEFORE MODIFICATION ==="
           echo "Checking clasp status before push..."
           clasp status || true
           echo ""
-          echo "Force pushing all files..."
-          # Force change by adding a harmless comment to a source file
-          # This ensures clasp detects a change and pushes everything
-          TIMESTAMP=$(date +%s)
-          if ! grep -q "// Deployment timestamp" src/Constants.gs; then
-            # Add comment at the top of Constants.gs if it doesn't exist
-            sed -i "1i // Deployment timestamp: $TIMESTAMP" src/Constants.gs
-          else
-            # Update existing timestamp
-            sed -i "s|// Deployment timestamp:.*|// Deployment timestamp: $TIMESTAMP|" src/Constants.gs
-          fi
-          clasp push --force
+          echo "Constants.gs first 5 lines before modification:"
+          head -5 src/Constants.gs || echo "Could not read file"
           echo ""
-          echo "Verifying push completed..."
+          echo "File hash of Constants.gs before:"
+          md5sum src/Constants.gs || sha256sum src/Constants.gs || echo "Could not hash"
+          echo ""
+          echo "=== APPLYING MODIFICATION ==="
+          # Force change by modifying multiple files to ensure clasp detects changes
+          TIMESTAMP=$(date +%s)
+          COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+          # Modify Constants.gs
+          if ! grep -q "// Deployment timestamp" src/Constants.gs; then
+            echo "Adding deployment timestamp to Constants.gs..."
+            sed -i "1i // Deployment timestamp: $TIMESTAMP (commit: $COMMIT_SHA)" src/Constants.gs
+          else
+            echo "Updating deployment timestamp in Constants.gs..."
+            sed -i "s|// Deployment timestamp:.*|// Deployment timestamp: $TIMESTAMP (commit: $COMMIT_SHA)|" src/Constants.gs
+          fi
+
+          # Also modify ApiClient.gs to ensure at least one tracked file changes
+          # Add a harmless comment at the top of the file
+          if ! head -1 src/api/ApiClient.gs | grep -q "// Last deployed:"; then
+            echo "Adding deployment comment to ApiClient.gs..."
+            sed -i "1i // Last deployed: $TIMESTAMP" src/api/ApiClient.gs
+          else
+            echo "Updating deployment comment in ApiClient.gs..."
+            sed -i "1s|// Last deployed:.*|// Last deployed: $TIMESTAMP|" src/api/ApiClient.gs
+          fi
+
+          echo "Modified files:"
+          echo "  - src/Constants.gs"
+          echo "  - src/api/ApiClient.gs"
+          echo ""
+          echo "=== AFTER MODIFICATION ==="
+          echo "Constants.gs first 5 lines after modification:"
+          head -5 src/Constants.gs || echo "Could not read file"
+          echo ""
+          echo "ApiClient.gs first 3 lines after modification:"
+          head -3 src/api/ApiClient.gs || echo "Could not read file"
+          echo ""
+          echo "File hashes after modification:"
+          md5sum src/Constants.gs src/api/ApiClient.gs 2>/dev/null || sha256sum src/Constants.gs src/api/ApiClient.gs 2>/dev/null || echo "Could not hash"
+          echo ""
+          echo "=== PUSHING TO APPS SCRIPT ==="
+          echo "Attempting push with --force flag..."
+          PUSH_OUTPUT=$(clasp push --force 2>&1) || true
+          echo "$PUSH_OUTPUT"
+
+          # If push says "already up to date", try alternative approaches
+          if echo "$PUSH_OUTPUT" | grep -q "already up to date"; then
+            echo ""
+            echo "⚠️ Clasp reports 'already up to date'. Trying alternative approaches..."
+            echo ""
+            echo "Approach 1: Pull first, then push..."
+            clasp pull --force || true
+            echo ""
+            echo "Attempting push after pull..."
+            clasp push --force || true
+            echo ""
+            echo "Approach 2: Check what clasp thinks has changed..."
+            clasp status || true
+            echo ""
+            echo "Approach 3: Try pushing without --force..."
+            clasp push || true
+          else
+            echo ""
+            echo "✅ Push appears to have succeeded (no 'already up to date' message)"
+          fi
+          echo ""
+          echo "=== AFTER PUSH ==="
+          echo "Checking clasp status after push..."
           clasp status || true
-          echo "✅ Push completed"
+          echo ""
+          echo "Verifying which files clasp is tracking..."
+          echo "Tracked files count:"
+          clasp status 2>/dev/null | grep -c "└─" || echo "Could not count"
+          echo ""
+          echo "Checking if our modified files are in the tracked list:"
+          clasp status 2>/dev/null | grep -E "(Constants|ApiClient)" || echo "Files not found in tracked list"
+          echo ""
+          echo "✅ Push step completed"
 
       - name: Clean old deployments
         run: |
