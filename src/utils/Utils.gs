@@ -501,15 +501,11 @@ function serializeErrorForHtml(error) {
  * This wrapper ensures errors are properly serialized for HTML service
  * @param {string} apiKey - The API key to save
  */
-function saveUserApiKey(apiKey) {
+async function saveUserApiKey(apiKey) {
   try {
-    // Call the async method - google.script.run will handle the async execution
-    // but we need to ensure errors are serializable
-    const result = apiClient.saveUserApiKey(apiKey);
-
-    // If it returns a promise, we can't await it here (sync function)
-    // But errors thrown will be caught below and serialized
-    return result;
+    // Await the async method to ensure proper error handling and completion
+    // google.script.run properly handles async functions and waits for them
+    await apiClient.saveUserApiKey(apiKey);
   } catch (error) {
     // Ensure error is serializable for HTML service
     throw serializeErrorForHtml(error);
