@@ -460,11 +460,60 @@ function getDevApiKeyPropertyKey(label) {
 }
 
 /**
+ * Serializes error for HTML service compatibility
+ * Custom error objects need to be converted to plain Error objects
+ * @param {Error} error - The error to serialize
+ * @returns {Error} Serialized error with message string
+ * @private
+ */
+function serializeErrorForHtml(error) {
+  // HTML service can only serialize plain Error objects with message strings
+  // Custom error types need to be converted
+  // Use error.name for more reliable cross-file checking
+  if (error && error.name && typeof error.message === "string") {
+    const errorName = error.name;
+    if (
+      errorName === "InvalidApiKeyError" ||
+      errorName === "ApiError" ||
+      errorName === "ValidationError" ||
+      errorName === "ConfigurationError" ||
+      errorName === "SheetError" ||
+      errorName === "DrivePermissionError"
+    ) {
+      // Create a plain Error with the message for HTML service
+      const plainError = new Error(error.message);
+      plainError.name = errorName;
+      return plainError;
+    }
+  }
+
+  // If it's already a plain Error, return as-is
+  if (error instanceof Error) {
+    return error;
+  }
+
+  // For any other type, convert to Error
+  return new Error(String(error));
+}
+
+/**
  * Global function to save Hevy API key, callable from dialog
+ * This wrapper ensures errors are properly serialized for HTML service
  * @param {string} apiKey - The API key to save
  */
 function saveUserApiKey(apiKey) {
-  return apiClient.saveUserApiKey(apiKey);
+  try {
+    // Call the async method - google.script.run will handle the async execution
+    // but we need to ensure errors are serializable
+    const result = apiClient.saveUserApiKey(apiKey);
+
+    // If it returns a promise, we can't await it here (sync function)
+    // But errors thrown will be caught below and serialized
+    return result;
+  } catch (error) {
+    // Ensure error is serializable for HTML service
+    throw serializeErrorForHtml(error);
+  }
 }
 
 /**

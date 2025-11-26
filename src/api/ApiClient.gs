@@ -91,6 +91,7 @@ class ApiClient {
   /**
    * Saves the API key and initiates initial data import if needed
    * @param {string} apiKey - The API key to save
+   * @throws {Error} Serialized error for HTML service compatibility
    */
   async saveUserApiKey(apiKey) {
     try {
@@ -119,11 +120,29 @@ class ApiClient {
     } catch (error) {
       this._apiKeyCheckInProgress = false;
 
+      // Handle invalid API key with user-friendly message
       if (error instanceof InvalidApiKeyError) {
-        this._handleInvalidApiKey(error);
-      } else {
-        throw ErrorHandler.handle(error, { operation: "Saving API key" });
+        // Create a serializable error for HTML service
+        const serializedError = new Error(
+          "Invalid API key. Please check your Hevy Developer Settings and reset your API key."
+        );
+        serializedError.name = "InvalidApiKeyError";
+        throw serializedError;
       }
+
+      // Handle other errors - ensure they're serializable
+      const handledError = ErrorHandler.handle(
+        error,
+        {
+          operation: "Saving API key",
+        },
+        false
+      ); // Don't show toast here, let HTML dialog handle it
+
+      // Convert to plain Error for HTML service
+      const serializedError = new Error(handledError.message);
+      serializedError.name = handledError.name || "Error";
+      throw serializedError;
     }
   }
 
@@ -243,21 +262,46 @@ class ApiClient {
    * @param {string} apiKey - The API key to validate
    * @returns {Promise<boolean>} True if valid
    * @throws {InvalidApiKeyError} If API key is invalid
+   * @throws {Error} If request times out or fails
    * @private
    */
   async validateApiKey(apiKey) {
     const url = `${API_ENDPOINTS.BASE}${API_ENDPOINTS.WORKOUTS_COUNT}`;
-    const options = this.createRequestOptions(apiKey);
-    const response = await this.executeRequest(url, options);
+    // Use shorter timeout for validation (15 seconds) since it's just a quick check
+    const options = {
+      ...this.createRequestOptions(apiKey),
+      timeout: 15000, // 15 seconds for validation
+    };
 
-    if (response.getResponseCode() === 401) {
-      throw ErrorHandler.handle(
-        new InvalidApiKeyError("Invalid or revoked API key"),
-        { operation: "Validating API key" }
-      );
+    try {
+      const response = await this.executeRequest(url, options);
+
+      if (response.getResponseCode() === 401) {
+        throw ErrorHandler.handle(
+          new InvalidApiKeyError("Invalid or revoked API key"),
+          { operation: "Validating API key" },
+          false // Don't show toast during validation
+        );
+      }
+
+      return true;
+    } catch (error) {
+      // Handle timeout and network errors
+      if (
+        error.message &&
+        (error.message.includes("timeout") ||
+          error.message.includes("Timeout") ||
+          error.message.includes("DNS error") ||
+          error.message.includes("network"))
+      ) {
+        throw new Error(
+          "Request timed out. Please check your internet connection and try again."
+        );
+      }
+
+      // Re-throw other errors
+      throw error;
     }
-
-    return true;
   }
 
   /**

@@ -98,16 +98,66 @@
     </div>
 
     <script>
+      // Flag to prevent multiple simultaneous save attempts
+      let isSaving = false;
+      let timeoutId = null;
+
       function validateInput() {
         const apiKey = document.getElementById("apiKey").value.trim();
-        document.getElementById("saveButton").disabled = !apiKey;
+        const saveButton = document.getElementById("saveButton");
+        saveButton.disabled = !apiKey || isSaving;
       }
 
       function closeDialog() {
+        // Clear any pending timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         google.script.host.close();
       }
 
+      function resetUI() {
+        const saveButton = document.getElementById("saveButton");
+        const spinner = document.getElementById("spinner");
+        const apiKeyInput = document.getElementById("apiKey");
+
+        // Re-enable input and button, hide spinner
+        saveButton.disabled = false;
+        apiKeyInput.disabled = false;
+        spinner.style.display = "none";
+        isSaving = false;
+
+        // Clear timeout if set
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
+
+      function extractErrorMessage(error) {
+        // Handle both string errors and error objects
+        if (typeof error === "string") {
+          return error;
+        }
+
+        if (error && error.message) {
+          return error.message;
+        }
+
+        if (error && typeof error.toString === "function") {
+          return error.toString();
+        }
+
+        return "An unknown error occurred. Please try again.";
+      }
+
       function saveApiKey() {
+        // Prevent multiple simultaneous save attempts
+        if (isSaving) {
+          return;
+        }
+
         const apiKey = document.getElementById("apiKey").value.trim();
         if (!apiKey) return;
 
@@ -115,37 +165,50 @@
         const spinner = document.getElementById("spinner");
         const errorMessage = document.getElementById("errorMessage");
         const apiKeyInput = document.getElementById("apiKey");
-        
+
+        // Set saving flag
+        isSaving = true;
+
         // Hide any previous error messages
         errorMessage.style.display = "none";
         errorMessage.textContent = "";
-        
+
         // Disable input and button, show spinner
         saveButton.disabled = true;
         apiKeyInput.disabled = true;
         spinner.style.display = "inline-block";
 
+        // Set client-side timeout (35 seconds to account for 30s server timeout + overhead)
+        timeoutId = setTimeout(function () {
+          if (isSaving) {
+            errorMessage.textContent =
+              "Request is taking longer than expected. Please wait or try again.";
+            errorMessage.style.display = "block";
+          }
+        }, 35000);
+
         google.script.run
           .withSuccessHandler(function () {
+            // Clear timeout
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+
+            // Reset saving flag
+            isSaving = false;
+
             // Close dialog only on successful save
             google.script.host.close();
           })
           .withFailureHandler(function (error) {
-            // Show error in dialog
-            errorMessage.textContent = "Error: " + error;
+            // Reset saving flag and UI
+            resetUI();
+
+            // Extract and display error message
+            const errorMsg = extractErrorMessage(error);
+            errorMessage.textContent = errorMsg;
             errorMessage.style.display = "block";
-            
-            // Re-enable input and button, hide spinner
-            saveButton.disabled = false;
-            apiKeyInput.disabled = false;
-            spinner.style.display = "none";
-            
-            // Also show toast for visibility
-            SpreadsheetApp.getActiveSpreadsheet().toast(
-              "Error saving API key: " + error,
-              "Error",
-              TOAST_DURATION.NORMAL
-            );
           })
           .saveUserApiKey(apiKey);
       }
