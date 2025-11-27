@@ -45,14 +45,12 @@ async function importAllExercises() {
       "exercise_templates"
     );
 
-    if (
-      SpreadsheetApp.getActiveSpreadsheet().getId() !== TEMPLATE_SPREADSHEET_ID
-    ) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss.getId() !== TEMPLATE_SPREADSHEET_ID) {
       syncCustomExerciseIds(sheet, allApiExercises);
     }
 
     let updateMessage = "";
-
     if (processedExercises.length > 0) {
       await insertNewExercises(sheet, processedExercises);
       updateMessage = `Imported ${processedExercises.length} new exercises. `;
@@ -61,11 +59,10 @@ async function importAllExercises() {
     }
 
     await updateExerciseCounts(sheet);
-
     manager.formatSheet();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      updateMessage + "Updated counts for all exercises!",
+    ss.toast(
+      `${updateMessage}Updated counts for all exercises!`,
       "Import Complete",
       TOAST_DURATION.NORMAL
     );

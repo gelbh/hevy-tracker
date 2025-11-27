@@ -23,7 +23,7 @@ function showInitialSetup() {
     if (hasApiKey) {
       apiClient.manageApiKey();
     } else {
-      showHtmlDialog("src/ui/dialogs/SetApiKey", {
+      showHtmlDialog("ui/dialogs/SetApiKey", {
         ...API_KEY_DIALOG_OPTIONS,
         title: "Hevy Tracker Setup",
       });
@@ -38,7 +38,7 @@ function showInitialSetup() {
  */
 function showGuideDialog() {
   try {
-    showHtmlDialog("src/ui/dialogs/SetupInstructions", {
+    showHtmlDialog("ui/dialogs/SetupInstructions", {
       width: 700,
       height: 700,
       title: "Hevy Tracker Setup Guide",
@@ -56,7 +56,7 @@ function showGuideDialog() {
  */
 function showTakeoutDialog() {
   try {
-    showHtmlDialog("src/ui/dialogs/ImportWeight", {
+    showHtmlDialog("ui/dialogs/ImportWeight", {
       title: "Import Google Fit Weight",
       width: 600,
       height: 420,
@@ -96,7 +96,7 @@ function showMultiLoginWarning() {
  * Shows the Developer API Key Manager dialog
  */
 function showDevApiManagerDialog() {
-  showHtmlDialog("src/ui/dialogs/DevApiManager", {
+  showHtmlDialog("ui/dialogs/DevApiManager", {
     width: 600,
     height: 480,
     title: "Developer API Key Manager",

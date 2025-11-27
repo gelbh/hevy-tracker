@@ -111,7 +111,7 @@ function onHomepage(e) {
     const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
 
     const template = HtmlService.createTemplateFromFile(
-      "src/ui/dialogs/Sidebar"
+      "ui/dialogs/Sidebar"
     );
     template.data = {
       isTemplate,

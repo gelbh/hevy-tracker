@@ -138,13 +138,10 @@ async function createRoutineFromSheet() {
 
     const response = await submitRoutine(routineData);
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      "Routine created successfully!",
-      "Success",
-      TOAST_DURATION.NORMAL
-    );
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast("Routine created successfully!", "Success", TOAST_DURATION.NORMAL);
 
-    await showHtmlDialog("src/ui/dialogs/RoutineCreated", {
+    await showHtmlDialog("ui/dialogs/RoutineCreated", {
       width: DIALOG_DIMENSIONS.ROUTINE_CREATED_WIDTH,
       height: DIALOG_DIMENSIONS.ROUTINE_CREATED_HEIGHT,
       title: "Routine Builder",
@@ -169,11 +166,8 @@ function clearRoutineBuilder() {
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G").clearContent();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      "Form cleared!",
-      "Success",
-      TOAST_DURATION.SHORT
-    );
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Clearing routine builder",
@@ -205,11 +199,9 @@ function processExercises(exerciseData) {
     let currentExercise = null;
     let currentTemplateId = null;
 
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const weightUnit =
-      SpreadsheetApp.getActiveSpreadsheet()
-        .getSheetByName("Main")
-        .getRange("I5")
-        .getValue() || "kg";
+      ss.getSheetByName("Main").getRange("I5").getValue() || "kg";
 
     const conversionFactors = {
       lbs: WEIGHT_CONVERSION.LBS_TO_KG,

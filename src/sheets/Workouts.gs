@@ -96,7 +96,8 @@ async function importAllWorkoutsFull() {
   }
 
   props?.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
-  SpreadsheetApp.getActiveSpreadsheet().toast(
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast(
     `Imported ${rows.length} workout records.`,
     "Full Import Complete",
     TOAST_DURATION.NORMAL
@@ -174,7 +175,8 @@ async function importAllWorkoutsDelta(lastUpdate) {
     );
 
     if (!events.length) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      ss.toast(
         "No new workout events found since last import.",
         "Delta Import Complete",
         TOAST_DURATION.NORMAL
@@ -231,7 +233,8 @@ async function importAllWorkoutsDelta(lastUpdate) {
     updateWorkoutData(manager.sheet, rows);
     props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast(
       `Imported ${rows.length} workout records.`,
       "Delta Import Complete",
       TOAST_DURATION.NORMAL

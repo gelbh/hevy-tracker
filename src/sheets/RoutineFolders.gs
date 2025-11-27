@@ -26,7 +26,8 @@ async function importAllRoutineFolders() {
       const processedData = processFolderData(folders);
       processedFolders.push(...processedData);
 
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      ss.toast(
         `Processed ${processedFolders.length} folders...`,
         "Processing Progress"
       );
@@ -42,7 +43,8 @@ async function importAllRoutineFolders() {
     await updateFoldersInSheet(manager.sheet, processedFolders);
     manager.formatSheet();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast(
       `Imported ${totalFolders} folders successfully!`,
       "Import Complete",
       TOAST_DURATION.NORMAL
