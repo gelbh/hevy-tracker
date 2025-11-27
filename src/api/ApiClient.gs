@@ -482,6 +482,32 @@ class ApiClient {
   }
 
   /**
+   * Cancels any pending runInitialImport triggers
+   * Called when a manual import starts to prevent duplicate imports
+   * @private
+   */
+  _cancelPendingInitialImportTriggers() {
+    try {
+      const triggers = ScriptApp.getProjectTriggers();
+      const cancelledTriggers = triggers.filter(
+        (t) =>
+          t.getHandlerFunction() === "runInitialImport" &&
+          t.getEventType() === ScriptApp.EventType.CLOCK
+      );
+
+      if (cancelledTriggers.length > 0) {
+        cancelledTriggers.forEach((t) => ScriptApp.deleteTrigger(t));
+        console.log(
+          `Cancelled ${cancelledTriggers.length} pending initial import trigger(s)`
+        );
+      }
+    } catch (error) {
+      // Log error but don't throw - import can still proceed
+      console.warn("Failed to cancel pending triggers:", error);
+    }
+  }
+
+  /**
    * Sets up weight import formula for authorized API key
    * @private
    */
@@ -503,8 +529,37 @@ class ApiClient {
   async runFullImport(apiKeyOverride = null, skipResumeDialog = false) {
     const startTime = Date.now();
     let completedSteps = [];
+    const lock = LockService.getScriptLock();
+    let lockAcquired = false;
+    let lastHeartbeat = startTime;
 
     try {
+      // Try to acquire lock to prevent concurrent execution
+      try {
+        lock.waitLock(30000); // Wait up to 30 seconds for lock
+        lockAcquired = true;
+      } catch (lockError) {
+        // Lock acquisition failed - fall back to active import check
+        console.warn(
+          "Failed to acquire lock, checking active import status:",
+          lockError
+        );
+      }
+
+      // Check if import is already active (using document properties as fallback)
+      if (ImportProgressTracker.isImportActive()) {
+        this._showToast(
+          "Import already in progress. Please wait for it to complete.",
+          "Import Active",
+          TOAST_DURATION.NORMAL
+        );
+        return;
+      }
+
+      // Mark import as active and cancel any pending triggers
+      ImportProgressTracker.markImportActive();
+      this._cancelPendingInitialImportTriggers();
+
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       this._ensureImportTrigger(ss);
 
@@ -577,9 +632,17 @@ class ApiClient {
 
       const isTemplate = ss.getId() === TEMPLATE_SPREADSHEET_ID;
 
-      // Helper function to check timeout and save progress if needed
+      // Helper function to check timeout, update heartbeat, and save progress if needed
       const checkTimeout = () => {
-        const elapsed = Date.now() - startTime;
+        const now = Date.now();
+        const elapsed = now - startTime;
+
+        // Update heartbeat if needed (every ACTIVE_IMPORT_HEARTBEAT_MS)
+        if (now - lastHeartbeat >= ACTIVE_IMPORT_HEARTBEAT_MS) {
+          ImportProgressTracker.updateImportActiveHeartbeat();
+          lastHeartbeat = now;
+        }
+
         if (elapsed > MAX_IMPORT_EXECUTION_TIME_MS) {
           ImportProgressTracker.saveProgress(completedSteps);
           this._showToast(
@@ -693,6 +756,21 @@ class ApiClient {
       }
 
       throw ErrorHandler.handle(error, { operation: "Initial data import" });
+    } finally {
+      // Always cleanup: clear active import flag and release lock
+      try {
+        ImportProgressTracker.clearImportActive();
+      } catch (cleanupError) {
+        console.warn("Failed to clear active import flag:", cleanupError);
+      }
+
+      if (lockAcquired) {
+        try {
+          lock.releaseLock();
+        } catch (lockError) {
+          console.warn("Failed to release lock:", lockError);
+        }
+      }
     }
   }
 

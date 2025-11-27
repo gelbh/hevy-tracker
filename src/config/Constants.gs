@@ -153,6 +153,9 @@ const CACHE_CONFIG = {
  */
 const MAX_IMPORT_EXECUTION_TIME_MS = 5 * 60 * 1000; // 5 minutes - safety margin before 6-minute limit
 const IMPORT_PROGRESS_PROPERTY_KEY = "IMPORT_PROGRESS_STATE";
+const ACTIVE_IMPORT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes - considers import stale if older
+const ACTIVE_IMPORT_HEARTBEAT_MS = 2 * 60 * 1000; // 2 minutes - how often to update timestamp
+const ACTIVE_IMPORT_PROPERTY_KEY = "IMPORT_ACTIVE_STATE";
 
 /**
  * Dialog dimensions configuration

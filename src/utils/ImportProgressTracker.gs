@@ -130,4 +130,91 @@ class ImportProgressTracker {
     const progress = this.loadProgress();
     return progress !== null && progress.completedSteps?.length > 0;
   }
+
+  /**
+   * Checks if an import is currently active (running)
+   * An import is considered active if:
+   * - Active import flag exists in properties
+   * - Timestamp is less than ACTIVE_IMPORT_TIMEOUT_MS ago (not stale)
+   * @returns {boolean} True if import is currently active
+   */
+  static isImportActive() {
+    try {
+      const props = getDocumentProperties();
+      if (!props) {
+        return false;
+      }
+
+      const activeJson = props.getProperty(ACTIVE_IMPORT_PROPERTY_KEY);
+      if (!activeJson) {
+        return false;
+      }
+
+      const activeState = JSON.parse(activeJson);
+      const lastUpdate = new Date(activeState.timestamp).getTime();
+      const now = Date.now();
+      const elapsed = now - lastUpdate;
+
+      // Consider import stale if older than timeout
+      if (elapsed > ACTIVE_IMPORT_TIMEOUT_MS) {
+        // Clear stale active import flag
+        this.clearImportActive();
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.warn("Failed to check if import is active:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Marks an import as currently active by setting timestamp in document properties
+   */
+  static markImportActive() {
+    try {
+      const props = getDocumentProperties();
+      if (!props) {
+        console.warn(
+          "Unable to mark import as active: document properties unavailable"
+        );
+        return;
+      }
+
+      const activeState = {
+        timestamp: new Date().toISOString(),
+      };
+
+      props.setProperty(
+        ACTIVE_IMPORT_PROPERTY_KEY,
+        JSON.stringify(activeState)
+      );
+    } catch (error) {
+      console.warn("Failed to mark import as active:", error);
+    }
+  }
+
+  /**
+   * Updates the active import timestamp (heartbeat) to indicate import is still running
+   * Should be called periodically during long-running imports
+   */
+  static updateImportActiveHeartbeat() {
+    // Simply update the timestamp by marking as active again
+    this.markImportActive();
+  }
+
+  /**
+   * Clears the active import flag from document properties
+   */
+  static clearImportActive() {
+    try {
+      const props = getDocumentProperties();
+      if (props) {
+        props.deleteProperty(ACTIVE_IMPORT_PROPERTY_KEY);
+      }
+    } catch (error) {
+      console.warn("Failed to clear active import flag:", error);
+    }
+  }
 }
