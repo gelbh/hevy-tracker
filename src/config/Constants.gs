@@ -1,4 +1,13 @@
 /**
+ * Global configuration constants for the Hevy Tracker add-on
+ * @module Constants
+ */
+
+/**
+ * Type Definitions
+ */
+
+/**
  * @typedef {Object} SheetTheme
  * @property {string} evenRowColor - Background color for even rows
  * @property {string} oddRowColor - Background color for odd rows
@@ -23,9 +32,13 @@
  */
 
 /**
- * Authorized API key used for special weight import formula setup.
+ * Application Configuration
+ */
+
+/**
+ * Authorized API key used for special weight import formula setup
  * When this key is detected during initial import, sets up a formula
- * to import weight data from a shared spreadsheet.
+ * to import weight data from a shared spreadsheet
  * @type {string}
  */
 const AUTHORIZED_API_KEY = "PLACEHOLDER_KEY";
@@ -37,7 +50,11 @@ const AUTHORIZED_API_KEY = "PLACEHOLDER_KEY";
 const TEMPLATE_SPREADSHEET_ID = "1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk";
 
 /**
- * Sheet name constants
+ * Sheet Configuration
+ */
+
+/**
+ * Sheet name constants for all sheet types
  * @type {Object<string>}
  */
 const WORKOUTS_SHEET_NAME = "Workouts";
@@ -47,7 +64,11 @@ const ROUTINE_FOLDERS_SHEET_NAME = "Routine Folders";
 const WEIGHT_SHEET_NAME = "Weight History";
 
 /**
- * API endpoint configuration
+ * API Configuration
+ */
+
+/**
+ * API endpoint configuration for Hevy API
  * @type {Object<string>}
  */
 const API_ENDPOINTS = {
@@ -61,7 +82,7 @@ const API_ENDPOINTS = {
 };
 
 /**
- * Pagination page sizes for API requests
+ * Pagination page sizes for API requests (maximum items per page)
  * @type {Object<number>}
  */
 const PAGE_SIZE = {
@@ -72,7 +93,7 @@ const PAGE_SIZE = {
 };
 
 /**
- * Rate limiting configuration
+ * Rate limiting configuration to respect API quotas
  * @type {Object<number>}
  */
 const RATE_LIMIT = {
@@ -83,7 +104,11 @@ const RATE_LIMIT = {
 };
 
 /**
- * HTTP status codes
+ * HTTP Status Codes
+ */
+
+/**
+ * HTTP status codes used for API response handling
  * @type {Object<number>}
  */
 const HTTP_STATUS = {
@@ -103,7 +128,7 @@ const HTTP_STATUS = {
 };
 
 /**
- * HTTP status code ranges
+ * HTTP status code ranges for response categorization
  * @type {Object<number>}
  */
 const HTTP_STATUS_RANGE = {
@@ -116,7 +141,7 @@ const HTTP_STATUS_RANGE = {
 };
 
 /**
- * API client configuration
+ * API client configuration for retry logic and circuit breaker
  * @type {Object<number>}
  */
 const API_CLIENT_CONFIG = {
@@ -129,7 +154,11 @@ const API_CLIENT_CONFIG = {
 };
 
 /**
- * Batch processing configuration
+ * Performance Configuration
+ */
+
+/**
+ * Batch processing configuration for optimizing sheet operations
  * @type {Object<number>}
  */
 const BATCH_CONFIG = {
@@ -139,7 +168,7 @@ const BATCH_CONFIG = {
 };
 
 /**
- * Cache configuration
+ * Cache configuration for API response caching
  * @type {Object<number>}
  */
 const CACHE_CONFIG = {
@@ -148,8 +177,7 @@ const CACHE_CONFIG = {
 };
 
 /**
- * Import timeout configuration
- * @type {Object<number|string>}
+ * Import timeout configuration to prevent execution time limit issues
  */
 const MAX_IMPORT_EXECUTION_TIME_MS = 5 * 60 * 1000; // 5 minutes - safety margin before 6-minute limit
 const IMPORT_PROGRESS_PROPERTY_KEY = "IMPORT_PROGRESS_STATE";
@@ -158,7 +186,11 @@ const ACTIVE_IMPORT_HEARTBEAT_MS = 2 * 60 * 1000; // 2 minutes - how often to up
 const ACTIVE_IMPORT_PROPERTY_KEY = "IMPORT_ACTIVE_STATE";
 
 /**
- * Dialog dimensions configuration
+ * UI Configuration
+ */
+
+/**
+ * Dialog dimensions configuration for HTML dialogs
  * @type {Object<number>}
  */
 const DIALOG_DIMENSIONS = {
@@ -178,34 +210,6 @@ const DIALOG_DIMENSIONS = {
 };
 
 /**
- * Developer configuration
- * @type {Object<Array<string>>}
- */
-const DEVELOPER_CONFIG = {
-  EMAILS: ["gelbharttomer@gmail.com"],
-};
-
-/**
- * Weight validation configuration
- * @type {Object<number>}
- */
-const WEIGHT_CONFIG = {
-  MAX_WEIGHT_LBS: 1100,
-  MAX_WEIGHT_STONE: 78.5,
-  MAX_WEIGHT_KG: 500,
-  PRECISION_DECIMALS: 2, // Number of decimal places for weight values
-};
-
-/**
- * Weight conversion factors
- * @type {Object<number>}
- */
-const WEIGHT_CONVERSION = {
-  LBS_TO_KG: 0.45359237,
-  STONE_TO_KG: 6.35029,
-};
-
-/**
  * Toast notification duration in seconds
  * @type {Object<number>}
  */
@@ -216,7 +220,48 @@ const TOAST_DURATION = {
 };
 
 /**
+ * Weight Configuration
+ */
+
+/**
+ * Weight validation and formatting configuration
+ * @type {Object<number>}
+ */
+const WEIGHT_CONFIG = {
+  MAX_WEIGHT_LBS: 1100,
+  MAX_WEIGHT_STONE: 78.5,
+  MAX_WEIGHT_KG: 500,
+  PRECISION_DECIMALS: 2, // Number of decimal places for weight values
+};
+
+/**
+ * Weight conversion factors for unit conversions
+ * @type {Object<number>}
+ */
+const WEIGHT_CONVERSION = {
+  LBS_TO_KG: 0.45359237,
+  STONE_TO_KG: 6.35029,
+};
+
+/**
+ * Developer Configuration
+ */
+
+/**
+ * Developer-specific configuration
+ * @type {Object<Array<string>>}
+ */
+const DEVELOPER_CONFIG = {
+  EMAILS: ["gelbharttomer@gmail.com"],
+};
+
+/**
+ * Sheet Structure Configuration
+ */
+
+/**
  * Sheet header definitions for each sheet type
+ * Must match the order of columns in each sheet
  * @type {Object<Array<string>>}
  */
 const SHEET_HEADERS = {
