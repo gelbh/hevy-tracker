@@ -147,26 +147,27 @@ class ApiClient {
    * Saves the API key and initiates initial data import if needed
    * Saves synchronously first, then validates in background for reliability
    * @param {string} apiKey - The API key to save
+   * @returns {boolean} True if this is a new API key (not an update), false otherwise
    */
   saveUserApiKey(apiKey) {
     // Save API key first (synchronously) - this ensures immediate completion
     const properties = this._getDocumentProperties();
     const currentKey = properties.getProperty("HEVY_API_KEY");
+    const isNewKey = !currentKey;
 
     properties.setProperty("HEVY_API_KEY", apiKey);
     properties.deleteProperty("LAST_WORKOUT_UPDATE");
     this._apiKeyCheckInProgress = false;
 
-    // Schedule import via trigger to avoid blocking the dialog
-    if (!currentKey) {
+    // Show appropriate message based on whether this is a new key or update
+    if (isNewKey) {
       this._showToast(
         "API key set successfully. Starting initial data import...",
         "Setup Progress",
         TOAST_DURATION.NORMAL
       );
-      // Schedule import to run in separate execution context via trigger
-      // This prevents blocking the dialog and allows it to close immediately
-      this._scheduleInitialImport();
+      // Note: Initial import will be triggered directly from the HTML dialog
+      // after it closes, to avoid trigger delay issues
     } else {
       this._showToast(
         "API key updated successfully!",
@@ -212,6 +213,9 @@ class ApiClient {
           false // Don't show additional toast, we already showed one
         );
       });
+
+    // Return whether this is a new key so the HTML dialog can trigger import
+    return isNewKey;
   }
 
   /**
@@ -448,8 +452,9 @@ class ApiClient {
   }
 
   /**
-   * Schedules the initial import to run via a time-based trigger
-   * This prevents blocking the dialog by running the import in a separate execution context
+   * Schedules the initial import to run via a time-based trigger as a fallback
+   * This is a backup mechanism in case the direct call from HTML fails
+   * Uses a 60-second delay to meet Google Apps Script's minimum trigger delay requirement
    * @private
    */
   _scheduleInitialImport() {
@@ -464,18 +469,26 @@ class ApiClient {
         )
         .forEach((t) => ScriptApp.deleteTrigger(t));
 
-      // Create a new time-based trigger that fires 2 seconds from now
-      const triggerTime = new Date(Date.now() + 2000);
+      // Create a new time-based trigger that fires 60 seconds from now
+      // Google Apps Script requires a minimum delay of ~1 minute for time-based triggers
+      const triggerTime = new Date(Date.now() + 60000);
       ScriptApp.newTrigger("runInitialImport")
         .timeBased()
         .at(triggerTime)
         .create();
+
+      console.log(
+        "Fallback trigger scheduled for initial import in 60 seconds"
+      );
     } catch (error) {
       // Log error but don't throw - import can still happen manually
-      console.error("Failed to schedule initial import:", error);
+      console.error(
+        "Failed to schedule initial import fallback trigger:",
+        error
+      );
       ErrorHandler.handle(
         error,
-        { operation: "Scheduling initial import trigger" },
+        { operation: "Scheduling initial import trigger (fallback)" },
         false
       );
     }
@@ -833,9 +846,13 @@ class ApiClient {
   }
 
   /**
-   * Checks if error should be retried
+   * Retry Logic
+   */
+
+  /**
+   * Determines if an error should trigger a retry
    * @param {Error} error - The error to check
-   * @param {number} attempt - Current attempt number
+   * @param {number} attempt - Current attempt number (0-indexed)
    * @returns {boolean} True if should retry
    * @private
    */
@@ -866,7 +883,11 @@ class ApiClient {
   }
 
   /**
-   * Checks circuit breaker state and throws if circuit is open
+   * Circuit Breaker Management
+   */
+
+  /**
+   * Checks and updates circuit breaker state before making request
    * @param {string} endpoint - API endpoint for context
    * @throws {ApiError} If circuit breaker is open
    * @private
@@ -875,7 +896,7 @@ class ApiClient {
     const cb = this.circuitBreaker;
     const now = Date.now();
 
-    // Check if we should transition from OPEN to HALF_OPEN
+    // Transition from OPEN to HALF_OPEN if reset timeout has passed
     if (
       cb.state === "OPEN" &&
       cb.lastFailureTime &&
@@ -885,7 +906,7 @@ class ApiClient {
       cb.failures = 0;
     }
 
-    // If circuit is open, reject immediately
+    // Reject immediately if circuit is open
     if (cb.state === "OPEN") {
       throw new ApiError(
         "Circuit breaker is open. API is temporarily unavailable.",
@@ -901,24 +922,22 @@ class ApiClient {
   }
 
   /**
-   * Records a successful request for circuit breaker
+   * Records a successful request for circuit breaker state management
    * @private
    */
   _recordSuccess() {
     const cb = this.circuitBreaker;
     if (cb.state === "HALF_OPEN") {
-      // Success in half-open state, close the circuit
       cb.state = "CLOSED";
       cb.failures = 0;
       cb.lastFailureTime = null;
     } else if (cb.state === "CLOSED") {
-      // Reset failure count on success
       cb.failures = 0;
     }
   }
 
   /**
-   * Records a failed request for circuit breaker
+   * Records a failed request and updates circuit breaker state
    * @param {Error} error - The error that occurred
    * @private
    */
@@ -927,7 +946,6 @@ class ApiClient {
     cb.failures++;
     cb.lastFailureTime = Date.now();
 
-    // Open circuit if threshold exceeded
     if (cb.failures >= cb.failureThreshold) {
       cb.state = "OPEN";
       console.warn(
@@ -945,91 +963,117 @@ class ApiClient {
    * @returns {Promise<Object>} Parsed response data
    * @throws {ApiError} If request fails after retries
    */
-  async makeRequest(endpoint, options, queryParams = {}, payload = null) {
-    // Check circuit breaker before making request
-    this._checkCircuitBreaker(endpoint);
+  /**
+   * Cache Management
+   */
 
-    const cacheKey = this.getCacheKey(endpoint, queryParams);
-
+  /**
+   * Gets cached response for GET requests
+   * @param {string} cacheKey - Cache key for the request
+   * @returns {Object|null} Cached response or null if not found
+   * @private
+   */
+  _getCachedResponse(cacheKey) {
     // Check in-memory cache first
-    if (options.method === "GET" && this.cache[cacheKey]) {
+    if (this.cache[cacheKey]) {
       return this.cache[cacheKey];
     }
 
-    // Check persistent cache (CacheService) for GET requests
-    if (options.method === "GET") {
+    // Check persistent cache
+    try {
       const persistentCache = CacheService.getDocumentCache();
       const cached = persistentCache.get(cacheKey);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          // Also store in memory cache for faster access
-          this.cache[cacheKey] = parsed;
-          return parsed;
-        } catch (parseError) {
-          // If parsing fails, remove from cache and continue
-          persistentCache.remove(cacheKey);
-        }
+        const parsed = JSON.parse(cached);
+        this.cache[cacheKey] = parsed;
+        return parsed;
+      }
+    } catch (parseError) {
+      // Remove invalid cache entry
+      CacheService.getDocumentCache().remove(cacheKey);
+    }
+
+    return null;
+  }
+
+  /**
+   * Stores response in cache (memory and persistent)
+   * @param {string} cacheKey - Cache key
+   * @param {Object} response - Response to cache
+   * @private
+   */
+  _storeInCache(cacheKey, response) {
+    // Store in memory cache with LRU eviction
+    if (!this.cache[cacheKey]) {
+      if (this._cacheSize >= CACHE_CONFIG.MAX_MEMORY_CACHE_SIZE) {
+        this._evictOldestCacheEntry();
+      }
+      this._cacheSize++;
+    }
+    this.cache[cacheKey] = response;
+
+    // Store in persistent cache
+    try {
+      const persistentCache = CacheService.getDocumentCache();
+      persistentCache.put(
+        cacheKey,
+        JSON.stringify(response),
+        CACHE_CONFIG.TTL_SECONDS
+      );
+    } catch (cacheError) {
+      console.warn("Failed to cache response:", cacheError);
+    }
+  }
+
+  async makeRequest(endpoint, options, queryParams = {}, payload = null) {
+    this._checkCircuitBreaker(endpoint);
+
+    const cacheKey = this.getCacheKey(endpoint, queryParams);
+    const isGetRequest = options.method === "GET";
+
+    // Check cache for GET requests
+    if (isGetRequest) {
+      const cached = this._getCachedResponse(cacheKey);
+      if (cached) {
+        return cached;
       }
     }
 
+    // Build request URL and add payload if needed
     const url = this.buildUrl(endpoint, queryParams);
     if (payload) {
       options.payload = this._serializePayload(payload);
     }
 
+    // Retry loop
     let lastError;
     for (let attempt = 0; attempt < this.retryConfig.maxRetries; attempt++) {
       try {
         const response = await this.executeRequest(url, options);
         const parsedResponse = this.handleResponse(response);
 
-        // Record success for circuit breaker
         this._recordSuccess();
 
         // Cache successful GET responses
-        if (options.method === "GET") {
-          // Store in memory cache with LRU eviction
-          if (!this.cache[cacheKey]) {
-            // Check if we need to evict old entries
-            if (this._cacheSize >= CACHE_CONFIG.MAX_MEMORY_CACHE_SIZE) {
-              this._evictOldestCacheEntry();
-            }
-            this._cacheSize++;
-          }
-          this.cache[cacheKey] = parsedResponse;
-
-          // Store in persistent cache with configured TTL
-          try {
-            const persistentCache = CacheService.getDocumentCache();
-            persistentCache.put(
-              cacheKey,
-              JSON.stringify(parsedResponse),
-              CACHE_CONFIG.TTL_SECONDS
-            );
-          } catch (cacheError) {
-            // If cache fails, log but don't fail the request
-            console.warn("Failed to cache response:", cacheError);
-          }
+        if (isGetRequest) {
+          this._storeInCache(cacheKey, parsedResponse);
         }
 
         return parsedResponse;
       } catch (error) {
         lastError = error;
 
-        // Record failure for circuit breaker (only for non-retryable or final attempt)
-        if (
-          !this._shouldRetry(error, attempt) ||
-          attempt === this.retryConfig.maxRetries - 1
-        ) {
+        // Record failure if not retrying or on final attempt
+        const shouldRetry = this._shouldRetry(error, attempt);
+        if (!shouldRetry || attempt === this.retryConfig.maxRetries - 1) {
           this._recordFailure(error);
         }
 
-        if (!this._shouldRetry(error, attempt)) {
+        if (!shouldRetry) {
           throw ErrorHandler.handle(error, {
             endpoint,
             queryParams,
-            attempt,
+            attempt: attempt + 1,
             operation: "API request",
           });
         }
@@ -1111,10 +1155,29 @@ class ApiClient {
   }
 
   /**
+   * Response Handling
+   */
+
+  /**
+   * HTTP status code to error message mapping
+   * @type {Object<number, string>}
+   * @private
+   */
+  static getStatusErrorMessage(statusCode) {
+    const messages = {
+      [HTTP_STATUS.BAD_REQUEST]: "Invalid request parameters",
+      [HTTP_STATUS.UNAUTHORIZED]: "Invalid API key",
+      [HTTP_STATUS.FORBIDDEN]: "Access forbidden",
+      [HTTP_STATUS.NOT_FOUND]: "Resource not found",
+      [HTTP_STATUS.TOO_MANY_REQUESTS]: "Rate limit exceeded",
+    };
+    return messages[statusCode] || null;
+  }
+
+  /**
    * Handles API response parsing and error checking
-   * Also extracts and stores rate limit information from response headers
    * @param {GoogleAppsScript.URL_Fetch.HTTPResponse} response - Response from UrlFetchApp
-   * @returns {Object} Parsed response data
+   * @returns {Object|null} Parsed response data or null for NO_CONTENT
    * @throws {ApiError} If response indicates an error
    */
   handleResponse(response) {
@@ -1122,11 +1185,13 @@ class ApiClient {
     const responseText = response.getContentText();
     const headers = response.getHeaders();
 
-    // Extract and store rate limit information from headers
     this._updateRateLimitInfo(headers);
 
-    if (statusCode === HTTP_STATUS.NO_CONTENT) return null;
+    if (statusCode === HTTP_STATUS.NO_CONTENT) {
+      return null;
+    }
 
+    // Handle successful responses
     if (
       statusCode >= HTTP_STATUS_RANGE.SUCCESS_START &&
       statusCode <= HTTP_STATUS_RANGE.SUCCESS_END
@@ -1140,31 +1205,19 @@ class ApiClient {
             statusCode,
             responseText
           ),
-          {
-            operation: "Parsing API response",
-          }
+          { operation: "Parsing API response" }
         );
       }
     }
 
-    const errorMessages = {
-      [HTTP_STATUS.BAD_REQUEST]: "Invalid request parameters",
-      [HTTP_STATUS.UNAUTHORIZED]: "Invalid API key",
-      [HTTP_STATUS.FORBIDDEN]: "Access forbidden",
-      [HTTP_STATUS.NOT_FOUND]: "Resource not found",
-      [HTTP_STATUS.TOO_MANY_REQUESTS]: "Rate limit exceeded",
-    };
+    // Handle error responses
+    const errorMessage =
+      ApiClient.getStatusErrorMessage(statusCode) ||
+      `API request failed with status ${statusCode}`;
 
     throw ErrorHandler.handle(
-      new ApiError(
-        errorMessages[statusCode] ||
-          `API request failed with status ${statusCode}`,
-        statusCode,
-        responseText
-      ),
-      {
-        operation: "API response error",
-      }
+      new ApiError(errorMessage, statusCode, responseText),
+      { operation: "API response error" }
     );
   }
 
@@ -1221,49 +1274,69 @@ class ApiClient {
   }
 
   /**
+   * Rate Limit Management
+   */
+
+  /**
+   * Extracts rate limit headers from response (case-insensitive)
+   * @param {Object<string, string>} headers - Response headers
+   * @returns {Object} Rate limit values or null
+   * @private
+   */
+  _extractRateLimitHeaders(headers) {
+    const remaining =
+      headers["X-RateLimit-Remaining"] || headers["x-ratelimit-remaining"];
+    const reset = headers["X-RateLimit-Reset"] || headers["x-ratelimit-reset"];
+    const limit = headers["X-RateLimit-Limit"] || headers["x-ratelimit-limit"];
+
+    if (!remaining && !reset && !limit) {
+      return null;
+    }
+
+    return {
+      remaining: remaining ? parseInt(remaining) : null,
+      reset: reset ? parseInt(reset) : null,
+      limit: limit ? parseInt(limit) : null,
+    };
+  }
+
+  /**
    * Updates rate limit information from API response headers
-   * Stores rate limit state in CacheService for persistence across executions
    * @param {Object<string, string>} headers - Response headers
    * @private
    */
   _updateRateLimitInfo(headers) {
-    const rateLimitRemaining =
-      headers["X-RateLimit-Remaining"] || headers["x-ratelimit-remaining"];
-    const rateLimitReset =
-      headers["X-RateLimit-Reset"] || headers["x-ratelimit-reset"];
-    const rateLimitLimit =
-      headers["X-RateLimit-Limit"] || headers["x-ratelimit-limit"];
+    const rateLimitData = this._extractRateLimitHeaders(headers);
+    if (!rateLimitData) {
+      return;
+    }
 
-    if (rateLimitRemaining || rateLimitReset || rateLimitLimit) {
-      const rateLimitInfo = {
-        remaining: rateLimitRemaining ? parseInt(rateLimitRemaining) : null,
-        reset: rateLimitReset ? parseInt(rateLimitReset) : null,
-        limit: rateLimitLimit ? parseInt(rateLimitLimit) : null,
-        timestamp: Date.now(),
-      };
+    const rateLimitInfo = {
+      ...rateLimitData,
+      timestamp: Date.now(),
+    };
 
-      // Store in persistent cache for cross-execution access
-      try {
-        const cache = CacheService.getDocumentCache();
-        cache.put(
-          "RATE_LIMIT_INFO",
-          JSON.stringify(rateLimitInfo),
-          CACHE_CONFIG.TTL_SECONDS
-        );
-      } catch (error) {
-        console.warn("Failed to store rate limit info:", error);
-      }
+    // Store in persistent cache
+    try {
+      const cache = CacheService.getDocumentCache();
+      cache.put(
+        "RATE_LIMIT_INFO",
+        JSON.stringify(rateLimitInfo),
+        CACHE_CONFIG.TTL_SECONDS
+      );
+    } catch (error) {
+      console.warn("Failed to store rate limit info:", error);
+    }
 
-      // Warn if approaching rate limit
-      if (
-        rateLimitInfo.remaining !== null &&
-        rateLimitInfo.limit !== null &&
-        rateLimitInfo.remaining / rateLimitInfo.limit < 0.1
-      ) {
-        console.warn(
-          `Rate limit warning: ${rateLimitInfo.remaining}/${rateLimitInfo.limit} requests remaining`
-        );
-      }
+    // Warn if approaching rate limit (less than 10% remaining)
+    if (
+      rateLimitInfo.remaining !== null &&
+      rateLimitInfo.limit !== null &&
+      rateLimitInfo.remaining / rateLimitInfo.limit < 0.1
+    ) {
+      console.warn(
+        `Rate limit warning: ${rateLimitInfo.remaining}/${rateLimitInfo.limit} requests remaining`
+      );
     }
   }
 

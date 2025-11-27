@@ -217,7 +217,7 @@
         }, 35000);
 
         google.script.run
-          .withSuccessHandler(function () {
+          .withSuccessHandler(function (isNewKey) {
             // Clear timeout
             if (timeoutId) {
               clearTimeout(timeoutId);
@@ -229,6 +229,20 @@
 
             // Close dialog only on successful save
             google.script.host.close();
+
+            // If this is a new API key (not an update), start the initial import
+            // This runs after the dialog closes to avoid blocking
+            if (isNewKey) {
+              google.script.run
+                .withSuccessHandler(function () {
+                  // Import started successfully
+                })
+                .withFailureHandler(function (error) {
+                  // Log error but don't show to user - they can manually trigger import
+                  console.error("Failed to start initial import:", error);
+                })
+                .runInitialImport();
+            }
           })
           .withFailureHandler(function (error) {
             // Reset saving flag and UI
