@@ -65,37 +65,50 @@ async function importAllExercises(checkTimeout = null) {
         ? `Imported ${processedExercises.length} new exercises. `
         : "No new exercises found. ";
 
-    try {
-      await updateExerciseCounts(sheet, checkTimeout);
-    } catch (error) {
-      if (error instanceof ImportTimeoutError) {
-        console.warn("updateExerciseCounts timed out during exercise import");
-      } else {
-        throw error;
-      }
-    }
-
-    try {
-      await manager.formatSheet(checkTimeout);
-    } catch (error) {
-      if (error instanceof ImportTimeoutError) {
-        console.warn("formatSheet timed out during exercise import");
-      } else {
-        throw error;
-      }
-    }
-
-    ss.toast(
-      `${updateMessage}Updated counts for all exercises!`,
-      "Import Complete",
-      TOAST_DURATION.NORMAL
-    );
+    await handlePostProcessing(sheet, checkTimeout, updateMessage);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Importing exercises",
       sheetName: EXERCISES_SHEET_NAME,
     });
   }
+}
+
+/**
+ * Handles post-processing operations with timeout error handling
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The exercise sheet
+ * @param {Function} checkTimeout - Timeout checker function
+ * @param {string} updateMessage - Message to display
+ * @private
+ */
+async function handlePostProcessing(sheet, checkTimeout, updateMessage) {
+  try {
+    await updateExerciseCounts(sheet, checkTimeout);
+  } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      console.warn("updateExerciseCounts timed out during exercise import");
+    } else {
+      throw error;
+    }
+  }
+
+  try {
+    await SheetManager.getOrCreate(EXERCISES_SHEET_NAME).formatSheet(
+      checkTimeout
+    );
+  } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      console.warn("formatSheet timed out during exercise import");
+    } else {
+      throw error;
+    }
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `${updateMessage}Updated counts for all exercises!`,
+    "Import Complete",
+    TOAST_DURATION.NORMAL
+  );
 }
 
 /**
@@ -137,36 +150,37 @@ function getExistingExercises(sheet) {
   try {
     const existingDataById = new Map();
     const existingDataByTitle = new Map();
-    if (sheet.getLastRow() > 1) {
-      const data = sheet.getDataRange().getValues();
-      const headers = data.shift();
-      const indices = {
-        id: headers.indexOf("ID"),
-        title: headers.indexOf("Title"),
-        rank: headers.indexOf("Rank"),
+
+    if (sheet.getLastRow() <= 1) {
+      return {
+        byId: existingDataById,
+        byTitle: existingDataByTitle,
       };
-
-      data.forEach((row) => {
-        const id = String(row[indices.id] || "").trim();
-        const title = String(row[indices.title] || "").trim();
-        const hasRank = row[indices.rank] !== "";
-
-        if (id && id !== "N/A") {
-          existingDataById.set(id, {
-            id: id,
-            title: title,
-            hasRank: hasRank,
-          });
-        }
-        if (title) {
-          existingDataByTitle.set(title.toLowerCase(), {
-            id: id,
-            title: title,
-            hasRank: hasRank,
-          });
-        }
-      });
     }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+    const indices = {
+      id: headers.indexOf("ID"),
+      title: headers.indexOf("Title"),
+      rank: headers.indexOf("Rank"),
+    };
+
+    data.forEach((row) => {
+      const id = String(row[indices.id] || "").trim();
+      const title = String(row[indices.title] || "").trim();
+      const hasRank = row[indices.rank] !== "";
+
+      const exerciseData = { id, title, hasRank };
+
+      if (id && id !== "N/A") {
+        existingDataById.set(id, exerciseData);
+      }
+      if (title) {
+        existingDataByTitle.set(title.toLowerCase(), exerciseData);
+      }
+    });
+
     return {
       byId: existingDataById,
       byTitle: existingDataByTitle,
@@ -239,6 +253,35 @@ function shouldSkipExercise(exercise, existingData) {
 }
 
 /**
+ * Handles post-processing operations with timeout error handling
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The exercise sheet
+ * @param {SheetManager} manager - The sheet manager
+ * @param {Function} checkTimeout - Timeout checker function
+ * @private
+ */
+async function handlePostProcessingWithTimeout(sheet, manager, checkTimeout) {
+  try {
+    await updateExerciseCounts(sheet, checkTimeout);
+  } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      console.warn("updateExerciseCounts timed out during exercise import");
+    } else {
+      throw error;
+    }
+  }
+
+  try {
+    await manager.formatSheet(checkTimeout);
+  } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      console.warn("formatSheet timed out during exercise import");
+    } else {
+      throw error;
+    }
+  }
+}
+
+/**
  * Appends new exercises at the end of the sheet.
  * @private
  */
@@ -262,6 +305,63 @@ async function insertNewExercises(sheet, processedExercises) {
 }
 
 /**
+ * Checks if timeout is approaching and throws ImportTimeoutError if so
+ * @param {Function} checkTimeout - Timeout checker function
+ * @param {string} operationName - Name of operation for error message
+ * @param {string} [context] - Additional context for error message
+ * @private
+ */
+function checkAndThrowTimeout(checkTimeout, operationName, context = "") {
+  if (checkTimeout && checkTimeout()) {
+    ImportProgressTracker.markDeferredOperation(operationName);
+    const message = context
+      ? `Timeout approaching during ${operationName}: ${context}`
+      : `Timeout approaching during ${operationName}`;
+    throw new ImportTimeoutError(message);
+  }
+}
+
+/**
+ * Increments count for an exercise by title with English translation fallback
+ * @param {string} exerciseTitle - Exercise title
+ * @param {Map} titleToIdMap - Map of title to ID
+ * @param {Map} exerciseCountsByTitle - Map of title to count
+ * @private
+ */
+function incrementTitleBasedCount(
+  exerciseTitle,
+  titleToIdMap,
+  exerciseCountsByTitle
+) {
+  const titleKey = exerciseTitle.toLowerCase();
+
+  if (titleToIdMap.has(titleKey)) {
+    exerciseCountsByTitle.set(
+      exerciseTitle,
+      (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+    );
+    return;
+  }
+
+  const englishTitle = getEnglishName(exerciseTitle);
+  if (englishTitle !== exerciseTitle) {
+    const englishTitleKey = englishTitle.toLowerCase();
+    if (titleToIdMap.has(englishTitleKey)) {
+      exerciseCountsByTitle.set(
+        englishTitle,
+        (exerciseCountsByTitle.get(englishTitle) || 0) + 1
+      );
+      return;
+    }
+  }
+
+  exerciseCountsByTitle.set(
+    exerciseTitle,
+    (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+  );
+}
+
+/**
  * Updates exercise counts based on workout data using batched processing.
  * Matches exercises by exercise_template_id first, then falls back to title matching.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
@@ -276,170 +376,279 @@ async function updateExerciseCounts(exerciseSheet, checkTimeout = null) {
   }
 
   try {
-    // Build maps from exercise sheet: ID -> title, title -> count
-    const exerciseData = exerciseSheet.getDataRange().getValues();
-    const exerciseHeaders = exerciseData.shift();
-    const idIndex = exerciseHeaders.indexOf("ID");
-    const titleIndex = exerciseHeaders.indexOf("Title");
-    const countIndex = exerciseHeaders.indexOf("Count");
+    const { exerciseData, idToTitleMap, titleToIdMap, indices } =
+      buildExerciseMaps(exerciseSheet);
 
-    const idToTitleMap = new Map();
-    const titleToIdMap = new Map();
-    exerciseData.forEach((row) => {
-      const id = String(row[idIndex] || "").trim();
-      const title = String(row[titleIndex] || "").trim();
-      if (id && id !== "N/A") {
-        idToTitleMap.set(id, title);
-      }
-      if (title) {
-        titleToIdMap.set(title.toLowerCase(), id);
-      }
-    });
+    const { workoutData, workoutIndices } = buildWorkoutMaps(workoutSheet);
 
-    // Process workout data
-    const workoutData = workoutSheet.getDataRange().getValues();
-    const workoutHeaders = workoutData.shift();
-    const indices = {
-      workoutId: workoutHeaders.indexOf("ID"),
-      exercise: workoutHeaders.indexOf("Exercise"),
-      exerciseTemplateId: workoutHeaders.indexOf("Exercise Template ID"),
-    };
+    const { exerciseCountsById, exerciseCountsByTitle } = countExercises(
+      workoutData,
+      workoutIndices,
+      idToTitleMap,
+      titleToIdMap,
+      checkTimeout
+    );
 
-    // Count exercises by ID first, then by title (with English translation fallback)
-    const exerciseCountsById = new Map();
-    const exerciseCountsByTitle = new Map();
-    const processedWorkouts = new Set();
+    await updateExerciseSheetCounts(
+      exerciseSheet,
+      exerciseData,
+      exerciseCountsById,
+      exerciseCountsByTitle,
+      checkTimeout
+    );
 
-    const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
-
-    for (let i = 0; i < workoutData.length; i += batchSize) {
-      // Check timeout periodically during batch processing
-      if (checkTimeout && checkTimeout()) {
-        throw new ImportTimeoutError(
-          "Timeout approaching during updateExerciseCounts"
-        );
-      }
-
-      const batch = workoutData.slice(
-        i,
-        Math.min(i + batchSize, workoutData.length)
-      );
-
-      batch.forEach((row) => {
-        const workoutId = row[indices.workoutId];
-        const exerciseTitle = String(row[indices.exercise] || "").trim();
-        const exerciseTemplateId = String(
-          row[indices.exerciseTemplateId] || ""
-        ).trim();
-
-        if (exerciseTitle && workoutId) {
-          const key = `${workoutId}_${exerciseTemplateId || exerciseTitle}`;
-
-          if (!processedWorkouts.has(key)) {
-            processedWorkouts.add(key);
-
-            // Try matching by ID first
-            if (exerciseTemplateId && idToTitleMap.has(exerciseTemplateId)) {
-              const matchedTitle = idToTitleMap.get(exerciseTemplateId);
-              exerciseCountsById.set(
-                exerciseTemplateId,
-                (exerciseCountsById.get(exerciseTemplateId) || 0) + 1
-              );
-            } else {
-              // Fallback to title matching (with English translation)
-              const englishTitle = getEnglishName(exerciseTitle);
-              const titleKey = exerciseTitle.toLowerCase();
-              const englishTitleKey = englishTitle.toLowerCase();
-
-              // Try exact match first
-              if (titleToIdMap.has(titleKey)) {
-                exerciseCountsByTitle.set(
-                  exerciseTitle,
-                  (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
-                );
-              } else if (
-                englishTitle !== exerciseTitle &&
-                titleToIdMap.has(englishTitleKey)
-              ) {
-                // Try English translation
-                exerciseCountsByTitle.set(
-                  englishTitle,
-                  (exerciseCountsByTitle.get(englishTitle) || 0) + 1
-                );
-              } else {
-                // No match found, count by original title
-                exerciseCountsByTitle.set(
-                  exerciseTitle,
-                  (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
-                );
-              }
-            }
-          }
-        }
-      });
-
-      if (i % (batchSize * 5) === 0) {
-        Utilities.sleep(RATE_LIMIT.API_DELAY);
-      }
-    }
-
-    // Update counts in exercise sheet
-    for (let i = 0; i < exerciseData.length; i += batchSize) {
-      // Check timeout periodically during batch processing
-      if (checkTimeout && checkTimeout()) {
-        throw new ImportTimeoutError(
-          "Timeout approaching during updateExerciseCounts"
-        );
-      }
-
-      const batch = exerciseData.slice(
-        i,
-        Math.min(i + batchSize, exerciseData.length)
-      );
-      const updateRange = exerciseSheet.getRange(
-        i + 2,
-        countIndex + 1,
-        batch.length,
-        1
-      );
-
-      const counts = batch.map((row) => {
-        const id = String(row[idIndex] || "").trim();
-        const title = String(row[titleIndex] || "").trim();
-        let count = 0;
-
-        // Check ID-based count first
-        if (id && id !== "N/A" && exerciseCountsById.has(id)) {
-          count = exerciseCountsById.get(id);
-        } else if (title) {
-          // Check title-based count (exact match)
-          if (exerciseCountsByTitle.has(title)) {
-            count = exerciseCountsByTitle.get(title);
-          } else {
-            // Check English translation match
-            const englishTitle = getEnglishName(title);
-            if (
-              englishTitle !== title &&
-              exerciseCountsByTitle.has(englishTitle)
-            ) {
-              count = exerciseCountsByTitle.get(englishTitle);
-            }
-          }
-        }
-
-        return [count];
-      });
-      updateRange.setValues(counts);
-
-      if (i % (batchSize * 5) === 0) {
-        Utilities.sleep(RATE_LIMIT.API_DELAY);
-      }
-    }
+    ImportProgressTracker.markOperationComplete("updateExerciseCounts");
   } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      ImportProgressTracker.markDeferredOperation("updateExerciseCounts");
+    }
     throw ErrorHandler.handle(error, {
       operation: "Updating exercise counts",
       sheetName: exerciseSheet.getName(),
     });
+  }
+}
+
+/**
+ * Builds maps from exercise sheet data
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * @returns {Object} Maps and indices for exercise data
+ * @private
+ */
+function buildExerciseMaps(exerciseSheet) {
+  const exerciseData = exerciseSheet.getDataRange().getValues();
+  const exerciseHeaders = exerciseData.shift();
+  const idIndex = exerciseHeaders.indexOf("ID");
+  const titleIndex = exerciseHeaders.indexOf("Title");
+  const countIndex = exerciseHeaders.indexOf("Count");
+
+  const idToTitleMap = new Map();
+  const titleToIdMap = new Map();
+
+  exerciseData.forEach((row) => {
+    const id = String(row[idIndex] || "").trim();
+    const title = String(row[titleIndex] || "").trim();
+
+    if (id && id !== "N/A") {
+      idToTitleMap.set(id, title);
+    }
+    if (title) {
+      titleToIdMap.set(title.toLowerCase(), id);
+    }
+  });
+
+  return {
+    exerciseData,
+    idToTitleMap,
+    titleToIdMap,
+    indices: { idIndex, titleIndex, countIndex },
+  };
+}
+
+/**
+ * Builds maps from workout sheet data
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} workoutSheet - The workout sheet
+ * @returns {Object} Workout data and indices
+ * @private
+ */
+function buildWorkoutMaps(workoutSheet) {
+  const workoutData = workoutSheet.getDataRange().getValues();
+  const workoutHeaders = workoutData.shift();
+  const indices = {
+    workoutId: workoutHeaders.indexOf("ID"),
+    exercise: workoutHeaders.indexOf("Exercise"),
+    exerciseTemplateId: workoutHeaders.indexOf("Exercise Template ID"),
+  };
+
+  return { workoutData, workoutIndices: indices };
+}
+
+/**
+ * Counts exercises from workout data
+ * @param {Array} workoutData - Array of workout rows
+ * @param {Object} indices - Column indices
+ * @param {Map} idToTitleMap - Map of exercise ID to title
+ * @param {Map} titleToIdMap - Map of title to exercise ID
+ * @param {Function} checkTimeout - Timeout checker
+ * @returns {Object} Maps of exercise counts
+ * @private
+ */
+function countExercises(
+  workoutData,
+  indices,
+  idToTitleMap,
+  titleToIdMap,
+  checkTimeout
+) {
+  const exerciseCountsById = new Map();
+  const exerciseCountsByTitle = new Map();
+  const processedWorkouts = new Set();
+  const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
+  const timeoutCheckInterval = 200;
+
+  for (let i = 0; i < workoutData.length; i += batchSize) {
+    checkAndThrowTimeout(checkTimeout, "updateExerciseCounts");
+
+    const batch = workoutData.slice(
+      i,
+      Math.min(i + batchSize, workoutData.length)
+    );
+
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const globalIndex = i + batchIndex;
+      if (
+        globalIndex > 0 &&
+        globalIndex % timeoutCheckInterval === 0 &&
+        checkTimeout &&
+        checkTimeout()
+      ) {
+        checkAndThrowTimeout(checkTimeout, "updateExerciseCounts");
+      }
+
+      const row = batch[batchIndex];
+      const workoutId = row[indices.workoutId];
+      const exerciseTitle = String(row[indices.exercise] || "").trim();
+      const exerciseTemplateId = String(
+        row[indices.exerciseTemplateId] || ""
+      ).trim();
+
+      if (!exerciseTitle || !workoutId) continue;
+
+      const key = `${workoutId}_${exerciseTemplateId || exerciseTitle}`;
+      if (processedWorkouts.has(key)) continue;
+
+      processedWorkouts.add(key);
+
+      if (exerciseTemplateId && idToTitleMap.has(exerciseTemplateId)) {
+        exerciseCountsById.set(
+          exerciseTemplateId,
+          (exerciseCountsById.get(exerciseTemplateId) || 0) + 1
+        );
+      } else {
+        incrementTitleCount(exerciseTitle, titleToIdMap, exerciseCountsByTitle);
+      }
+    }
+
+    if (i % (batchSize * 5) === 0) {
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+    }
+  }
+
+  return { exerciseCountsById, exerciseCountsByTitle };
+}
+
+/**
+ * Increments count for an exercise by title
+ * @param {string} exerciseTitle - Exercise title
+ * @param {Map} titleToIdMap - Map of title to ID
+ * @param {Map} exerciseCountsByTitle - Map of title to count
+ * @private
+ */
+function incrementTitleCount(
+  exerciseTitle,
+  titleToIdMap,
+  exerciseCountsByTitle
+) {
+  const titleKey = exerciseTitle.toLowerCase();
+
+  if (titleToIdMap.has(titleKey)) {
+    exerciseCountsByTitle.set(
+      exerciseTitle,
+      (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+    );
+    return;
+  }
+
+  const englishTitle = getEnglishName(exerciseTitle);
+  if (englishTitle !== exerciseTitle) {
+    const englishTitleKey = englishTitle.toLowerCase();
+    if (titleToIdMap.has(englishTitleKey)) {
+      exerciseCountsByTitle.set(
+        englishTitle,
+        (exerciseCountsByTitle.get(englishTitle) || 0) + 1
+      );
+      return;
+    }
+  }
+
+  exerciseCountsByTitle.set(
+    exerciseTitle,
+    (exerciseCountsByTitle.get(exerciseTitle) || 0) + 1
+  );
+}
+
+/**
+ * Updates exercise sheet with calculated counts
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * @param {Array} exerciseData - Exercise data array
+ * @param {Map} exerciseCountsById - Map of ID to count
+ * @param {Map} exerciseCountsByTitle - Map of title to count
+ * @param {Function} checkTimeout - Timeout checker
+ * @private
+ */
+async function updateExerciseSheetCounts(
+  exerciseSheet,
+  exerciseData,
+  exerciseCountsById,
+  exerciseCountsByTitle,
+  checkTimeout
+) {
+  const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
+  const timeoutCheckInterval = 200;
+  const { idIndex, titleIndex, countIndex } =
+    buildExerciseMaps(exerciseSheet).indices;
+
+  for (let i = 0; i < exerciseData.length; i += batchSize) {
+    checkAndThrowTimeout(checkTimeout, "updateExerciseCounts");
+
+    const batch = exerciseData.slice(
+      i,
+      Math.min(i + batchSize, exerciseData.length)
+    );
+
+    if (
+      i > 0 &&
+      i % timeoutCheckInterval === 0 &&
+      checkTimeout &&
+      checkTimeout()
+    ) {
+      checkAndThrowTimeout(checkTimeout, "updateExerciseCounts");
+    }
+
+    const updateRange = exerciseSheet.getRange(
+      i + 2,
+      countIndex + 1,
+      batch.length,
+      1
+    );
+
+    const counts = batch.map((row) => {
+      const id = String(row[idIndex] || "").trim();
+      const title = String(row[titleIndex] || "").trim();
+
+      if (id && id !== "N/A" && exerciseCountsById.has(id)) {
+        return [exerciseCountsById.get(id)];
+      }
+
+      if (title) {
+        if (exerciseCountsByTitle.has(title)) {
+          return [exerciseCountsByTitle.get(title)];
+        }
+
+        const englishTitle = getEnglishName(title);
+        if (englishTitle !== title && exerciseCountsByTitle.has(englishTitle)) {
+          return [exerciseCountsByTitle.get(englishTitle)];
+        }
+      }
+
+      return [0];
+    });
+
+    updateRange.setValues(counts);
+
+    if (i % (batchSize * 5) === 0) {
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+    }
   }
 }
 
@@ -459,362 +668,423 @@ async function syncLocalizedExerciseNames(
   const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
   const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
 
-  if (!workoutSheet || workoutSheet.getLastRow() <= 1) {
-    return;
-  }
-
-  if (!exerciseSheet || exerciseSheet.getLastRow() <= 1) {
-    return;
-  }
+  if (!workoutSheet || workoutSheet.getLastRow() <= 1) return;
+  if (!exerciseSheet || exerciseSheet.getLastRow() <= 1) return;
 
   try {
-    // Step 1: Build map of exercise_template_id -> localized name from workouts
-    let workoutExerciseNames = new Set();
+    const localizedMap =
+      idToLocalizedName || buildLocalizedNameMapFromSheet(workoutSheet);
 
-    if (!idToLocalizedName) {
-      // Fallback: read from sheet if map not provided (backward compatibility)
-      const workoutData = workoutSheet.getDataRange().getValues();
-      const workoutHeaders = workoutData.shift();
-      const exerciseTemplateIdIndex = workoutHeaders.indexOf(
-        "Exercise Template ID"
-      );
-      const exerciseTitleIndex = workoutHeaders.indexOf("Exercise");
+    if (localizedMap.size === 0) return;
 
-      if (exerciseTemplateIdIndex === -1 || exerciseTitleIndex === -1) {
-        return; // Columns don't exist yet
-      }
+    checkAndThrowTimeout(checkTimeout, "syncLocalizedExerciseNames");
 
-      idToLocalizedName = new Map();
+    const { exerciseData, exerciseNameToLocalized, nameToExerciseId } =
+      buildExerciseNameMaps(exerciseSheet, localizedMap);
 
-      workoutData.forEach((row) => {
-        const exerciseTemplateId = String(
-          row[exerciseTemplateIdIndex] || ""
-        ).trim();
-        const localizedTitle = String(row[exerciseTitleIndex] || "").trim();
+    await updateExercisesSheetNames(exerciseSheet, exerciseData, localizedMap);
 
-        if (
-          exerciseTemplateId &&
-          localizedTitle &&
-          exerciseTemplateId !== "N/A"
-        ) {
-          idToLocalizedName.set(exerciseTemplateId, localizedTitle);
-          workoutExerciseNames.add(localizedTitle.toLowerCase());
-        }
-      });
-    } else {
-      // Build workoutExerciseNames set from provided map
-      idToLocalizedName.forEach((localizedTitle) => {
-        workoutExerciseNames.add(localizedTitle.toLowerCase());
-      });
-    }
+    await updateSheetRangesWithLocalizedNames(
+      ss,
+      exerciseNameToLocalized,
+      nameToExerciseId,
+      localizedMap,
+      checkTimeout
+    );
 
-    if (idToLocalizedName.size === 0) {
-      return; // No exercises to sync
-    }
-
-    // Check timeout before proceeding
-    if (checkTimeout && checkTimeout()) {
-      throw new ImportTimeoutError(
-        "Timeout approaching during syncLocalizedExerciseNames"
-      );
-    }
-
-    // Step 2: Build map of exercise names BEFORE updating Exercises sheet
-    // This ensures we capture English names that might be in other sheets
-    const exerciseData = exerciseSheet.getDataRange().getValues();
-    const exerciseHeaders = exerciseData.shift();
-    const idIndex = exerciseHeaders.indexOf("ID");
-    const titleIndex = exerciseHeaders.indexOf("Title");
-
-    if (idIndex === -1 || titleIndex === -1) {
-      return;
-    }
-
-    // Build map: any exercise name (English or localized) -> localized name
-    // Include both current title (might be English) and localized name
-    const exerciseNameToLocalized = new Map();
-    const exerciseUpdates = [];
-
-    exerciseData.forEach((row, rowIndex) => {
-      const exerciseId = String(row[idIndex] || "").trim();
-      const currentTitle = String(row[titleIndex] || "").trim();
-
-      if (
-        exerciseId &&
-        exerciseId !== "N/A" &&
-        idToLocalizedName.has(exerciseId)
-      ) {
-        const localizedName = idToLocalizedName.get(exerciseId);
-
-        // Map current title (English) to localized name
-        if (currentTitle) {
-          exerciseNameToLocalized.set(
-            currentTitle.toLowerCase(),
-            localizedName
-          );
-        }
-        // Also map localized name to itself (for consistency)
-        exerciseNameToLocalized.set(localizedName.toLowerCase(), localizedName);
-
-        // Track update for Exercises sheet if name is different
-        if (localizedName !== currentTitle) {
-          exerciseUpdates.push({
-            row: rowIndex + 2, // +2 for header and 0-index
-            value: localizedName,
-          });
-        }
-      } else if (currentTitle) {
-        // For exercises not in workouts, map name to itself
-        exerciseNameToLocalized.set(currentTitle.toLowerCase(), currentTitle);
-      }
-    });
-
-    // Update Exercises sheet with localized names (BATCHED)
-    if (exerciseUpdates.length > 0) {
-      // Sort updates by row for efficient batching
-      exerciseUpdates.sort((a, b) => a.row - b.row);
-
-      // Group consecutive rows for batch updates
-      const batches = [];
-      let currentBatch = null;
-
-      for (const update of exerciseUpdates) {
-        if (
-          !currentBatch ||
-          update.row !== currentBatch.endRow + 1 ||
-          update.row - currentBatch.startRow >=
-            BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE
-        ) {
-          // Start new batch
-          if (currentBatch) {
-            batches.push(currentBatch);
-          }
-          currentBatch = {
-            startRow: update.row,
-            endRow: update.row,
-            values: [[update.value]],
-          };
-        } else {
-          // Add to current batch
-          currentBatch.endRow = update.row;
-          currentBatch.values.push([update.value]);
-        }
-      }
-
-      if (currentBatch) {
-        batches.push(currentBatch);
-      }
-
-      // Apply batched updates
-      for (const batch of batches) {
-        const range = exerciseSheet.getRange(
-          batch.startRow,
-          titleIndex + 1,
-          batch.values.length,
-          1
-        );
-        range.setValues(batch.values);
-      }
-    }
-
-    // Step 3: Also build reverse map from Exercises sheet: ID -> all possible names
-    // This helps us match exercises by any name variation
-    const idToAllNames = new Map();
-    exerciseData.forEach((row) => {
-      const exerciseId = String(row[idIndex] || "").trim();
-      const currentTitle = String(row[titleIndex] || "").trim();
-
-      if (exerciseId && exerciseId !== "N/A" && currentTitle) {
-        if (!idToAllNames.has(exerciseId)) {
-          idToAllNames.set(exerciseId, new Set());
-        }
-        idToAllNames.get(exerciseId).add(currentTitle.toLowerCase());
-
-        // If we have a localized name for this ID, add it too
-        if (idToLocalizedName.has(exerciseId)) {
-          const localized = idToLocalizedName.get(exerciseId);
-          idToAllNames.get(exerciseId).add(localized.toLowerCase());
-        }
-      }
-    });
-
-    // Step 4: Update exercise names in specific ranges only
-    // Target specific columns to avoid replacing formula outputs
-    const rangesToUpdate = [
-      { sheetName: "Strength Standards", column: 1, startRow: 2 }, // A2:A
-      { sheetName: ROUTINES_SHEET_NAME, column: 6, startRow: 2 }, // F2:F
-      { sheetName: EXERCISES_SHEET_NAME, column: 2, startRow: 2 }, // B2:B
-    ];
-
-    for (const rangeConfig of rangesToUpdate) {
-      // Check timeout before processing each sheet
-      if (checkTimeout && checkTimeout()) {
-        throw new ImportTimeoutError(
-          `Timeout approaching while updating ${rangeConfig.sheetName}`
-        );
-      }
-
-      const sheet = ss.getSheetByName(rangeConfig.sheetName);
-      if (!sheet || sheet.getLastRow() < rangeConfig.startRow) {
-        continue;
-      }
-
-      try {
-        const exerciseCol = rangeConfig.column;
-        const numRows = sheet.getLastRow();
-
-        // Process in batches
-        const batchSize = BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE;
-        for (
-          let startRow = rangeConfig.startRow;
-          startRow <= numRows;
-          startRow += batchSize
-        ) {
-          // Check timeout periodically during batch processing
-          if (checkTimeout && checkTimeout()) {
-            throw new ImportTimeoutError(
-              `Timeout approaching while processing ${rangeConfig.sheetName}`
-            );
-          }
-
-          const endRow = Math.min(startRow + batchSize - 1, numRows);
-          const range = sheet.getRange(
-            startRow,
-            exerciseCol,
-            endRow - startRow + 1,
-            1
-          );
-          const values = range.getValues();
-          const formulas = range.getFormulas();
-
-          const updates = [];
-          for (let r = 0; r < values.length; r++) {
-            const actualRow = startRow + r;
-            const cellValue = values[r][0];
-            const cellFormula = formulas[r][0];
-
-            // Skip if cell contains a formula
-            if (cellFormula && cellFormula.trim() !== "") {
-              continue;
-            }
-
-            // Double-check by reading the actual cell formula
-            const cell = sheet.getRange(actualRow, exerciseCol);
-            const actualFormula = cell.getFormula();
-            if (actualFormula && actualFormula.trim() !== "") {
-              continue;
-            }
-
-            // Skip if cell is empty
-            if (!cellValue || String(cellValue).trim() === "") {
-              continue;
-            }
-
-            const cellText = String(cellValue).trim();
-            const cellKey = cellText.toLowerCase();
-
-            // Check if this looks like an exercise name and we have a localized version
-            let localizedName = null;
-
-            // First, try direct lookup in our map
-            if (exerciseNameToLocalized.has(cellKey)) {
-              localizedName = exerciseNameToLocalized.get(cellKey);
-            } else {
-              // Try English translation fallback
-              const englishName = getEnglishName(cellText);
-              if (englishName !== cellText) {
-                const englishKey = englishName.toLowerCase();
-                if (exerciseNameToLocalized.has(englishKey)) {
-                  localizedName = exerciseNameToLocalized.get(englishKey);
-                }
-              }
-
-              // Also check if this name appears in any exercise's name set
-              if (!localizedName) {
-                for (const [exerciseId, names] of idToAllNames.entries()) {
-                  if (names.has(cellKey) && idToLocalizedName.has(exerciseId)) {
-                    localizedName = idToLocalizedName.get(exerciseId);
-                    break;
-                  }
-                }
-              }
-            }
-
-            // Update if we found a localized name and it's different
-            if (localizedName && localizedName !== cellText) {
-              updates.push({
-                row: actualRow,
-                value: localizedName,
-              });
-            }
-          }
-
-          // Apply updates in batches (BATCHED instead of one-by-one)
-          if (updates.length > 0) {
-            // Sort updates by row for efficient batching
-            updates.sort((a, b) => a.row - b.row);
-
-            // Group consecutive rows for batch updates
-            const updateBatches = [];
-            let currentBatch = null;
-
-            for (const update of updates) {
-              if (
-                !currentBatch ||
-                update.row !== currentBatch.endRow + 1 ||
-                update.row - currentBatch.startRow >= batchSize
-              ) {
-                // Start new batch
-                if (currentBatch) {
-                  updateBatches.push(currentBatch);
-                }
-                currentBatch = {
-                  startRow: update.row,
-                  endRow: update.row,
-                  values: [[update.value]],
-                };
-              } else {
-                // Add to current batch
-                currentBatch.endRow = update.row;
-                currentBatch.values.push([update.value]);
-              }
-            }
-
-            if (currentBatch) {
-              updateBatches.push(currentBatch);
-            }
-
-            // Apply batched updates
-            for (const updateBatch of updateBatches) {
-              const updateRange = sheet.getRange(
-                updateBatch.startRow,
-                exerciseCol,
-                updateBatch.values.length,
-                1
-              );
-              updateRange.setValues(updateBatch.values);
-            }
-          }
-
-          if (startRow % (batchSize * 10) === 0) {
-            Utilities.sleep(RATE_LIMIT.API_DELAY);
-          }
-        }
-      } catch (error) {
-        // Re-throw ImportTimeoutError
-        if (error instanceof ImportTimeoutError) {
-          throw error;
-        }
-        // Log other errors but continue with other ranges
-        console.warn(
-          `Error updating ${rangeConfig.sheetName} column ${rangeConfig.column}:`,
-          error
-        );
-      }
-    }
+    ImportProgressTracker.markOperationComplete("syncLocalizedExerciseNames");
   } catch (error) {
+    if (error instanceof ImportTimeoutError) {
+      ImportProgressTracker.markDeferredOperation("syncLocalizedExerciseNames");
+    }
     throw ErrorHandler.handle(error, {
       operation: "Syncing localized exercise names across all sheets",
     });
+  }
+}
+
+/**
+ * Builds localized name map from workout sheet
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} workoutSheet - The workout sheet
+ * @returns {Map} Map of exercise ID to localized name
+ * @private
+ */
+function buildLocalizedNameMapFromSheet(workoutSheet) {
+  const workoutData = workoutSheet.getDataRange().getValues();
+  const workoutHeaders = workoutData.shift();
+  const exerciseTemplateIdIndex = workoutHeaders.indexOf(
+    "Exercise Template ID"
+  );
+  const exerciseTitleIndex = workoutHeaders.indexOf("Exercise");
+
+  if (exerciseTemplateIdIndex === -1 || exerciseTitleIndex === -1) {
+    return new Map();
+  }
+
+  const idToLocalizedName = new Map();
+
+  workoutData.forEach((row) => {
+    const exerciseTemplateId = String(
+      row[exerciseTemplateIdIndex] || ""
+    ).trim();
+    const localizedTitle = String(row[exerciseTitleIndex] || "").trim();
+
+    if (exerciseTemplateId && localizedTitle && exerciseTemplateId !== "N/A") {
+      idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+    }
+  });
+
+  return idToLocalizedName;
+}
+
+/**
+ * Builds exercise name maps for localization
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * @param {Map} idToLocalizedName - Map of ID to localized name
+ * @returns {Object} Maps for name lookups
+ * @private
+ */
+function buildExerciseNameMaps(exerciseSheet, idToLocalizedName) {
+  const exerciseData = exerciseSheet.getDataRange().getValues();
+  const exerciseHeaders = exerciseData.shift();
+  const idIndex = exerciseHeaders.indexOf("ID");
+  const titleIndex = exerciseHeaders.indexOf("Title");
+
+  if (idIndex === -1 || titleIndex === -1) {
+    return {
+      exerciseData: [],
+      exerciseNameToLocalized: new Map(),
+      nameToExerciseId: new Map(),
+    };
+  }
+
+  const exerciseNameToLocalized = new Map();
+  const exerciseUpdates = [];
+  const nameToExerciseId = new Map();
+
+  exerciseData.forEach((row, rowIndex) => {
+    const exerciseId = String(row[idIndex] || "").trim();
+    const currentTitle = String(row[titleIndex] || "").trim();
+
+    if (
+      exerciseId &&
+      exerciseId !== "N/A" &&
+      idToLocalizedName.has(exerciseId)
+    ) {
+      const localizedName = idToLocalizedName.get(exerciseId);
+
+      if (currentTitle) {
+        exerciseNameToLocalized.set(currentTitle.toLowerCase(), localizedName);
+      }
+      exerciseNameToLocalized.set(localizedName.toLowerCase(), localizedName);
+
+      if (localizedName !== currentTitle) {
+        exerciseUpdates.push({
+          row: rowIndex + 2,
+          value: localizedName,
+        });
+      }
+
+      // Build reverse lookup map
+      const currentTitleKey = currentTitle.toLowerCase();
+      if (!nameToExerciseId.has(currentTitleKey)) {
+        nameToExerciseId.set(currentTitleKey, exerciseId);
+      }
+      const localizedKey = localizedName.toLowerCase();
+      if (!nameToExerciseId.has(localizedKey)) {
+        nameToExerciseId.set(localizedKey, exerciseId);
+      }
+
+      const englishTitle = getEnglishName(currentTitle);
+      if (englishTitle !== currentTitle) {
+        const englishKey = englishTitle.toLowerCase();
+        if (!nameToExerciseId.has(englishKey)) {
+          nameToExerciseId.set(englishKey, exerciseId);
+        }
+      }
+    } else if (currentTitle) {
+      exerciseNameToLocalized.set(currentTitle.toLowerCase(), currentTitle);
+      if (!nameToExerciseId.has(currentTitle.toLowerCase())) {
+        nameToExerciseId.set(currentTitle.toLowerCase(), exerciseId || "");
+      }
+    }
+  });
+
+  return {
+    exerciseData,
+    exerciseNameToLocalized,
+    nameToExerciseId,
+    exerciseUpdates,
+    titleIndex,
+  };
+}
+
+/**
+ * Updates Exercises sheet with localized names
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * @param {Array} exerciseData - Exercise data
+ * @param {Map} idToLocalizedName - Map of ID to localized name
+ * @private
+ */
+async function updateExercisesSheetNames(
+  exerciseSheet,
+  exerciseData,
+  idToLocalizedName
+) {
+  const { exerciseUpdates, titleIndex } = buildExerciseNameMaps(
+    exerciseSheet,
+    idToLocalizedName
+  );
+
+  if (exerciseUpdates.length === 0) return;
+
+  exerciseUpdates.sort((a, b) => a.row - b.row);
+
+  const batches = [];
+  let currentBatch = null;
+
+  for (const update of exerciseUpdates) {
+    if (
+      !currentBatch ||
+      update.row !== currentBatch.endRow + 1 ||
+      update.row - currentBatch.startRow >= BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE
+    ) {
+      if (currentBatch) {
+        batches.push(currentBatch);
+      }
+      currentBatch = {
+        startRow: update.row,
+        endRow: update.row,
+        values: [[update.value]],
+      };
+    } else {
+      currentBatch.endRow = update.row;
+      currentBatch.values.push([update.value]);
+    }
+  }
+
+  if (currentBatch) {
+    batches.push(currentBatch);
+  }
+
+  for (const batch of batches) {
+    const range = exerciseSheet.getRange(
+      batch.startRow,
+      titleIndex + 1,
+      batch.values.length,
+      1
+    );
+    range.setValues(batch.values);
+  }
+}
+
+/**
+ * Updates exercise names in specific sheet ranges
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss - The spreadsheet
+ * @param {Map} exerciseNameToLocalized - Map of exercise name to localized name
+ * @param {Map} nameToExerciseId - Map of name to exercise ID
+ * @param {Map} idToLocalizedName - Map of ID to localized name
+ * @param {Function} checkTimeout - Timeout checker
+ * @private
+ */
+async function updateSheetRangesWithLocalizedNames(
+  ss,
+  exerciseNameToLocalized,
+  nameToExerciseId,
+  idToLocalizedName,
+  checkTimeout
+) {
+  const rangesToUpdate = [
+    { sheetName: "Strength Standards", column: 1, startRow: 2 },
+    { sheetName: ROUTINES_SHEET_NAME, column: 6, startRow: 2 },
+    { sheetName: EXERCISES_SHEET_NAME, column: 2, startRow: 2 },
+  ];
+
+  for (const rangeConfig of rangesToUpdate) {
+    checkAndThrowTimeout(
+      checkTimeout,
+      "syncLocalizedExerciseNames",
+      rangeConfig.sheetName
+    );
+
+    const sheet = ss.getSheetByName(rangeConfig.sheetName);
+    if (!sheet || sheet.getLastRow() < rangeConfig.startRow) {
+      continue;
+    }
+
+    try {
+      await updateSheetRange(
+        sheet,
+        rangeConfig,
+        exerciseNameToLocalized,
+        nameToExerciseId,
+        idToLocalizedName,
+        checkTimeout
+      );
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        throw error;
+      }
+      console.warn(
+        `Error updating ${rangeConfig.sheetName} column ${rangeConfig.column}:`,
+        error
+      );
+    }
+  }
+}
+
+/**
+ * Updates a specific sheet range with localized names
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to update
+ * @param {Object} rangeConfig - Range configuration
+ * @param {Map} exerciseNameToLocalized - Map of exercise name to localized name
+ * @param {Map} nameToExerciseId - Map of name to exercise ID
+ * @param {Map} idToLocalizedName - Map of ID to localized name
+ * @param {Function} checkTimeout - Timeout checker
+ * @private
+ */
+async function updateSheetRange(
+  sheet,
+  rangeConfig,
+  exerciseNameToLocalized,
+  nameToExerciseId,
+  idToLocalizedName,
+  checkTimeout
+) {
+  const exerciseCol = rangeConfig.column;
+  const numRows = sheet.getLastRow();
+  const batchSize = BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE;
+  const timeoutCheckInterval = 200;
+
+  for (
+    let startRow = rangeConfig.startRow;
+    startRow <= numRows;
+    startRow += batchSize
+  ) {
+    checkAndThrowTimeout(
+      checkTimeout,
+      "syncLocalizedExerciseNames",
+      rangeConfig.sheetName
+    );
+
+    const endRow = Math.min(startRow + batchSize - 1, numRows);
+    const range = sheet.getRange(
+      startRow,
+      exerciseCol,
+      endRow - startRow + 1,
+      1
+    );
+    const values = range.getValues();
+    const formulas = range.getFormulas();
+
+    const updates = [];
+
+    for (let r = 0; r < values.length; r++) {
+      if (
+        r > 0 &&
+        r % timeoutCheckInterval === 0 &&
+        checkTimeout &&
+        checkTimeout()
+      ) {
+        checkAndThrowTimeout(
+          checkTimeout,
+          "syncLocalizedExerciseNames",
+          rangeConfig.sheetName
+        );
+      }
+
+      const cellValue = values[r][0];
+      const cellFormula = formulas[r][0];
+
+      if (cellFormula && cellFormula.trim() !== "") continue;
+      if (!cellValue || String(cellValue).trim() === "") continue;
+
+      const cellText = String(cellValue).trim();
+      const cellKey = cellText.toLowerCase();
+      let localizedName = null;
+
+      if (exerciseNameToLocalized.has(cellKey)) {
+        localizedName = exerciseNameToLocalized.get(cellKey);
+      } else {
+        const englishName = getEnglishName(cellText);
+        if (englishName !== cellText) {
+          const englishKey = englishName.toLowerCase();
+          if (exerciseNameToLocalized.has(englishKey)) {
+            localizedName = exerciseNameToLocalized.get(englishKey);
+          }
+        }
+
+        if (!localizedName && nameToExerciseId.has(cellKey)) {
+          const exerciseId = nameToExerciseId.get(cellKey);
+          if (idToLocalizedName.has(exerciseId)) {
+            localizedName = idToLocalizedName.get(exerciseId);
+          }
+        }
+      }
+
+      if (localizedName && localizedName !== cellText) {
+        updates.push({
+          row: startRow + r,
+          value: localizedName,
+        });
+      }
+    }
+
+    if (updates.length > 0) {
+      applyBatchedUpdates(sheet, updates, exerciseCol, batchSize);
+    }
+
+    if (startRow % (batchSize * 10) === 0) {
+      Utilities.sleep(RATE_LIMIT.API_DELAY);
+    }
+  }
+}
+
+/**
+ * Applies batched updates to a sheet
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet
+ * @param {Array} updates - Array of update objects
+ * @param {number} exerciseCol - Column number
+ * @param {number} batchSize - Batch size
+ * @private
+ */
+function applyBatchedUpdates(sheet, updates, exerciseCol, batchSize) {
+  updates.sort((a, b) => a.row - b.row);
+
+  const updateBatches = [];
+  let currentBatch = null;
+
+  for (const update of updates) {
+    if (
+      !currentBatch ||
+      update.row !== currentBatch.endRow + 1 ||
+      update.row - currentBatch.startRow >= batchSize
+    ) {
+      if (currentBatch) {
+        updateBatches.push(currentBatch);
+      }
+      currentBatch = {
+        startRow: update.row,
+        endRow: update.row,
+        values: [[update.value]],
+      };
+    } else {
+      currentBatch.endRow = update.row;
+      currentBatch.values.push([update.value]);
+    }
+  }
+
+  if (currentBatch) {
+    updateBatches.push(currentBatch);
+  }
+
+  for (const updateBatch of updateBatches) {
+    const updateRange = sheet.getRange(
+      updateBatch.startRow,
+      exerciseCol,
+      updateBatch.values.length,
+      1
+    );
+    updateRange.setValues(updateBatch.values);
   }
 }

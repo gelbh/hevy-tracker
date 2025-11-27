@@ -163,8 +163,8 @@ const API_CLIENT_CONFIG = {
  */
 const BATCH_CONFIG = {
   DEFAULT_BATCH_SIZE: 100, // Default batch size for general operations
-  EXERCISE_COUNT_BATCH_SIZE: 1000, // Batch size for exercise count updates
-  SHEET_UPDATE_BATCH_SIZE: 1000, // Batch size for sheet updates
+  EXERCISE_COUNT_BATCH_SIZE: 1000, // Batch size for exercise count updates (timeout checked every 200 rows)
+  SHEET_UPDATE_BATCH_SIZE: 500, // Batch size for sheet updates (reduced for more frequent timeout checks)
 };
 
 /**
@@ -184,6 +184,7 @@ const IMPORT_PROGRESS_PROPERTY_KEY = "IMPORT_PROGRESS_STATE";
 const ACTIVE_IMPORT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes - considers import stale if older
 const ACTIVE_IMPORT_HEARTBEAT_MS = 2 * 60 * 1000; // 2 minutes - how often to update timestamp
 const ACTIVE_IMPORT_PROPERTY_KEY = "IMPORT_ACTIVE_STATE";
+const DEFERRED_POST_PROCESSING_KEY = "DEFERRED_POST_PROCESSING";
 
 /**
  * UI Configuration

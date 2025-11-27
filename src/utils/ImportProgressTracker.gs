@@ -217,4 +217,108 @@ class ImportProgressTracker {
       console.warn("Failed to clear active import flag:", error);
     }
   }
+
+  /**
+   * Gets deferred operations from document properties
+   * @returns {Object|null} Deferred operations object or null
+   * @private
+   */
+  static _getDeferredOperationsData() {
+    try {
+      const props = getDocumentProperties();
+      if (!props) {
+        return null;
+      }
+
+      const deferredJson = props.getProperty(DEFERRED_POST_PROCESSING_KEY);
+      if (!deferredJson) {
+        return null;
+      }
+
+      return JSON.parse(deferredJson);
+    } catch (error) {
+      console.warn("Failed to get deferred operations data:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Saves deferred operations to document properties
+   * @param {Object} deferred - Deferred operations object
+   * @private
+   */
+  static _saveDeferredOperations(deferred) {
+    try {
+      const props = getDocumentProperties();
+      if (!props) {
+        console.warn(
+          "Unable to save deferred operations: document properties unavailable"
+        );
+        return;
+      }
+
+      if (Object.keys(deferred).length === 0) {
+        props.deleteProperty(DEFERRED_POST_PROCESSING_KEY);
+      } else {
+        props.setProperty(
+          DEFERRED_POST_PROCESSING_KEY,
+          JSON.stringify(deferred)
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to save deferred operations:", error);
+    }
+  }
+
+  /**
+   * Marks a post-processing operation as deferred (needs completion)
+   * @param {string} operationName - Name of the deferred operation
+   */
+  static markDeferredOperation(operationName) {
+    const deferred = this._getDeferredOperationsData() || {};
+    deferred[operationName] = {
+      timestamp: new Date().toISOString(),
+      needsCompletion: true,
+    };
+    this._saveDeferredOperations(deferred);
+  }
+
+  /**
+   * Marks a post-processing operation as completed
+   * @param {string} operationName - Name of the completed operation
+   */
+  static markOperationComplete(operationName) {
+    const deferred = this._getDeferredOperationsData();
+    if (!deferred) {
+      return;
+    }
+
+    delete deferred[operationName];
+    this._saveDeferredOperations(deferred);
+  }
+
+  /**
+   * Gets list of deferred post-processing operations that need completion
+   * @returns {Array<string>} Array of operation names that need completion
+   */
+  static getDeferredOperations() {
+    const deferred = this._getDeferredOperationsData();
+    if (!deferred) {
+      return [];
+    }
+
+    return Object.keys(deferred).filter(
+      (op) => deferred[op].needsCompletion === true
+    );
+  }
+
+  /**
+   * Checks if a specific post-processing operation is deferred
+   * @param {string} operationName - Name of the operation to check
+   * @returns {boolean} True if operation is deferred
+   */
+  static isOperationDeferred(operationName) {
+    const deferred = this.getDeferredOperations();
+    return deferred.includes(operationName);
+  }
 }
