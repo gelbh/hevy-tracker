@@ -166,7 +166,8 @@ class ApiClient {
       );
       // Pass API key directly to avoid property read timing issues
       // Fire-and-forget: start import in background, don't wait for it
-      this.runFullImport(apiKey).catch((error) => {
+      // Skip resume dialog to avoid blocking the save operation
+      this.runFullImport(apiKey, true).catch((error) => {
         console.error("Background import failed:", error);
       });
     } else {
@@ -176,6 +177,9 @@ class ApiClient {
         TOAST_DURATION.NORMAL
       );
     }
+
+    // Return immediately after saving - don't wait for background operations
+    // This ensures the HTML dialog can close without timeout
 
     // Validate API key in background - if it fails, remove the key
     this.validateApiKey(apiKey)
@@ -463,8 +467,9 @@ class ApiClient {
    * Runs initial data import sequence for new API key setup
    * Includes timeout protection and progress checkpointing for resumable imports
    * @param {string} [apiKeyOverride=null] - Optional API key to use instead of reading from properties
+   * @param {boolean} [skipResumeDialog=false] - If true, skip the resume dialog and start fresh automatically
    */
-  async runFullImport(apiKeyOverride = null) {
+  async runFullImport(apiKeyOverride = null, skipResumeDialog = false) {
     const startTime = Date.now();
     let completedSteps = [];
 
@@ -498,22 +503,8 @@ class ApiClient {
       // Check for existing progress and prompt user
       const existingProgress = ImportProgressTracker.loadProgress();
       if (existingProgress && existingProgress.completedSteps?.length > 0) {
-        const ui = SpreadsheetApp.getUi();
-        const response = ui.alert(
-          "Resume Import?",
-          `Previous import was incomplete. ${existingProgress.completedSteps.length} step(s) completed.\n\nResume from where it left off, or start fresh?`,
-          ui.ButtonSet.YES_NO_CANCEL
-        );
-
-        if (response === ui.Button.YES) {
-          // Resume: use existing completed steps
-          completedSteps = existingProgress.completedSteps;
-          this._showToast(
-            `Resuming import. Skipping ${completedSteps.length} completed step(s)...`,
-            "Resuming Import",
-            TOAST_DURATION.NORMAL
-          );
-        } else if (response === ui.Button.NO) {
+        if (skipResumeDialog) {
+          // Skip dialog and automatically start fresh when called from saveUserApiKey
           ImportProgressTracker.clearProgress();
           completedSteps = [];
           this._showToast(
@@ -522,8 +513,34 @@ class ApiClient {
             TOAST_DURATION.NORMAL
           );
         } else {
-          // Cancel
-          return;
+          // Show resume dialog for manual imports
+          const ui = SpreadsheetApp.getUi();
+          const response = ui.alert(
+            "Resume Import?",
+            `Previous import was incomplete. ${existingProgress.completedSteps.length} step(s) completed.\n\nResume from where it left off, or start fresh?`,
+            ui.ButtonSet.YES_NO_CANCEL
+          );
+
+          if (response === ui.Button.YES) {
+            // Resume: use existing completed steps
+            completedSteps = existingProgress.completedSteps;
+            this._showToast(
+              `Resuming import. Skipping ${completedSteps.length} completed step(s)...`,
+              "Resuming Import",
+              TOAST_DURATION.NORMAL
+            );
+          } else if (response === ui.Button.NO) {
+            ImportProgressTracker.clearProgress();
+            completedSteps = [];
+            this._showToast(
+              "Starting fresh import...",
+              "Import Started",
+              TOAST_DURATION.NORMAL
+            );
+          } else {
+            // Cancel
+            return;
+          }
         }
       }
 
