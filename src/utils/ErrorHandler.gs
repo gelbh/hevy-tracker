@@ -149,6 +149,9 @@ class ErrorHandler {
     if (error instanceof SheetError) {
       return ERROR_CONFIG.CODES.SHEET_ERROR;
     }
+    if (error instanceof ImportTimeoutError) {
+      return ERROR_CONFIG.CODES.TIMEOUT_ERROR;
+    }
 
     // Handle ApiError with status-specific codes
     if (error instanceof ApiError) {
@@ -290,7 +293,8 @@ class ErrorHandler {
       error instanceof ValidationError ||
       error instanceof ConfigurationError ||
       error instanceof SheetError ||
-      error instanceof InvalidApiKeyError
+      error instanceof InvalidApiKeyError ||
+      error instanceof ImportTimeoutError
     );
   }
 
@@ -370,6 +374,14 @@ class DrivePermissionError extends Error {
   constructor(message, context = {}) {
     super(message);
     this.name = "DrivePermissionError";
+    this.context = context;
+  }
+}
+
+class ImportTimeoutError extends Error {
+  constructor(message = "Import operation timed out", context = {}) {
+    super(message);
+    this.name = "ImportTimeoutError";
     this.context = context;
   }
 }

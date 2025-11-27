@@ -46,21 +46,42 @@ function getLastWorkoutUpdate(sheet) {
  * Synchronizes workout data to the 'Workouts' sheet.
  * - First run: full import of all workouts.
  * - Subsequent runs: delta import of only new/changed/deleted events.
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<number>} Number of changes made
  */
-async function importAllWorkouts() {
+async function importAllWorkouts(checkTimeout = null) {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const lastUpdate = getLastWorkoutUpdate(manager.sheet);
 
   const changes = lastUpdate
-    ? await importAllWorkoutsDelta(lastUpdate)
-    : await importAllWorkoutsFull();
+    ? await importAllWorkoutsDelta(lastUpdate, checkTimeout)
+    : await importAllWorkoutsFull(checkTimeout);
 
   if (changes > 0) {
     const exerciseSheet = SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet;
-    await updateExerciseCounts(exerciseSheet);
-    await syncLocalizedExerciseNames();
-    manager.formatSheet();
+    
+    // Handle post-processing with timeout checks
+    // Note: syncLocalizedExerciseNames is already called in importAllWorkoutsFull/Delta
+    // with the idToLocalizedName map for optimization
+    try {
+      await updateExerciseCounts(exerciseSheet, checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("updateExerciseCounts timed out, continuing...");
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await manager.formatSheet(checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("formatSheet timed out, continuing...");
+      } else {
+        throw error;
+      }
+    }
   }
 
   return changes;
@@ -70,9 +91,10 @@ async function importAllWorkouts() {
  * Performs a full import of all workouts.
  * Clears existing data rows (keeping headers), fetches all pages,
  * and writes rows in a single batch.
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<number>} Number of workout records imported
  */
-async function importAllWorkoutsFull() {
+async function importAllWorkoutsFull(checkTimeout = null) {
   const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
   const props = getDocumentProperties();
   props?.deleteProperty("LAST_WORKOUT_UPDATE");
@@ -87,13 +109,33 @@ async function importAllWorkoutsFull() {
       if (workouts) allWorkouts.push(...workouts);
     },
     "workouts",
-    {}
+    {},
+    checkTimeout
   );
 
   const rows = processWorkoutsData(allWorkouts);
   if (rows.length) {
     manager.sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
+
+  // Build idToLocalizedName map from in-memory workout data (OPTIMIZATION)
+  const idToLocalizedName = new Map();
+  allWorkouts.forEach((workout) => {
+    if (workout.exercises && Array.isArray(workout.exercises)) {
+      workout.exercises.forEach((exercise) => {
+        const exerciseTemplateId = exercise.exercise_template_id;
+        const localizedTitle = exercise.title;
+        if (
+          exerciseTemplateId &&
+          localizedTitle &&
+          exerciseTemplateId !== "N/A"
+        ) {
+          // Use the most recent localized name for each ID
+          idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+        }
+      });
+    }
+  });
 
   props?.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -102,6 +144,22 @@ async function importAllWorkoutsFull() {
     "Full Import Complete",
     TOAST_DURATION.NORMAL
   );
+
+  // Store the map in a global variable or pass it through the call chain
+  // For now, we'll pass it via document properties as a workaround
+  // In a better design, we'd return it and pass it to syncLocalizedExerciseNames
+  // But to minimize changes, we'll call syncLocalizedExerciseNames with the map
+  if (idToLocalizedName.size > 0) {
+    try {
+      await syncLocalizedExerciseNames(idToLocalizedName, checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("syncLocalizedExerciseNames timed out after full import");
+      } else {
+        throw error;
+      }
+    }
+  }
 
   return rows.length;
 }
@@ -159,9 +217,10 @@ function processWorkoutEvents(events) {
  * Imports only changed or new workouts since lastUpdate.
  * Fetches full workout details for every upsert event to ensure exercise/sets data.
  * @param {string} lastUpdate - ISO timestamp of last import
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<number>} Number of workouts imported
  */
-async function importAllWorkoutsDelta(lastUpdate) {
+async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
   try {
     const manager = SheetManager.getOrCreate(WORKOUTS_SHEET_NAME);
     const props = getDocumentProperties();
@@ -177,7 +236,8 @@ async function importAllWorkoutsDelta(lastUpdate) {
       PAGE_SIZE.WORKOUTS,
       (page) => events.push(...page),
       "events",
-      { since: lastUpdate }
+      { since: lastUpdate },
+      checkTimeout
     );
 
     if (!events.length) {
@@ -238,12 +298,44 @@ async function importAllWorkoutsDelta(lastUpdate) {
     updateWorkoutData(manager.sheet, rows);
     props.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
 
+    // Build idToLocalizedName map from in-memory workout data (OPTIMIZATION)
+    const idToLocalizedName = new Map();
+    fullWorkouts.forEach((workout) => {
+      if (workout.exercises && Array.isArray(workout.exercises)) {
+        workout.exercises.forEach((exercise) => {
+          const exerciseTemplateId = exercise.exercise_template_id;
+          const localizedTitle = exercise.title;
+          if (
+            exerciseTemplateId &&
+            localizedTitle &&
+            exerciseTemplateId !== "N/A"
+          ) {
+            // Use the most recent localized name for each ID
+            idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+          }
+        });
+      }
+    });
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ss.toast(
       `Imported ${rows.length} workout records.`,
       "Delta Import Complete",
       TOAST_DURATION.NORMAL
     );
+
+    // Call syncLocalizedExerciseNames with the map to avoid reading from sheet
+    if (idToLocalizedName.size > 0) {
+      try {
+        await syncLocalizedExerciseNames(idToLocalizedName, checkTimeout);
+      } catch (error) {
+        if (error instanceof ImportTimeoutError) {
+          console.warn("syncLocalizedExerciseNames timed out after delta import");
+        } else {
+          throw error;
+        }
+      }
+    }
 
     return fullWorkouts.length;
   } catch (error) {

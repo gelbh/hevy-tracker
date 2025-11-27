@@ -18,8 +18,9 @@
  * Only adds new exercises while preserving existing ones.
  * New exercises are added just before the last row and all exercises are sorted by count.
  * Exercise counts are always recalculated even if no new exercises are imported.
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  */
-async function importAllExercises() {
+async function importAllExercises(checkTimeout = null) {
   try {
     const manager = SheetManager.getOrCreate(EXERCISES_SHEET_NAME);
     const sheet = manager.sheet;
@@ -45,7 +46,9 @@ async function importAllExercises() {
       API_ENDPOINTS.EXERCISES,
       PAGE_SIZE.EXERCISES,
       processExercisePage,
-      "exercise_templates"
+      "exercise_templates",
+      {},
+      checkTimeout
     );
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -62,8 +65,25 @@ async function importAllExercises() {
         ? `Imported ${processedExercises.length} new exercises. `
         : "No new exercises found. ";
 
-    await updateExerciseCounts(sheet);
-    manager.formatSheet();
+    try {
+      await updateExerciseCounts(sheet, checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("updateExerciseCounts timed out during exercise import");
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await manager.formatSheet(checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("formatSheet timed out during exercise import");
+      } else {
+        throw error;
+      }
+    }
 
     ss.toast(
       `${updateMessage}Updated counts for all exercises!`,
@@ -245,8 +265,9 @@ async function insertNewExercises(sheet, processedExercises) {
  * Updates exercise counts based on workout data using batched processing.
  * Matches exercises by exercise_template_id first, then falls back to title matching.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  */
-async function updateExerciseCounts(exerciseSheet) {
+async function updateExerciseCounts(exerciseSheet, checkTimeout = null) {
   const workoutSheet =
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
 
@@ -292,6 +313,13 @@ async function updateExerciseCounts(exerciseSheet) {
     const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
 
     for (let i = 0; i < workoutData.length; i += batchSize) {
+      // Check timeout periodically during batch processing
+      if (checkTimeout && checkTimeout()) {
+        throw new ImportTimeoutError(
+          "Timeout approaching during updateExerciseCounts"
+        );
+      }
+
       const batch = workoutData.slice(
         i,
         Math.min(i + batchSize, workoutData.length)
@@ -357,6 +385,13 @@ async function updateExerciseCounts(exerciseSheet) {
 
     // Update counts in exercise sheet
     for (let i = 0; i < exerciseData.length; i += batchSize) {
+      // Check timeout periodically during batch processing
+      if (checkTimeout && checkTimeout()) {
+        throw new ImportTimeoutError(
+          "Timeout approaching during updateExerciseCounts"
+        );
+      }
+
       const batch = exerciseData.slice(
         i,
         Math.min(i + batchSize, exerciseData.length)
@@ -412,8 +447,14 @@ async function updateExerciseCounts(exerciseSheet) {
  * Syncs localized exercise names across all sheets.
  * First updates Exercises sheet with localized names from workouts (by ID).
  * Then scans all sheets and replaces hardcoded exercise names (non-formula) with localized names.
+ * @param {Map<string, string>} [idToLocalizedName] - Optional map of exercise_template_id -> localized name.
+ *   If provided, avoids reading workout data from sheet (performance optimization).
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  */
-async function syncLocalizedExerciseNames() {
+async function syncLocalizedExerciseNames(
+  idToLocalizedName = null,
+  checkTimeout = null
+) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
   const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
@@ -428,39 +469,54 @@ async function syncLocalizedExerciseNames() {
 
   try {
     // Step 1: Build map of exercise_template_id -> localized name from workouts
-    const workoutData = workoutSheet.getDataRange().getValues();
-    const workoutHeaders = workoutData.shift();
-    const exerciseTemplateIdIndex = workoutHeaders.indexOf(
-      "Exercise Template ID"
-    );
-    const exerciseTitleIndex = workoutHeaders.indexOf("Exercise");
+    let workoutExerciseNames = new Set();
 
-    if (exerciseTemplateIdIndex === -1 || exerciseTitleIndex === -1) {
-      return; // Columns don't exist yet
-    }
+    if (!idToLocalizedName) {
+      // Fallback: read from sheet if map not provided (backward compatibility)
+      const workoutData = workoutSheet.getDataRange().getValues();
+      const workoutHeaders = workoutData.shift();
+      const exerciseTemplateIdIndex = workoutHeaders.indexOf(
+        "Exercise Template ID"
+      );
+      const exerciseTitleIndex = workoutHeaders.indexOf("Exercise");
 
-    const idToLocalizedName = new Map();
-    // Also build a map of all exercise names seen in workouts (for fallback matching)
-    const workoutExerciseNames = new Set();
-
-    workoutData.forEach((row) => {
-      const exerciseTemplateId = String(
-        row[exerciseTemplateIdIndex] || ""
-      ).trim();
-      const localizedTitle = String(row[exerciseTitleIndex] || "").trim();
-
-      if (
-        exerciseTemplateId &&
-        localizedTitle &&
-        exerciseTemplateId !== "N/A"
-      ) {
-        idToLocalizedName.set(exerciseTemplateId, localizedTitle);
-        workoutExerciseNames.add(localizedTitle.toLowerCase());
+      if (exerciseTemplateIdIndex === -1 || exerciseTitleIndex === -1) {
+        return; // Columns don't exist yet
       }
-    });
+
+      idToLocalizedName = new Map();
+
+      workoutData.forEach((row) => {
+        const exerciseTemplateId = String(
+          row[exerciseTemplateIdIndex] || ""
+        ).trim();
+        const localizedTitle = String(row[exerciseTitleIndex] || "").trim();
+
+        if (
+          exerciseTemplateId &&
+          localizedTitle &&
+          exerciseTemplateId !== "N/A"
+        ) {
+          idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+          workoutExerciseNames.add(localizedTitle.toLowerCase());
+        }
+      });
+    } else {
+      // Build workoutExerciseNames set from provided map
+      idToLocalizedName.forEach((localizedTitle) => {
+        workoutExerciseNames.add(localizedTitle.toLowerCase());
+      });
+    }
 
     if (idToLocalizedName.size === 0) {
       return; // No exercises to sync
+    }
+
+    // Check timeout before proceeding
+    if (checkTimeout && checkTimeout()) {
+      throw new ImportTimeoutError(
+        "Timeout approaching during syncLocalizedExerciseNames"
+      );
     }
 
     // Step 2: Build map of exercise names BEFORE updating Exercises sheet
@@ -513,13 +569,52 @@ async function syncLocalizedExerciseNames() {
       }
     });
 
-    // Update Exercises sheet with localized names
+    // Update Exercises sheet with localized names (BATCHED)
     if (exerciseUpdates.length > 0) {
-      exerciseUpdates.forEach((update) => {
-        exerciseSheet
-          .getRange(update.row, titleIndex + 1)
-          .setValue(update.value);
-      });
+      // Sort updates by row for efficient batching
+      exerciseUpdates.sort((a, b) => a.row - b.row);
+
+      // Group consecutive rows for batch updates
+      const batches = [];
+      let currentBatch = null;
+
+      for (const update of exerciseUpdates) {
+        if (
+          !currentBatch ||
+          update.row !== currentBatch.endRow + 1 ||
+          update.row - currentBatch.startRow >=
+            BATCH_CONFIG.SHEET_UPDATE_BATCH_SIZE
+        ) {
+          // Start new batch
+          if (currentBatch) {
+            batches.push(currentBatch);
+          }
+          currentBatch = {
+            startRow: update.row,
+            endRow: update.row,
+            values: [[update.value]],
+          };
+        } else {
+          // Add to current batch
+          currentBatch.endRow = update.row;
+          currentBatch.values.push([update.value]);
+        }
+      }
+
+      if (currentBatch) {
+        batches.push(currentBatch);
+      }
+
+      // Apply batched updates
+      for (const batch of batches) {
+        const range = exerciseSheet.getRange(
+          batch.startRow,
+          titleIndex + 1,
+          batch.values.length,
+          1
+        );
+        range.setValues(batch.values);
+      }
     }
 
     // Step 3: Also build reverse map from Exercises sheet: ID -> all possible names
@@ -552,6 +647,13 @@ async function syncLocalizedExerciseNames() {
     ];
 
     for (const rangeConfig of rangesToUpdate) {
+      // Check timeout before processing each sheet
+      if (checkTimeout && checkTimeout()) {
+        throw new ImportTimeoutError(
+          `Timeout approaching while updating ${rangeConfig.sheetName}`
+        );
+      }
+
       const sheet = ss.getSheetByName(rangeConfig.sheetName);
       if (!sheet || sheet.getLastRow() < rangeConfig.startRow) {
         continue;
@@ -568,6 +670,13 @@ async function syncLocalizedExerciseNames() {
           startRow <= numRows;
           startRow += batchSize
         ) {
+          // Check timeout periodically during batch processing
+          if (checkTimeout && checkTimeout()) {
+            throw new ImportTimeoutError(
+              `Timeout approaching while processing ${rangeConfig.sheetName}`
+            );
+          }
+
           const endRow = Math.min(startRow + batchSize - 1, numRows);
           const range = sheet.getRange(
             startRow,
@@ -640,11 +749,51 @@ async function syncLocalizedExerciseNames() {
             }
           }
 
-          // Apply updates
+          // Apply updates in batches (BATCHED instead of one-by-one)
           if (updates.length > 0) {
-            updates.forEach((update) => {
-              sheet.getRange(update.row, exerciseCol).setValue(update.value);
-            });
+            // Sort updates by row for efficient batching
+            updates.sort((a, b) => a.row - b.row);
+
+            // Group consecutive rows for batch updates
+            const updateBatches = [];
+            let currentBatch = null;
+
+            for (const update of updates) {
+              if (
+                !currentBatch ||
+                update.row !== currentBatch.endRow + 1 ||
+                update.row - currentBatch.startRow >= batchSize
+              ) {
+                // Start new batch
+                if (currentBatch) {
+                  updateBatches.push(currentBatch);
+                }
+                currentBatch = {
+                  startRow: update.row,
+                  endRow: update.row,
+                  values: [[update.value]],
+                };
+              } else {
+                // Add to current batch
+                currentBatch.endRow = update.row;
+                currentBatch.values.push([update.value]);
+              }
+            }
+
+            if (currentBatch) {
+              updateBatches.push(currentBatch);
+            }
+
+            // Apply batched updates
+            for (const updateBatch of updateBatches) {
+              const updateRange = sheet.getRange(
+                updateBatch.startRow,
+                exerciseCol,
+                updateBatch.values.length,
+                1
+              );
+              updateRange.setValues(updateBatch.values);
+            }
           }
 
           if (startRow % (batchSize * 10) === 0) {
@@ -652,7 +801,11 @@ async function syncLocalizedExerciseNames() {
           }
         }
       } catch (error) {
-        // Log error but continue with other ranges
+        // Re-throw ImportTimeoutError
+        if (error instanceof ImportTimeoutError) {
+          throw error;
+        }
+        // Log other errors but continue with other ranges
         console.warn(
           `Error updating ${rangeConfig.sheetName} column ${rangeConfig.column}:`,
           error

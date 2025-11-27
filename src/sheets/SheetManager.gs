@@ -57,12 +57,24 @@ class SheetManager {
 
   /**
    * Applies all formatting to the sheet
+   * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
    */
-  async formatSheet() {
+  async formatSheet(checkTimeout = null) {
     try {
+      // Check timeout before expensive operations
+      if (checkTimeout && checkTimeout()) {
+        // Formatting is non-critical, so skip it if timeout is approaching
+        return;
+      }
+
       await this.ensureHeaders();
 
       if (this.sheet.getLastRow() <= 1) {
+        return;
+      }
+
+      // Check timeout before formatting operations
+      if (checkTimeout && checkTimeout()) {
         return;
       }
 
@@ -70,6 +82,10 @@ class SheetManager {
       this.removeEmptyRowsAndColumns();
       this.setAlternatingColors();
     } catch (error) {
+      // Don't throw ImportTimeoutError - formatting is non-critical
+      if (error instanceof ImportTimeoutError) {
+        return;
+      }
       throw ErrorHandler.handle(error, {
         operation: "Formatting sheet",
         sheetName: this.sheetName,

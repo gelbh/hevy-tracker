@@ -14,9 +14,10 @@
 
 /**
  * Imports all workout routine folders from Hevy API
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<void>}
  */
-async function importAllRoutineFolders() {
+async function importAllRoutineFolders(checkTimeout = null) {
   try {
     const manager = SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME);
     manager.clearSheet();
@@ -37,11 +38,22 @@ async function importAllRoutineFolders() {
       API_ENDPOINTS.ROUTINE_FOLDERS,
       PAGE_SIZE.ROUTINE_FOLDERS,
       processFolderPage,
-      "routine_folders"
+      "routine_folders",
+      {},
+      checkTimeout
     );
 
     await updateFoldersInSheet(manager.sheet, processedFolders);
-    manager.formatSheet();
+    
+    try {
+      await manager.formatSheet(checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("formatSheet timed out during routine folder import");
+      } else {
+        throw error;
+      }
+    }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ss.toast(
@@ -50,6 +62,10 @@ async function importAllRoutineFolders() {
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
+    // Re-throw ImportTimeoutError
+    if (error instanceof ImportTimeoutError) {
+      throw error;
+    }
     throw ErrorHandler.handle(error, {
       operation: "Importing routine folders",
       sheetName: ROUTINE_FOLDERS_SHEET_NAME,

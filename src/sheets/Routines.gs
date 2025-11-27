@@ -34,9 +34,10 @@
 
 /**
  * Imports all workout routines from Hevy API into the Routines sheet
+ * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<void>}
  */
-async function importAllRoutines() {
+async function importAllRoutines(checkTimeout = null) {
   try {
     const manager = SheetManager.getOrCreate(ROUTINES_SHEET_NAME);
     manager.clearSheet();
@@ -59,7 +60,9 @@ async function importAllRoutines() {
       API_ENDPOINTS.ROUTINES,
       PAGE_SIZE.ROUTINES,
       processRoutinePage,
-      "routines"
+      "routines",
+      {},
+      checkTimeout
     );
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -78,9 +81,30 @@ async function importAllRoutines() {
       );
     }
 
-    manager.formatSheet();
-    await syncLocalizedExerciseNames();
+    try {
+      await manager.formatSheet(checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("formatSheet timed out during routine import");
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await syncLocalizedExerciseNames(null, checkTimeout);
+    } catch (error) {
+      if (error instanceof ImportTimeoutError) {
+        console.warn("syncLocalizedExerciseNames timed out during routine import");
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
+    // Re-throw ImportTimeoutError
+    if (error instanceof ImportTimeoutError) {
+      throw error;
+    }
     throw ErrorHandler.handle(error, {
       operation: "Importing routines",
       sheetName: ROUTINES_SHEET_NAME,

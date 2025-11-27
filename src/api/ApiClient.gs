@@ -256,7 +256,7 @@ class ApiClient {
       return;
     }
 
-    if (checkTimeout()) {
+    if (checkTimeout && checkTimeout()) {
       return;
     }
 
@@ -265,14 +265,24 @@ class ApiClient {
       "Import Progress",
       TOAST_DURATION.SHORT
     );
-    await importFn();
-    completedSteps.push(stepName);
-    ImportProgressTracker.saveProgress(completedSteps);
-    this._showToast(
-      `Completed: ${stepName} ✓`,
-      "Import Progress",
-      TOAST_DURATION.SHORT
-    );
+    
+    try {
+      await importFn();
+      completedSteps.push(stepName);
+      ImportProgressTracker.saveProgress(completedSteps);
+      this._showToast(
+        `Completed: ${stepName} ✓`,
+        "Import Progress",
+        TOAST_DURATION.SHORT
+      );
+    } catch (error) {
+      // Re-throw ImportTimeoutError to be handled by runFullImport
+      if (error instanceof ImportTimeoutError) {
+        throw error;
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -284,8 +294,10 @@ class ApiClient {
    * @param {Function} processFn - Async function to process each page of data
    * @param {string} dataKey - Key in API response containing the data array
    * @param {Object} [additionalParams={}] - Additional query parameters
+   * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
    * @returns {Promise<number>} Total number of items processed across all pages
    * @throws {ApiError} If API request fails
+   * @throws {ImportTimeoutError} If timeout is detected
    * @example
    * await apiClient.fetchPaginatedData(
    *   API_ENDPOINTS.WORKOUTS,
@@ -299,7 +311,8 @@ class ApiClient {
     pageSize,
     processFn,
     dataKey,
-    additionalParams = {}
+    additionalParams = {},
+    checkTimeout = null
   ) {
     const apiKey = this.getOrPromptApiKey();
     if (!apiKey) return 0;
@@ -310,6 +323,13 @@ class ApiClient {
 
     while (hasMore) {
       try {
+        // Check timeout before each page fetch
+        if (checkTimeout && checkTimeout()) {
+          throw new ImportTimeoutError(
+            `Timeout approaching while fetching ${endpoint} (page ${page})`
+          );
+        }
+
         const response = await this.fetchPage(
           endpoint,
           apiKey,
@@ -333,6 +353,10 @@ class ApiClient {
           Utilities.sleep(RATE_LIMIT.API_DELAY);
         }
       } catch (error) {
+        // Re-throw ImportTimeoutError
+        if (error instanceof ImportTimeoutError) {
+          throw error;
+        }
         if (
           error instanceof ApiError &&
           error.statusCode === HTTP_STATUS.NOT_FOUND
@@ -660,7 +684,7 @@ class ApiClient {
       // Import Exercises
       await this._executeImportStep(
         "exercises",
-        importAllExercises,
+        () => importAllExercises(checkTimeout),
         completedSteps,
         checkTimeout
       );
@@ -670,7 +694,7 @@ class ApiClient {
         await this._executeImportStep(
           "routineFolders",
           async () => {
-            await importAllRoutineFolders();
+            await importAllRoutineFolders(checkTimeout);
             Utilities.sleep(RATE_LIMIT.API_DELAY);
           },
           completedSteps,
@@ -681,7 +705,7 @@ class ApiClient {
         await this._executeImportStep(
           "routines",
           async () => {
-            await importAllRoutines();
+            await importAllRoutines(checkTimeout);
             Utilities.sleep(RATE_LIMIT.API_DELAY);
           },
           completedSteps,
@@ -692,7 +716,7 @@ class ApiClient {
         await this._executeImportStep(
           "workouts",
           async () => {
-            await importAllWorkouts();
+            await importAllWorkouts(checkTimeout);
             Utilities.sleep(RATE_LIMIT.API_DELAY);
           },
           completedSteps,
@@ -730,7 +754,18 @@ class ApiClient {
 
       this._apiKeyCheckInProgress = false;
 
-      // Check if this is a timeout error
+      // Handle ImportTimeoutError specifically
+      if (error instanceof ImportTimeoutError) {
+        this._showToast(
+          "Import complete, but some post-processing was skipped due to time limit.",
+          "Import Complete (Partial)",
+          TOAST_DURATION.LONG
+        );
+        // Don't throw - import was successful, just post-processing timed out
+        return;
+      }
+
+      // Check if this is a timeout error (Apps Script execution limit)
       if (
         error.message &&
         (error.message.includes("Exceeded maximum execution time") ||
