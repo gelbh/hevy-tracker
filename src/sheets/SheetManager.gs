@@ -52,13 +52,19 @@ class SheetManager {
   }
 
   /**
+   * Formatting Operations
+   */
+
+  /**
    * Applies all formatting to the sheet
    */
   async formatSheet() {
     try {
       await this.ensureHeaders();
 
-      if (this.sheet.getLastRow() <= 1) return;
+      if (this.sheet.getLastRow() <= 1) {
+        return;
+      }
 
       this.formatData();
       this.removeEmptyRowsAndColumns();
@@ -72,26 +78,32 @@ class SheetManager {
   }
 
   /**
+   * Header Management
+   */
+
+  /**
    * Ensures headers are present and correct
    * @private
    */
   async ensureHeaders() {
     try {
-      if (!this.validateHeaders()) {
-        if (this.sheet.getLastRow() > 0) {
-          this.sheet.clear();
-        }
-
-        const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
-
-        headerRange
-          .setValues([this.headers])
-          .setFontWeight("bold")
-          .setBackground(this.theme.evenRowColor)
-          .setFontColor(this.theme.fontColor);
-
-        this.sheet.setFrozenRows(1);
+      if (this.validateHeaders()) {
+        return;
       }
+
+      if (this.sheet.getLastRow() > 0) {
+        this.sheet.clear();
+      }
+
+      const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
+
+      headerRange
+        .setValues([this.headers])
+        .setFontWeight("bold")
+        .setBackground(this.theme.evenRowColor)
+        .setFontColor(this.theme.fontColor);
+
+      this.sheet.setFrozenRows(1);
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Ensuring headers",
@@ -124,6 +136,29 @@ class SheetManager {
   }
 
   /**
+   * Gets the data range (excluding header row)
+   * @param {number} [numRows] - Number of rows (defaults to all data rows)
+   * @param {number} [startRow=2] - Starting row index
+   * @returns {GoogleAppsScript.Spreadsheet.Range|null} Data range or null if no data
+   * @private
+   */
+  _getDataRange(numRows, startRow = 2) {
+    const lastRow = this.sheet.getLastRow();
+    if (lastRow < startRow) {
+      return null;
+    }
+
+    const rowsToFormat = numRows ?? lastRow - startRow + 1;
+    const lastCol = this.sheet.getLastColumn();
+
+    if (rowsToFormat <= 0 || lastCol <= 0) {
+      return null;
+    }
+
+    return this.sheet.getRange(startRow, 1, rowsToFormat, lastCol);
+  }
+
+  /**
    * Formats data with consistent styling
    * @param {number} [numRows] - Number of rows to format (defaults to all data rows)
    * @param {number} [startRow=2] - Starting row index
@@ -131,16 +166,10 @@ class SheetManager {
    */
   formatData(numRows, startRow = 2) {
     try {
-      const rowsToFormat =
-        numRows ?? Math.max(0, this.sheet.getLastRow() - startRow + 1);
-      if (rowsToFormat <= 0) return;
-
-      const range = this.sheet.getRange(
-        startRow,
-        1,
-        rowsToFormat,
-        this.sheet.getLastColumn()
-      );
+      const range = this._getDataRange(numRows, startRow);
+      if (!range) {
+        return;
+      }
 
       range
         .setFontFamily("Arial")
@@ -193,20 +222,15 @@ class SheetManager {
   }
 
   /**
-   * Sets alternating row colors for the entire sheet
+   * Sets alternating row colors for the entire sheet using conditional formatting
    * @private
    */
   setAlternatingColors() {
     try {
-      const lastRow = this.sheet.getLastRow();
-      if (lastRow <= 1) return;
-
-      const range = this.sheet.getRange(
-        2,
-        1,
-        lastRow - 1,
-        this.sheet.getLastColumn()
-      );
+      const range = this._getDataRange();
+      if (!range) {
+        return;
+      }
 
       this.sheet.clearConditionalFormatRules();
 
@@ -232,17 +256,19 @@ class SheetManager {
   }
 
   /**
+   * Data Operations
+   */
+
+  /**
    * Clears the sheet except for headers
    * @private
    */
   clearSheet() {
     try {
-      const lastRow = this.sheet.getLastRow();
-      if (lastRow <= 1) return;
-
-      this.sheet
-        .getRange(2, 1, lastRow - 1, this.sheet.getLastColumn())
-        .clear();
+      const range = this._getDataRange();
+      if (range) {
+        range.clear();
+      }
     } catch (error) {
       throw ErrorHandler.handle(error, {
         operation: "Clearing sheet",

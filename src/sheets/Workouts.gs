@@ -119,10 +119,12 @@ function getApiKeyForWorkouts() {
       "Unable to access document properties. Please ensure you have proper permissions."
     );
   }
+
   const apiKey = properties.getProperty("HEVY_API_KEY");
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }
+
   return apiKey;
 }
 
@@ -136,15 +138,19 @@ function processWorkoutEvents(events) {
   const deletedIds = new Set();
   const upsertIds = [];
 
-  events.forEach((e) => {
-    if (e.type === "deleted") {
-      const id = e.workout?.id || e.id;
-      if (id) deletedIds.add(id);
-    } else if (e.type === "updated" || e.type === "created") {
-      const id = e.workout?.id;
-      if (id) upsertIds.push(id);
+  for (const event of events) {
+    if (event.type === "deleted") {
+      const id = event.workout?.id ?? event.id;
+      if (id) {
+        deletedIds.add(id);
+      }
+    } else if (event.type === "updated" || event.type === "created") {
+      const id = event.workout?.id;
+      if (id) {
+        upsertIds.push(id);
+      }
     }
-  });
+  }
 
   return { deletedIds, upsertIds };
 }
@@ -209,17 +215,16 @@ async function importAllWorkoutsDelta(lastUpdate) {
     // Extract successful results and log failures
     const fullWorkouts = [];
     const failedIds = [];
-    workoutResults.forEach((result, index) => {
+
+    for (let index = 0; index < workoutResults.length; index++) {
+      const result = workoutResults[index];
       if (result.status === "fulfilled") {
         fullWorkouts.push(result.value);
       } else {
         failedIds.push(upsertIds[index]);
-        console.error(
-          `Failed to fetch workout ${upsertIds[index]}:`,
-          result.reason
-        );
+        console.error(`Failed to fetch workout ${upsertIds[index]}:`, result.reason);
       }
-    });
+    }
 
     if (failedIds.length > 0) {
       console.warn(
@@ -360,8 +365,10 @@ function createWorkoutRows(workout) {
  */
 function processWorkoutsData(workouts) {
   try {
-    return workouts.flatMap((w) =>
-      !w.exercises?.length ? [createEmptyWorkoutRow(w)] : createWorkoutRows(w)
+    return workouts.flatMap((workout) =>
+      workout.exercises?.length
+        ? createWorkoutRows(workout)
+        : [createEmptyWorkoutRow(workout)]
     );
   } catch (error) {
     throw ErrorHandler.handle(error, {

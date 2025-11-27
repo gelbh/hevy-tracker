@@ -34,8 +34,11 @@ async function importAllExercises() {
       const newExercises = exercises.filter(
         (exercise) => !shouldSkipExercise(exercise, existingData)
       );
-      const processedData = processExercisesData(newExercises);
-      processedExercises.push(...processedData);
+
+      if (newExercises.length > 0) {
+        const processedData = processExercisesData(newExercises);
+        processedExercises.push(...processedData);
+      }
     };
 
     await apiClient.fetchPaginatedData(
@@ -50,13 +53,14 @@ async function importAllExercises() {
       syncCustomExerciseIds(sheet, allApiExercises);
     }
 
-    let updateMessage = "";
     if (processedExercises.length > 0) {
       await insertNewExercises(sheet, processedExercises);
-      updateMessage = `Imported ${processedExercises.length} new exercises. `;
-    } else {
-      updateMessage = "No new exercises found. ";
     }
+
+    const updateMessage =
+      processedExercises.length > 0
+        ? `Imported ${processedExercises.length} new exercises. `
+        : "No new exercises found. ";
 
     await updateExerciseCounts(sheet);
     manager.formatSheet();

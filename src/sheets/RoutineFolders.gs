@@ -79,23 +79,19 @@ function processFolderData(folders) {
 }
 
 /**
- * Updates the sheet with folder data
+ * Updates the sheet with folder data in a single batch operation
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The sheet to update
  * @param {Array<Array>} processedFolders - Processed folder data
  * @private
  */
 async function updateFoldersInSheet(sheet, processedFolders) {
   try {
-    if (processedFolders.length === 0) return;
+    if (processedFolders.length === 0) {
+      return;
+    }
 
-    sheet
-      .getRange(
-        2,
-        1,
-        processedFolders.length,
-        SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length
-      )
-      .setValues(processedFolders);
+    const numCols = SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length;
+    sheet.getRange(2, 1, processedFolders.length, numCols).setValues(processedFolders);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Updating folders in sheet",

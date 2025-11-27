@@ -90,10 +90,9 @@ async function createRoutineFromSheet() {
     const folderValue = sheet.getRange("C3").getValue();
     const notes = sheet.getRange("C4").getValue();
 
-    let folderId = null;
-    if (folderValue?.trim()) {
-      folderId = await getOrCreateRoutineFolder(folderValue.trim());
-    }
+    const folderId = folderValue?.trim()
+      ? await getOrCreateRoutineFolder(folderValue.trim())
+      : null;
 
     const exerciseData = sheet
       .getRange("A8:H" + sheet.getLastRow())
@@ -278,27 +277,23 @@ function validateRoutineData(title, exercises) {
   } else {
     exercises.forEach((exercise, index) => {
       if (!exercise.exercise_template_id) {
-        errors.push(
-          `Exercise at position ${index + 1} is missing a template ID`
-        );
+        errors.push(`Exercise at position ${index + 1} is missing a template ID`);
       }
+
       if (!exercise.sets || exercise.sets.length === 0) {
-        errors.push(
-          `Exercise at position ${index + 1} requires at least one set`
-        );
+        errors.push(`Exercise at position ${index + 1} requires at least one set`);
       }
+
       exercise.sets?.forEach((set, setIndex) => {
         if (!set.type) {
-          errors.push(
-            `Set ${setIndex + 1} of exercise ${index + 1} is missing a type`
-          );
+          errors.push(`Set ${setIndex + 1} of exercise ${index + 1} is missing a type`);
         }
       });
     });
   }
 
   if (errors.length > 0) {
-    throw new Error(`Validation failed:\n${errors.join("\n")}`);
+    throw new ValidationError(`Validation failed:\n${errors.join("\n")}`);
   }
 }
 
@@ -348,10 +343,12 @@ function getRoutineApiKey() {
       "Unable to access document properties. Please ensure you have proper permissions."
     );
   }
+
   const apiKey = properties.getProperty("HEVY_API_KEY");
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }
+
   return apiKey;
 }
 

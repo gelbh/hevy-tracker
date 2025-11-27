@@ -119,7 +119,7 @@ async function updateRoutinesInSheet(sheet, processedRoutines) {
 /**
  * Creates an empty routine row (no exercises)
  * @param {Object} routine - Routine object
- * @returns {Array} Row data
+ * @returns {Array<Array>} Single row array
  * @private
  */
 function createEmptyRoutineRow(routine) {
@@ -127,7 +127,7 @@ function createEmptyRoutineRow(routine) {
     [
       routine.id,
       routine.title,
-      routine.folder_id || "",
+      routine.folder_id ?? "",
       formatDate(routine.updated_at),
       formatDate(routine.created_at),
       "",
