@@ -1,10 +1,11 @@
 # Ignore everything by default
 **/**
 
-# Allow Apps Script files
+# Allow Apps Script files (patterns are relative to rootDir)
+# Modern clasp supports .gs files natively, no conversion needed
 !appsscript.json
-!src/**/*.js
-!src/**/*.html
+!**/*.gs
+!**/*.html
 
 # Explicitly ignore certain files/folders
 .git/**

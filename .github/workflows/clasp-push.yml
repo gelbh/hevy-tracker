@@ -65,15 +65,6 @@ jobs:
         run: |
           echo "📤 Pushing files to Apps Script..."
           echo ""
-          echo "Pulling from Apps Script to sync file extensions..."
-          clasp pull --force || true
-          echo ""
-          echo "Copying .gs files to .js files (Apps Script format)..."
-          find src -name "*.gs" | while read gs_file; do
-            js_file="${gs_file%.gs}.js"
-            cp "$gs_file" "$js_file"
-          done
-          echo ""
           echo "Pushing to Apps Script..."
           clasp push --force
           echo ""
