@@ -94,35 +94,43 @@ config/
 
 src/
 ├── api/
-│   └── ApiClient.gs            # API client implementation
+│   └── ApiClient.gs            # API client with circuit breaker
 ├── config/
-│   └── Constants.gs            # Global constants
+│   └── Constants.gs            # Global constants and configuration
 ├── sheets/
-│   ├── SheetManager.gs         # Sheet management
-│   ├── Exercises.gs            # Exercise tracking
-│   ├── Routines.gs            # Routine management
-│   ├── RoutineFolders.gs      # Folder organization
-│   ├── RoutineBuilder.gs      # Routine builder
-│   └── Workouts.gs            # Workout tracking
+│   ├── SheetManager.gs         # Centralized sheet management
+│   ├── Exercises.gs            # Exercise import and tracking
+│   ├── Routines.gs             # Routine import
+│   ├── RoutineFolders.gs       # Routine folder import
+│   ├── RoutineBuilder.gs       # Routine creation from sheet
+│   └── Workouts.gs             # Workout import with delta updates
 ├── ui/
-│   ├── Menu.gs                # Menu interface
-│   ├── Dialogs.gs             # Dialog handlers
-│   └── dialogs/               # HTML dialogs
+│   ├── Menu.gs                 # Custom menu interface
+│   ├── Dialogs.gs              # Dialog handlers
+│   └── dialogs/                # HTML dialog templates
+│       ├── SetApiKey.html      # API key setup dialog
+│       ├── ImportWeight.html   # Weight import dialog
+│       ├── SetupInstructions.html
+│       ├── Sidebar.html        # Add-on sidebar
+│       ├── RoutineCreated.html
+│       └── DevApiManager.html
 └── utils/
-    ├── ErrorHandler.gs        # Error management
-    ├── ExerciseTranslator.gs  # Exercise translation
-    └── Utils.gs               # Common utilities
+    ├── ErrorHandler.gs         # Centralized error management
+    ├── ExerciseTranslator.gs   # Exercise name translation
+    ├── ImportProgressTracker.gs # Import state tracking
+    ├── QuotaTracker.gs         # Quota usage monitoring
+    └── Utils.gs                # Common utility functions
 
 tests/
-├── __mocks__/
-│   └── google-apps-script/    # Google Apps Script API mocks
-├── api/                       # API tests
-├── config/                    # Config tests
-├── integration/               # Integration tests
-├── sheets/                    # Sheet tests
-├── ui/                        # UI tests
-├── utils/                     # Utility tests
-└── setup.js                   # Test setup and mocks
+├── __mocks__/                  # Google Apps Script API mocks
+├── helpers/
+│   └── testHelpers.js          # Test utility functions
+├── api/                        # API layer tests
+├── integration/                # Integration tests
+├── sheets/                     # Sheet operation tests
+├── ui/                         # UI component tests
+├── utils/                      # Utility function tests
+└── setup.js                    # Global test setup
 ```
 
 ## Development Workflow
