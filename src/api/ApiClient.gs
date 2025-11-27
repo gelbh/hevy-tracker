@@ -147,27 +147,26 @@ class ApiClient {
    * Saves the API key and initiates initial data import if needed
    * Saves synchronously first, then validates in background for reliability
    * @param {string} apiKey - The API key to save
-   * @returns {boolean} True if this is a new API key (not an update), false otherwise
    */
   saveUserApiKey(apiKey) {
     // Save API key first (synchronously) - this ensures immediate completion
     const properties = this._getDocumentProperties();
     const currentKey = properties.getProperty("HEVY_API_KEY");
-    const isNewKey = !currentKey;
 
     properties.setProperty("HEVY_API_KEY", apiKey);
     properties.deleteProperty("LAST_WORKOUT_UPDATE");
     this._apiKeyCheckInProgress = false;
 
-    // Show appropriate message based on whether this is a new key or update
-    if (isNewKey) {
+    // Schedule import via trigger to avoid blocking the dialog
+    if (!currentKey) {
       this._showToast(
         "API key set successfully. Starting initial data import...",
         "Setup Progress",
         TOAST_DURATION.NORMAL
       );
-      // Note: Initial import will be triggered directly from the HTML dialog
-      // after it closes, to avoid trigger delay issues
+      // Schedule import to run in separate execution context via trigger
+      // This prevents blocking the dialog and allows it to close immediately
+      this._scheduleInitialImport();
     } else {
       this._showToast(
         "API key updated successfully!",
@@ -213,9 +212,6 @@ class ApiClient {
           false // Don't show additional toast, we already showed one
         );
       });
-
-    // Return whether this is a new key so the HTML dialog can trigger import
-    return isNewKey;
   }
 
   /**
@@ -452,9 +448,8 @@ class ApiClient {
   }
 
   /**
-   * Schedules the initial import to run via a time-based trigger as a fallback
-   * This is a backup mechanism in case the direct call from HTML fails
-   * Uses a 60-second delay to meet Google Apps Script's minimum trigger delay requirement
+   * Schedules the initial import to run via a time-based trigger
+   * This prevents blocking the dialog by running the import in a separate execution context
    * @private
    */
   _scheduleInitialImport() {
@@ -469,26 +464,18 @@ class ApiClient {
         )
         .forEach((t) => ScriptApp.deleteTrigger(t));
 
-      // Create a new time-based trigger that fires 60 seconds from now
-      // Google Apps Script requires a minimum delay of ~1 minute for time-based triggers
-      const triggerTime = new Date(Date.now() + 60000);
+      // Create a new time-based trigger that fires 2 seconds from now
+      const triggerTime = new Date(Date.now() + 2000);
       ScriptApp.newTrigger("runInitialImport")
         .timeBased()
         .at(triggerTime)
         .create();
-
-      console.log(
-        "Fallback trigger scheduled for initial import in 60 seconds"
-      );
     } catch (error) {
       // Log error but don't throw - import can still happen manually
-      console.error(
-        "Failed to schedule initial import fallback trigger:",
-        error
-      );
+      console.error("Failed to schedule initial import:", error);
       ErrorHandler.handle(
         error,
-        { operation: "Scheduling initial import trigger (fallback)" },
+        { operation: "Scheduling initial import trigger" },
         false
       );
     }
