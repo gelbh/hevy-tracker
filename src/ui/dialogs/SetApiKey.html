@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Hevy API Key</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hevy API Key Setup</title>
     <base target="_blank" />
     <style>
       body {
@@ -72,6 +74,17 @@
         margin-top: 10px;
         font-size: 14px;
       }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
       .header {
         display: flex;
         flex-direction: column;
@@ -101,27 +114,57 @@
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSoGEB844_CYQW6htIdn_4jDFuks7kmLBU-Rg&s"
           alt="Hevy Logo"
           class="logo"
+          width="120"
+          height="auto"
           onerror="this.onerror=null; this.src='https://hevy.com/favicon.ico';"
         />
         <h1 class="header-title">Hevy API Key Setup</h1>
       </div>
-      <div>
+      <p>
         Enter your Hevy API key. You can find it in your
-        <a href="https://hevy.com/settings?developer">Hevy Developer Settings</a
+        <a
+          href="https://hevy.com/settings?developer"
+          aria-label="Open Hevy Developer Settings in a new tab"
+          >Hevy Developer Settings</a
         >.
-      </div>
+      </p>
+      <label for="apiKey" class="sr-only">API Key</label>
       <input
         type="text"
         id="apiKey"
+        name="apiKey"
         placeholder="Enter API key"
+        aria-label="API Key"
+        aria-required="true"
+        autocomplete="off"
         oninput="validateInput()"
       />
-      <div id="errorMessage" class="error-message"></div>
+      <div
+        id="errorMessage"
+        class="error-message"
+        role="alert"
+        aria-live="polite"
+      ></div>
       <div class="button-container">
-        <button class="secondary" onclick="closeDialog()">Cancel</button>
-        <button id="saveButton" class="primary" onclick="saveApiKey()" disabled>
+        <button
+          type="button"
+          class="secondary"
+          onclick="closeDialog()"
+          aria-label="Cancel and close dialog"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="saveButton"
+          class="primary"
+          onclick="saveApiKey()"
+          disabled
+          aria-label="Save API key"
+          aria-describedby="errorMessage"
+        >
           Save
-          <span id="spinner" class="spinner"></span>
+          <span id="spinner" class="spinner" aria-hidden="true"></span>
         </button>
       </div>
     </div>
