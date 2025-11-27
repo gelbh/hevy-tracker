@@ -1,6 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import Weight from Google Takeout</title>
     <base target="_top" />
     <style>
       body {
@@ -67,7 +70,21 @@
       }
       .btn:disabled {
         opacity: 0.6;
-        cursor: default;
+        cursor: not-allowed;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+      .underline {
+        text-decoration: underline;
       }
     </style>
   </head>
@@ -96,9 +113,25 @@
           <code>derived_com.google.weight_com.google.android.g.json</code> and
           import.
         </div>
-        <div id="status" class="status">Importing data, please wait…</div>
-        <input type="file" id="fileInput" accept=".json" class="file-input" />
-        <button id="importBtn" class="btn" onclick="doImport()">
+        <div id="status" class="status" role="status" aria-live="polite">
+          Importing data, please wait…
+        </div>
+        <label for="fileInput" class="sr-only">Select JSON file</label>
+        <input
+          type="file"
+          id="fileInput"
+          name="fileInput"
+          accept=".json"
+          class="file-input"
+          aria-label="Select JSON file from Google Takeout"
+        />
+        <button
+          type="button"
+          id="importBtn"
+          class="btn"
+          onclick="doImport()"
+          aria-label="Import weight data from selected file"
+        >
           Import Weight
         </button>
       </div>

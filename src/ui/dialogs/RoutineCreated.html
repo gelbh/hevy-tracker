@@ -1,62 +1,104 @@
-<style>
-  .routine-dialog {
-    font-family: Roboto, sans-serif;
-    padding: 24px;
-    text-align: center;
-  }
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Routine Created Successfully</title>
+    <style>
+      .routine-dialog {
+        font-family: Roboto, sans-serif;
+        padding: 24px;
+        text-align: center;
+      }
 
-  .routine-dialog h2 {
-    color: #34a853;
-    margin-bottom: 16px;
-  }
+      .routine-dialog h2 {
+        color: #34a853;
+        margin-bottom: 16px;
+      }
 
-  .routine-dialog p {
-    font-size: 14px;
-    margin: 8px 0;
-  }
+      .routine-dialog p {
+        font-size: 14px;
+        margin: 8px 0;
+      }
 
-  .routine-dialog a {
-    display: inline-block;
-    margin: 12px 0;
-    color: #1a73e8;
-    font-weight: bold;
-    text-decoration: none;
-  }
+      .routine-dialog a {
+        display: inline-block;
+        margin: 12px 0;
+        color: #1a73e8;
+        font-weight: bold;
+        text-decoration: none;
+      }
 
-  .routine-dialog a:hover {
-    text-decoration: underline;
-  }
+      .routine-dialog a:hover {
+        text-decoration: underline;
+      }
 
-  .routine-dialog button {
-    margin: 8px;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: pointer;
-  }
+      .routine-dialog a:focus {
+        outline: 2px solid #1a73e8;
+        outline-offset: 2px;
+      }
 
-  .clear-btn {
-    background-color: #4604fb;
-    color: #fff;
-  }
+      .routine-dialog button {
+        margin: 8px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
 
-  .close-btn {
-    background-color: #e0e0e0;
-  }
-</style>
+      .routine-dialog button:focus {
+        outline: 2px solid #1a73e8;
+        outline-offset: 2px;
+      }
 
-<div class="routine-dialog">
-  <h2>✅ Routine Created</h2>
-  <p>Your routine has been successfully created!</p>
-  <p>
-    <a href="https://hevy.com/routines" target="_blank">View Routine on Hevy</a>
-  </p>
-  <button
-    class="clear-btn"
-    onclick="google.script.run.clearRoutineBuilder(); google.script.host.close()"
-  >
-    Clear Form
-  </button>
-  <button class="close-btn" onclick="google.script.host.close()">Close</button>
-</div>
+      .clear-btn {
+        background-color: #4604fb;
+        color: #fff;
+      }
+
+      .clear-btn:hover {
+        background-color: #3803d1;
+      }
+
+      .close-btn {
+        background-color: #e0e0e0;
+      }
+
+      .close-btn:hover {
+        background-color: #d0d0d0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="routine-dialog">
+      <h2>✅ Routine Created</h2>
+      <p>Your routine has been successfully created!</p>
+      <p>
+        <a
+          href="https://hevy.com/routines"
+          target="_blank"
+          aria-label="View routine on Hevy in a new tab"
+        >
+          View Routine on Hevy
+        </a>
+      </p>
+      <button
+        type="button"
+        class="clear-btn"
+        onclick="google.script.run.clearRoutineBuilder(); google.script.host.close()"
+        aria-label="Clear routine builder form"
+      >
+        Clear Form
+      </button>
+      <button
+        type="button"
+        class="close-btn"
+        onclick="google.script.host.close()"
+        aria-label="Close dialog"
+      >
+        Close
+      </button>
+    </div>
+  </body>
+</html>

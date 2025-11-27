@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xml:lang="en">
+<html lang="en">
   <head>
-    <title>Sidebar</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hevy Tracker Sidebar</title>
     <base target="_top" />
     <link
       rel="stylesheet"
@@ -18,90 +20,112 @@
 
         <? if (data.isTemplate) { ?>
         <!-- Template Spreadsheet Menu -->
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+        <button
+          type="button"
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
           data-action="showGuideDialog"
+          aria-label="View setup guide"
         >
           <span>❓ View Setup Guide</span>
-        </div>
+        </button>
         <? } else { ?>
         <!-- Regular Spreadsheet Menu -->
-        <div
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+        <button
+          type="button"
+          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
           data-action="showInitialSetup"
+          aria-label="Set Hevy API key"
         >
           <span class="text-blue-600">🔑 Set Hevy API Key</span>
-        </div>
+        </button>
         <hr class="my-4" />
         <div class="space-y-2">
           <h3 class="font-semibold text-gray-700">IMPORT DATA</h3>
           <div class="space-y-1">
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="runFullImport"
+              aria-label="Import all data"
             >
               <span>📥 Import All</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="importAllWorkouts"
+              aria-label="Import workouts"
             >
               <span>🏋️ Import Workouts</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="importAllExercises"
+              aria-label="Import exercises"
             >
               <span>💪 Import Exercises</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="importAllRoutines"
+              aria-label="Import routines"
             >
               <span>📋 Import Routines</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="importAllRoutineFolders"
+              aria-label="Import routine folders"
             >
               <span>📁 Import Routine Folders</span>
-            </div>
+            </button>
           </div>
         </div>
         <hr class="my-4" />
         <div class="space-y-2">
           <h3 class="font-semibold text-gray-700">ROUTINE BUILDER</h3>
           <div class="space-y-1">
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="createRoutineFromSheet"
+              aria-label="Create routine from sheet"
             >
               <span>📋 Create Routine from Sheet</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="clearRoutineBuilder"
+              aria-label="Clear routine builder form"
             >
               <span>🗑️ Clear Builder Form</span>
-            </div>
+            </button>
           </div>
         </div>
         <hr class="my-4" />
         <div class="space-y-2">
           <h3 class="font-semibold text-gray-700">BODY WEIGHT</h3>
           <div class="space-y-1">
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="showTakeoutDialog"
+              aria-label="Import body weight from Google Takeout"
             >
               <span>❤️‍🩹 Import Body Weight from Takeout</span>
-            </div>
-            <div
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded"
+            </button>
+            <button
+              type="button"
+              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
               data-action="logWeight"
+              aria-label="Log body weight"
             >
               <span>⚖️ Log Body Weight</span>
-            </div>
+            </button>
           </div>
         </div>
         <? } ?>

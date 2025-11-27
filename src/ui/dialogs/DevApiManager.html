@@ -1,148 +1,202 @@
-<style>
-  body {
-    font-family: "Segoe UI", Roboto, Arial, sans-serif;
-    padding: 24px;
-    background-color: white;
-    color: #333;
-  }
-  label {
-    display: block;
-    margin: 12px 0 6px;
-    font-weight: bold;
-  }
-  input[type="text"],
-  select {
-    width: 100%;
-    padding: 10px;
-    font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-  }
-  .section {
-    margin-bottom: 10px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #ddd;
-  }
-  .inline-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 6px;
-  }
-  .inline-actions > * {
-    margin: 0;
-  }
-  .button {
-    font-size: 14px;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-left: 10px;
-  }
-  .save-btn {
-    background-color: #4285f4;
-    color: white;
-  }
-  .remove-btn {
-    background-color: #d93025;
-    color: white;
-  }
-  .switch-btn {
-    background-color: #34a853;
-    color: white;
-  }
-</style>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer API Key Manager</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Roboto, Arial, sans-serif;
+        padding: 24px;
+        background-color: white;
+        color: #333;
+      }
+      label {
+        display: block;
+        margin: 12px 0 6px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      input:focus,
+      select:focus {
+        outline: 2px solid #4285f4;
+        outline-offset: 2px;
+      }
+      .section {
+        margin-bottom: 10px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+      }
+      .inline-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 6px;
+      }
+      .inline-actions > * {
+        margin: 0;
+      }
+      .button {
+        font-size: 14px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+      .button:focus {
+        outline: 2px solid #1a73e8;
+        outline-offset: 2px;
+      }
+      .button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .save-btn {
+        background-color: #4285f4;
+        color: white;
+      }
+      .save-btn:hover {
+        background-color: #3b78e7;
+      }
+      .remove-btn {
+        background-color: #d93025;
+        color: white;
+      }
+      .remove-btn:hover {
+        background-color: #c5221f;
+      }
+      .switch-btn {
+        background-color: #34a853;
+        color: white;
+      }
+      .switch-btn:hover {
+        background-color: #2d8f47;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="section">
+        <label>Current API Key</label>
+        <p id="currentKey">Loading...</p>
+      </div>
 
-<div>
-  <div class="section">
-    <label>Current API Key</label>
-    <p id="currentKey">Loading...</p>
-  </div>
+      <div class="section">
+        <label for="switchLabel">Switch to API Key</label>
+        <div class="inline-actions">
+          <select id="switchLabel"></select>
+          <button
+            type="button"
+            class="button switch-btn"
+            onclick="switchKey()"
+            aria-label="Switch to selected API key"
+          >
+            Switch
+          </button>
+        </div>
+      </div>
 
-  <div class="section">
-    <label for="switchLabel">Switch to API Key</label>
-    <div class="inline-actions">
-      <select id="switchLabel"></select>
-      <button class="button switch-btn" onclick="switchKey()">Switch</button>
+      <div class="section">
+        <label for="label">New Label and API Key</label>
+        <div class="inline-actions">
+          <input
+            type="text"
+            id="label"
+            placeholder="e.g. main, dev"
+            style="flex: 1"
+          />
+          <input
+            type="text"
+            id="key"
+            placeholder="Paste API key here"
+            style="flex: 2"
+          />
+          <button
+            type="button"
+            class="button save-btn"
+            onclick="saveKey()"
+            aria-label="Save new API key with label"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <label for="removeLabel">Remove API Key</label>
+        <div class="inline-actions">
+          <select id="removeLabel"></select>
+          <button
+            type="button"
+            class="button remove-btn"
+            onclick="removeKey()"
+            aria-label="Remove selected API key"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="section">
-    <label for="label">New Label and API Key</label>
-    <div class="inline-actions">
-      <input
-        type="text"
-        id="label"
-        placeholder="e.g. main, dev"
-        style="flex: 1"
-      />
-      <input
-        type="text"
-        id="key"
-        placeholder="Paste API key here"
-        style="flex: 2"
-      />
-      <button class="button save-btn" onclick="saveKey()">Save</button>
-    </div>
-  </div>
+    <script>
+      function refreshUI() {
+        google.script.run
+          .withSuccessHandler(({ keys, current }) => populateUI(keys, current))
+          .getApiKeyDataForUI();
+      }
 
-  <div class="section">
-    <label for="removeLabel">Remove API Key</label>
-    <div class="inline-actions">
-      <select id="removeLabel"></select>
-      <button class="button remove-btn" onclick="removeKey()">Remove</button>
-    </div>
-  </div>
-</div>
+      function populateUI(keys, currentKey) {
+        const currentDisplay = document.getElementById("currentKey");
+        const switchDropdown = document.getElementById("switchLabel");
+        const removeDropdown = document.getElementById("removeLabel");
 
-<script>
-  function refreshUI() {
-    google.script.run
-      .withSuccessHandler(({ keys, current }) => populateUI(keys, current))
-      .getApiKeyDataForUI();
-  }
+        switchDropdown.innerHTML = "";
+        removeDropdown.innerHTML = "";
 
-  function populateUI(keys, currentKey) {
-    const currentDisplay = document.getElementById("currentKey");
-    const switchDropdown = document.getElementById("switchLabel");
-    const removeDropdown = document.getElementById("removeLabel");
+        keys.forEach(({ label }) => {
+          const opt1 = new Option(label, label);
+          const opt2 = new Option(label, label);
+          switchDropdown.add(opt1);
+          removeDropdown.add(opt2);
+        });
 
-    switchDropdown.innerHTML = "";
-    removeDropdown.innerHTML = "";
+        const match = keys.find((k) => k.key === currentKey);
+        currentDisplay.textContent = match
+          ? `Label: ${match.label}, Key: ${match.key}`
+          : currentKey || "Not set";
+      }
 
-    keys.forEach(({ label }) => {
-      const opt1 = new Option(label, label);
-      const opt2 = new Option(label, label);
-      switchDropdown.add(opt1);
-      removeDropdown.add(opt2);
-    });
+      function saveKey() {
+        const label = document.getElementById("label").value.trim();
+        const key = document.getElementById("key").value.trim();
+        if (!label || !key) return alert("Both label and key are required.");
+        google.script.run
+          .withSuccessHandler(refreshUI)
+          .saveDevApiKey(label, key);
+      }
 
-    const match = keys.find((k) => k.key === currentKey);
-    currentDisplay.textContent = match
-      ? `Label: ${match.label}, Key: ${match.key}`
-      : currentKey || "Not set";
-  }
+      function switchKey() {
+        const label = document.getElementById("switchLabel").value;
+        if (!label) return;
+        google.script.run.withSuccessHandler(refreshUI).useApiKey(label);
+      }
 
-  function saveKey() {
-    const label = document.getElementById("label").value.trim();
-    const key = document.getElementById("key").value.trim();
-    if (!label || !key) return alert("Both label and key are required.");
-    google.script.run.withSuccessHandler(refreshUI).saveDevApiKey(label, key);
-  }
+      function removeKey() {
+        const label = document.getElementById("removeLabel").value;
+        if (!label) return;
+        google.script.run.withSuccessHandler(refreshUI).removeApiKey(label);
+      }
 
-  function switchKey() {
-    const label = document.getElementById("switchLabel").value;
-    if (!label) return;
-    google.script.run.withSuccessHandler(refreshUI).useApiKey(label);
-  }
-
-  function removeKey() {
-    const label = document.getElementById("removeLabel").value;
-    if (!label) return;
-    google.script.run.withSuccessHandler(refreshUI).removeApiKey(label);
-  }
-
-  document.addEventListener("DOMContentLoaded", refreshUI);
-</script>
+      document.addEventListener("DOMContentLoaded", refreshUI);
+    </script>
+  </body>
+</html>
