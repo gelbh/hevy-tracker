@@ -721,6 +721,43 @@ async function runAutomaticImport() {
 }
 
 /**
+ * Runs the initial import after API key is set
+ * This function is called by a time-based trigger to avoid blocking the dialog
+ * Deletes its own trigger after execution to prevent accumulation
+ * @returns {Promise<void>}
+ */
+async function runInitialImport() {
+  try {
+    // Delete this trigger after execution to prevent accumulation
+    const triggers = ScriptApp.getProjectTriggers();
+    const thisTrigger = triggers.find(
+      (t) =>
+        t.getHandlerFunction() === "runInitialImport" &&
+        t.getEventType() === ScriptApp.EventType.CLOCK
+    );
+    if (thisTrigger) {
+      ScriptApp.deleteTrigger(thisTrigger);
+    }
+
+    // Read API key from properties
+    const properties = getDocumentProperties();
+    const apiKey = properties?.getProperty("HEVY_API_KEY");
+
+    if (!apiKey) {
+      console.warn("No API key found for initial import");
+      return;
+    }
+
+    // Run the full import with skipResumeDialog flag
+    await apiClient.runFullImport(apiKey, true);
+  } catch (error) {
+    // Log error but don't throw - this runs in background
+    console.error("Initial import failed:", error);
+    ErrorHandler.handle(error, { operation: "Running initial import" }, false);
+  }
+}
+
+/**
  * Developer Check
  */
 

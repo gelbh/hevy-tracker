@@ -157,19 +157,16 @@ class ApiClient {
     properties.deleteProperty("LAST_WORKOUT_UPDATE");
     this._apiKeyCheckInProgress = false;
 
-    // Start import immediately (fire-and-forget) - don't wait for validation
+    // Schedule import via trigger to avoid blocking the dialog
     if (!currentKey) {
       this._showToast(
         "API key set successfully. Starting initial data import...",
         "Setup Progress",
         TOAST_DURATION.NORMAL
       );
-      // Pass API key directly to avoid property read timing issues
-      // Fire-and-forget: start import in background, don't wait for it
-      // Skip resume dialog to avoid blocking the save operation
-      this.runFullImport(apiKey, true).catch((error) => {
-        console.error("Background import failed:", error);
-      });
+      // Schedule import to run in separate execution context via trigger
+      // This prevents blocking the dialog and allows it to close immediately
+      this._scheduleInitialImport();
     } else {
       this._showToast(
         "API key updated successfully!",
@@ -447,6 +444,40 @@ class ApiClient {
         .forSpreadsheet(ss)
         .onOpen()
         .create();
+    }
+  }
+
+  /**
+   * Schedules the initial import to run via a time-based trigger
+   * This prevents blocking the dialog by running the import in a separate execution context
+   * @private
+   */
+  _scheduleInitialImport() {
+    try {
+      // Delete any existing "runInitialImport" triggers to prevent duplicates
+      const triggers = ScriptApp.getProjectTriggers();
+      triggers
+        .filter(
+          (t) =>
+            t.getHandlerFunction() === "runInitialImport" &&
+            t.getEventType() === ScriptApp.EventType.CLOCK
+        )
+        .forEach((t) => ScriptApp.deleteTrigger(t));
+
+      // Create a new time-based trigger that fires 2 seconds from now
+      const triggerTime = new Date(Date.now() + 2000);
+      ScriptApp.newTrigger("runInitialImport")
+        .timeBased()
+        .at(triggerTime)
+        .create();
+    } catch (error) {
+      // Log error but don't throw - import can still happen manually
+      console.error("Failed to schedule initial import:", error);
+      ErrorHandler.handle(
+        error,
+        { operation: "Scheduling initial import trigger" },
+        false
+      );
     }
   }
 
