@@ -20,6 +20,15 @@ function getPropertiesSafely(serviceGetter, serviceName) {
 }
 
 /**
+ * Gets the active spreadsheet instance
+ * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet} Active spreadsheet
+ * @private
+ */
+function getActiveSpreadsheet() {
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+/**
  * Gets user properties safely
  * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
@@ -61,7 +70,7 @@ function getDocumentProperties() {
  * @param {HtmlDialogOptions} [options={}] - Configuration options
  * @throws {Error} If dialog creation or display fails
  * @example
- * showHtmlDialog("src/ui/dialogs/SetApiKey", {
+ * showHtmlDialog("ui/dialogs/SetApiKey", {
  *   width: 450,
  *   height: 250,
  *   title: "API Key Setup"
@@ -141,14 +150,14 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
  */
 function syncCellValues(sheetName, cellA1Notation, value) {
   try {
-    SpreadsheetApp.getActiveSpreadsheet()
+    getActiveSpreadsheet()
       .getSheetByName(sheetName)
       .getRange(cellA1Notation)
       .setValue(value);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Syncing cell values",
-      sheetName: sheetName,
+      sheetName,
       cellNotation: cellA1Notation,
     });
   }
@@ -253,7 +262,7 @@ function importWeightFromTakeout(content) {
     }
     manager.formatSheet();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
+    getActiveSpreadsheet().toast(
       `Imported ${points.length} entries`,
       "Import Complete",
       TOAST_DURATION.NORMAL
@@ -278,14 +287,13 @@ function importWeightFromTakeout(content) {
  */
 function logWeight() {
   try {
-    const unit =
-      SpreadsheetApp.getActiveSpreadsheet()
-        .getSheetByName("Main")
-        .getRange("I5")
-        .getValue() || "kg";
-
+    const ss = getActiveSpreadsheet();
+    const unit = ss.getSheetByName("Main").getRange("I5").getValue() || "kg";
     const weight = promptForWeight(unit);
-    if (weight === null) return;
+
+    if (weight === null) {
+      return;
+    }
 
     const manager = SheetManager.getOrCreate(WEIGHT_SHEET_NAME);
     const sheet = manager.sheet;
@@ -293,7 +301,7 @@ function logWeight() {
     sheet.getRange(lastRow + 1, 1, 1, 2).setValues([[new Date(), weight]]);
     manager.formatSheet();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
+    ss.toast(
       `Weight of ${weight}${unit} logged successfully!`,
       "Success",
       TOAST_DURATION.NORMAL
@@ -616,7 +624,7 @@ function useApiKey(label) {
   documentProperties.setProperty("HEVY_API_KEY", storedKey);
   documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
 
-  SpreadsheetApp.getActiveSpreadsheet().toast(
+  getActiveSpreadsheet().toast(
     `Switched to API key: ${label}`,
     "Developer Mode",
     TOAST_DURATION.NORMAL
@@ -633,7 +641,7 @@ function removeApiKey(label) {
   PropertiesService.getScriptProperties().deleteProperty(
     getDevApiKeyPropertyKey(label)
   );
-  SpreadsheetApp.getActiveSpreadsheet().toast(
+  getActiveSpreadsheet().toast(
     `API Key "${label}" removed.`,
     "Developer Action",
     TOAST_DURATION.NORMAL
@@ -668,15 +676,12 @@ function getApiKeyDataForUI() {
  */
 async function runAutomaticImport() {
   const startTime = Date.now();
-
-  // Check for API key first - prompt if not set
+  const ss = getActiveSpreadsheet();
   const properties = getDocumentProperties();
   const apiKey = properties?.getProperty("HEVY_API_KEY");
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
+  const isTemplate = ss.getId() === TEMPLATE_SPREADSHEET_ID;
 
   if (!apiKey) {
-    // No API key set - prompt user to set it up (only for non-template spreadsheets)
     if (!isTemplate) {
       showInitialSetup();
     }
@@ -696,26 +701,21 @@ async function runAutomaticImport() {
       }
     }
 
-    // Track execution time
     const executionTime = Date.now() - startTime;
     QuotaTracker.recordExecutionTime(executionTime);
 
-    // Check quota warnings
     const quotaWarning = QuotaTracker.checkQuotaWarnings();
     if (quotaWarning) {
       console.warn("Quota warning:", quotaWarning);
     }
 
-    spreadsheet.toast(
+    ss.toast(
       "Importing all data completed successfully",
       "Automatic Import",
       TOAST_DURATION.NORMAL
     );
   } catch (error) {
-    // Track execution time even on error
-    const executionTime = Date.now() - startTime;
-    QuotaTracker.recordExecutionTime(executionTime);
-
+    QuotaTracker.recordExecutionTime(Date.now() - startTime);
     ErrorHandler.handle(error, { operation: "Running import on open" }, false);
   }
 }

@@ -136,7 +136,7 @@ class ApiClient {
    * @private
    */
   _showApiKeyDialog() {
-    showHtmlDialog("src/ui/dialogs/SetApiKey", {
+    showHtmlDialog("ui/dialogs/SetApiKey", {
       width: DIALOG_DIMENSIONS.API_KEY_WIDTH,
       height: DIALOG_DIMENSIONS.API_KEY_HEIGHT,
       title: "Hevy API Key Setup",
@@ -159,7 +159,7 @@ class ApiClient {
 
     // Start import immediately (fire-and-forget) - don't wait for validation
     if (!currentKey) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      this._showToast(
         "API key set successfully. Starting initial data import...",
         "Setup Progress",
         TOAST_DURATION.NORMAL
@@ -167,11 +167,10 @@ class ApiClient {
       // Pass API key directly to avoid property read timing issues
       // Fire-and-forget: start import in background, don't wait for it
       this.runFullImport(apiKey).catch((error) => {
-        // Errors are already logged by ErrorHandler
         console.error("Background import failed:", error);
       });
     } else {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      this._showToast(
         "API key updated successfully!",
         "Success",
         TOAST_DURATION.NORMAL
@@ -199,11 +198,7 @@ class ApiClient {
             ? "Invalid API key. Please check your Hevy Developer Settings and reset your API key."
             : "API key validation failed. Please check your connection and try again.";
 
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          errorMessage,
-          "API Key Error",
-          TOAST_DURATION.LONG
-        );
+        this._showToast(errorMessage, "API Key Error", TOAST_DURATION.LONG);
 
         // Log for debugging
         ErrorHandler.handle(
@@ -234,6 +229,49 @@ class ApiClient {
     );
 
     this.promptForApiKey("Would you like to set a new API key?");
+  }
+
+  /**
+   * Shows a toast notification
+   * @param {string} message - Toast message
+   * @param {string} title - Toast title
+   * @param {number} duration - Toast duration
+   * @private
+   */
+  _showToast(message, title, duration = TOAST_DURATION.NORMAL) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(message, title, duration);
+  }
+
+  /**
+   * Executes an import step with progress tracking
+   * @param {string} stepName - Name of the import step
+   * @param {Function} importFn - Async function to execute
+   * @param {Array<string>} completedSteps - Array of completed steps
+   * @param {Function} checkTimeout - Function to check for timeout
+   * @private
+   */
+  async _executeImportStep(stepName, importFn, completedSteps, checkTimeout) {
+    if (ImportProgressTracker.isStepComplete(stepName)) {
+      return;
+    }
+
+    if (checkTimeout()) {
+      return;
+    }
+
+    this._showToast(
+      `Starting import: ${stepName}...`,
+      "Import Progress",
+      TOAST_DURATION.SHORT
+    );
+    await importFn();
+    completedSteps.push(stepName);
+    ImportProgressTracker.saveProgress(completedSteps);
+    this._showToast(
+      `Completed: ${stepName} ✓`,
+      "Import Progress",
+      TOAST_DURATION.SHORT
+    );
   }
 
   /**
@@ -378,20 +416,11 @@ class ApiClient {
 
       return true;
     } catch (error) {
-      // Handle timeout and network errors
-      if (
-        error.message &&
-        (error.message.includes("timeout") ||
-          error.message.includes("Timeout") ||
-          error.message.includes("DNS error") ||
-          error.message.includes("network"))
-      ) {
+      if (this._isNetworkError(error)) {
         throw new Error(
           "Request timed out. Please check your internet connection and try again."
         );
       }
-
-      // Re-throw other errors
       throw error;
     }
   }
@@ -444,7 +473,7 @@ class ApiClient {
       this._ensureImportTrigger(ss);
 
       if (checkForMultiLoginIssues()) {
-        SpreadsheetApp.getActiveSpreadsheet().toast(
+        this._showToast(
           "Multi-login warning shown. Continuing with import...",
           "Setup Progress",
           TOAST_DURATION.NORMAL
@@ -454,7 +483,7 @@ class ApiClient {
       // Use provided API key or get from properties
       const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
       if (!apiKey) {
-        SpreadsheetApp.getActiveSpreadsheet().toast(
+        this._showToast(
           "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
           "API Key Required",
           TOAST_DURATION.NORMAL
@@ -479,16 +508,15 @@ class ApiClient {
         if (response === ui.Button.YES) {
           // Resume: use existing completed steps
           completedSteps = existingProgress.completedSteps;
-          SpreadsheetApp.getActiveSpreadsheet().toast(
+          this._showToast(
             `Resuming import. Skipping ${completedSteps.length} completed step(s)...`,
             "Resuming Import",
             TOAST_DURATION.NORMAL
           );
         } else if (response === ui.Button.NO) {
-          // Start fresh: clear progress
           ImportProgressTracker.clearProgress();
           completedSteps = [];
-          SpreadsheetApp.getActiveSpreadsheet().toast(
+          this._showToast(
             "Starting fresh import...",
             "Import Started",
             TOAST_DURATION.NORMAL
@@ -506,103 +534,57 @@ class ApiClient {
         const elapsed = Date.now() - startTime;
         if (elapsed > MAX_IMPORT_EXECUTION_TIME_MS) {
           ImportProgressTracker.saveProgress(completedSteps);
-          SpreadsheetApp.getActiveSpreadsheet().toast(
+          this._showToast(
             "Import paused due to time limit. Run 'Import All' again to resume.",
             "Import Paused",
             TOAST_DURATION.LONG
           );
-          return true; // Indicates timeout
+          return true;
         }
-        return false; // No timeout
+        return false;
       };
 
       // Import Exercises
-      if (!ImportProgressTracker.isStepComplete("exercises")) {
-        if (checkTimeout()) return;
-
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          "Starting import: Exercises...",
-          "Import Progress",
-          TOAST_DURATION.SHORT
-        );
-
-        await importAllExercises();
-        completedSteps.push("exercises");
-        ImportProgressTracker.saveProgress(completedSteps);
-
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          "Completed: Exercises ✓",
-          "Import Progress",
-          TOAST_DURATION.SHORT
-        );
-      }
+      await this._executeImportStep(
+        "exercises",
+        importAllExercises,
+        completedSteps,
+        checkTimeout
+      );
 
       if (!isTemplate) {
         // Import Routine Folders
-        if (!ImportProgressTracker.isStepComplete("routineFolders")) {
-          if (checkTimeout()) return;
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Starting import: Routine Folders...",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-
-          await importAllRoutineFolders();
-          completedSteps.push("routineFolders");
-          ImportProgressTracker.saveProgress(completedSteps);
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Completed: Routine Folders ✓",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-        }
+        await this._executeImportStep(
+          "routineFolders",
+          async () => {
+            await importAllRoutineFolders();
+            Utilities.sleep(RATE_LIMIT.API_DELAY);
+          },
+          completedSteps,
+          checkTimeout
+        );
 
         // Import Routines
-        if (!ImportProgressTracker.isStepComplete("routines")) {
-          if (checkTimeout()) return;
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Starting import: Routines...",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-
-          await importAllRoutines();
-          completedSteps.push("routines");
-          ImportProgressTracker.saveProgress(completedSteps);
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Completed: Routines ✓",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-        }
+        await this._executeImportStep(
+          "routines",
+          async () => {
+            await importAllRoutines();
+            Utilities.sleep(RATE_LIMIT.API_DELAY);
+          },
+          completedSteps,
+          checkTimeout
+        );
 
         // Import Workouts
-        if (!ImportProgressTracker.isStepComplete("workouts")) {
-          if (checkTimeout()) return;
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Starting import: Workouts...",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-
-          await importAllWorkouts();
-          completedSteps.push("workouts");
-          ImportProgressTracker.saveProgress(completedSteps);
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
-
-          SpreadsheetApp.getActiveSpreadsheet().toast(
-            "Completed: Workouts ✓",
-            "Import Progress",
-            TOAST_DURATION.SHORT
-          );
-        }
+        await this._executeImportStep(
+          "workouts",
+          async () => {
+            await importAllWorkouts();
+            Utilities.sleep(RATE_LIMIT.API_DELAY);
+          },
+          completedSteps,
+          checkTimeout
+        );
       }
 
       // All steps completed - clear progress and show success
@@ -618,7 +600,7 @@ class ApiClient {
         console.warn("Quota warning:", quotaWarning);
       }
 
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      this._showToast(
         "Import complete! All data synced successfully.",
         "Setup Complete",
         TOAST_DURATION.NORMAL
@@ -641,12 +623,12 @@ class ApiClient {
         (error.message.includes("Exceeded maximum execution time") ||
           error.message.includes("timeout"))
       ) {
-        SpreadsheetApp.getActiveSpreadsheet().toast(
+        this._showToast(
           "Import paused due to time limit. Run 'Import All' again to resume.",
           "Import Paused",
           TOAST_DURATION.LONG
         );
-        return; // Don't throw, just stop gracefully
+        return;
       }
 
       if (
@@ -734,6 +716,24 @@ class ApiClient {
       error instanceof ApiError &&
       error.isRetryable() &&
       attempt < this.retryConfig.maxRetries - 1
+    );
+  }
+
+  /**
+   * Checks if error message indicates network/timeout issues
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if network/timeout error
+   * @private
+   */
+  _isNetworkError(error) {
+    if (!error.message) {
+      return false;
+    }
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("timeout") ||
+      message.includes("dns error") ||
+      message.includes("network")
     );
   }
 
