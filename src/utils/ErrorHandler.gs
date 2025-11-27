@@ -1,55 +1,56 @@
 /**
- * User-friendly error messages mapped by error type
- * @type {Object<string>}
+ * Error handling configuration constants
  * @private
  */
-const ERROR_MESSAGES = {
-  DRIVE_PERMISSION:
-    "Unable to access file. Please ensure you have permission and try again.",
-  INVALID_API_KEY:
-    "Invalid API key. Please check your Hevy Developer Settings and reset your API key.",
-  API_KEY_VALIDATION: "API key validation failed. Please reset your API key.",
-  DEFAULT: (errorId) => `An error occurred. Reference ID: ${errorId}`,
-};
+const ERROR_CONFIG = {
+  /**
+   * User-friendly error messages mapped by error type
+   * @type {Object<string|Function>}
+   */
+  MESSAGES: {
+    DRIVE_PERMISSION:
+      "Unable to access file. Please ensure you have permission and try again.",
+    INVALID_API_KEY:
+      "Invalid API key. Please check your Hevy Developer Settings and reset your API key.",
+    API_KEY_VALIDATION: "API key validation failed. Please reset your API key.",
+    DEFAULT: (errorId) => `An error occurred. Reference ID: ${errorId}`,
+  },
 
-/**
- * Error codes for structured error handling
- * @type {Object<string>}
- * @private
- */
-const ERROR_CODES = {
-  DRIVE_PERMISSION: "E_DRIVE_PERMISSION",
-  INVALID_API_KEY: "E_INVALID_API_KEY",
-  API_ERROR: "E_API_ERROR",
-  VALIDATION_ERROR: "E_VALIDATION",
-  CONFIGURATION_ERROR: "E_CONFIGURATION",
-  SHEET_ERROR: "E_SHEET_ERROR",
-  NETWORK_ERROR: "E_NETWORK",
-  TIMEOUT_ERROR: "E_TIMEOUT",
-  RATE_LIMIT_ERROR: "E_RATE_LIMIT",
-  UNKNOWN_ERROR: "E_UNKNOWN",
-};
+  /**
+   * Error codes for structured error handling
+   * @type {Object<string>}
+   */
+  CODES: {
+    DRIVE_PERMISSION: "E_DRIVE_PERMISSION",
+    INVALID_API_KEY: "E_INVALID_API_KEY",
+    API_ERROR: "E_API_ERROR",
+    VALIDATION_ERROR: "E_VALIDATION",
+    CONFIGURATION_ERROR: "E_CONFIGURATION",
+    SHEET_ERROR: "E_SHEET_ERROR",
+    NETWORK_ERROR: "E_NETWORK",
+    TIMEOUT_ERROR: "E_TIMEOUT",
+    RATE_LIMIT_ERROR: "E_RATE_LIMIT",
+    UNKNOWN_ERROR: "E_UNKNOWN",
+  },
 
-/**
- * Recovery suggestions for different error types
- * @type {Object<string>}
- * @private
- */
-const RECOVERY_SUGGESTIONS = {
-  [ERROR_CODES.DRIVE_PERMISSION]:
-    "Check file permissions and ensure you have edit access.",
-  [ERROR_CODES.INVALID_API_KEY]:
-    "Go to Extensions > Hevy Tracker > Set API Key to update your API key.",
-  [ERROR_CODES.API_ERROR]:
-    "The API request failed. Please try again in a few moments.",
-  [ERROR_CODES.RATE_LIMIT_ERROR]:
-    "API rate limit reached. Please wait a few minutes before trying again.",
-  [ERROR_CODES.NETWORK_ERROR]: "Check your internet connection and try again.",
-  [ERROR_CODES.TIMEOUT_ERROR]:
-    "The request timed out. Please try again with a smaller dataset.",
-  [ERROR_CODES.VALIDATION_ERROR]: "Please check your input and try again.",
-  [ERROR_CODES.CONFIGURATION_ERROR]:
-    "Please check your configuration settings.",
+  /**
+   * Recovery suggestions mapped by error code
+   * @type {Object<string>}
+   */
+  RECOVERY_SUGGESTIONS: {
+    E_DRIVE_PERMISSION:
+      "Check file permissions and ensure you have edit access.",
+    E_INVALID_API_KEY:
+      "Go to Extensions > Hevy Tracker > Set API Key to update your API key.",
+    E_API_ERROR: "The API request failed. Please try again in a few moments.",
+    E_RATE_LIMIT_ERROR:
+      "API rate limit reached. Please wait a few minutes before trying again.",
+    E_NETWORK_ERROR: "Check your internet connection and try again.",
+    E_TIMEOUT_ERROR:
+      "The request timed out. Please try again with a smaller dataset.",
+    E_VALIDATION_ERROR: "Please check your input and try again.",
+    E_CONFIGURATION_ERROR: "Please check your configuration settings.",
+  },
 };
 
 class ErrorHandler {
@@ -65,37 +66,64 @@ class ErrorHandler {
     const contextObj =
       typeof context === "string" ? { description: context } : context;
     const enhancedError = this.enhanceError(error, contextObj);
-    enhancedError.errorId = errorId;
-    enhancedError.errorCode = this.getErrorCode(enhancedError);
-    enhancedError.recoverySuggestion = this.getRecoverySuggestion(
-      enhancedError.errorCode
-    );
-    enhancedError.timestamp = new Date().toISOString();
 
+    // Add error metadata
+    Object.assign(enhancedError, {
+      errorId,
+      errorCode: this.getErrorCode(enhancedError),
+      timestamp: new Date().toISOString(),
+      recoverySuggestion: this.getRecoverySuggestion(
+        this.getErrorCode(enhancedError)
+      ),
+    });
+
+    // Log error with structured data
+    this._logError(errorId, enhancedError, contextObj, error);
+
+    // Show user notification if requested
+    if (showToast) {
+      this._showErrorToast(enhancedError);
+    }
+
+    return enhancedError;
+  }
+
+  /**
+   * Logs error with structured information
+   * @param {string} errorId - Unique error identifier
+   * @param {Error} enhancedError - Enhanced error object
+   * @param {Object} contextObj - Error context
+   * @param {Error} originalError - Original error for stack trace
+   * @private
+   */
+  static _logError(errorId, enhancedError, contextObj, originalError) {
     console.error(`Error [${errorId}]:`, {
       errorCode: enhancedError.errorCode,
       message: enhancedError.message,
       context: contextObj,
       recoverySuggestion: enhancedError.recoverySuggestion,
-      stack: error.stack,
+      stack: originalError.stack,
       user: Session.getActiveUser().getEmail(),
       timestamp: enhancedError.timestamp,
     });
+  }
 
-    if (showToast) {
-      try {
-        const userMessage = this.getUserMessage(enhancedError);
-        SpreadsheetApp.getActiveSpreadsheet().toast(
-          userMessage,
-          "Error",
-          TOAST_DURATION.NORMAL
-        );
-      } catch (uiError) {
-        console.warn("ErrorHandler: Unable to show toast:", uiError);
-      }
+  /**
+   * Shows error toast notification to user
+   * @param {Error} error - Enhanced error object
+   * @private
+   */
+  static _showErrorToast(error) {
+    try {
+      const userMessage = this.getUserMessage(error);
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        userMessage,
+        "Error",
+        TOAST_DURATION.NORMAL
+      );
+    } catch (uiError) {
+      console.warn("ErrorHandler: Unable to show toast:", uiError);
     }
-
-    return enhancedError;
   }
 
   /**
@@ -105,42 +133,59 @@ class ErrorHandler {
    * @private
    */
   static getErrorCode(error) {
+    // Check custom error types first
     if (error instanceof DrivePermissionError) {
-      return ERROR_CODES.DRIVE_PERMISSION;
+      return ERROR_CONFIG.CODES.DRIVE_PERMISSION;
     }
     if (error instanceof InvalidApiKeyError) {
-      return ERROR_CODES.INVALID_API_KEY;
+      return ERROR_CONFIG.CODES.INVALID_API_KEY;
     }
+    if (error instanceof ValidationError) {
+      return ERROR_CONFIG.CODES.VALIDATION_ERROR;
+    }
+    if (error instanceof ConfigurationError) {
+      return ERROR_CONFIG.CODES.CONFIGURATION_ERROR;
+    }
+    if (error instanceof SheetError) {
+      return ERROR_CONFIG.CODES.SHEET_ERROR;
+    }
+
+    // Handle ApiError with status-specific codes
     if (error instanceof ApiError) {
       if (error.statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
-        return ERROR_CODES.RATE_LIMIT_ERROR;
+        return ERROR_CONFIG.CODES.RATE_LIMIT_ERROR;
       }
       if (
         error.statusCode === HTTP_STATUS.REQUEST_TIMEOUT ||
         error.statusCode === HTTP_STATUS.GATEWAY_TIMEOUT
       ) {
-        return ERROR_CODES.TIMEOUT_ERROR;
+        return ERROR_CONFIG.CODES.TIMEOUT_ERROR;
       }
-      return ERROR_CODES.API_ERROR;
+      return ERROR_CONFIG.CODES.API_ERROR;
     }
-    if (error instanceof ValidationError) {
-      return ERROR_CODES.VALIDATION_ERROR;
+
+    // Check error message for network-related keywords
+    if (this._isNetworkError(error)) {
+      return ERROR_CONFIG.CODES.NETWORK_ERROR;
     }
-    if (error instanceof ConfigurationError) {
-      return ERROR_CODES.CONFIGURATION_ERROR;
-    }
-    if (error instanceof SheetError) {
-      return ERROR_CODES.SHEET_ERROR;
-    }
-    if (
-      error.message &&
-      (error.message.includes("network") ||
-        error.message.includes("DNS") ||
-        error.message.includes("connection"))
-    ) {
-      return ERROR_CODES.NETWORK_ERROR;
-    }
-    return ERROR_CODES.UNKNOWN_ERROR;
+
+    return ERROR_CONFIG.CODES.UNKNOWN_ERROR;
+  }
+
+  /**
+   * Checks if error message indicates network-related issues
+   * @param {Error} error - The error to check
+   * @returns {boolean} True if network error
+   * @private
+   */
+  static _isNetworkError(error) {
+    if (!error.message) return false;
+    const message = error.message.toLowerCase();
+    return (
+      message.includes("network") ||
+      message.includes("dns") ||
+      message.includes("connection")
+    );
   }
 
   /**
@@ -151,7 +196,7 @@ class ErrorHandler {
    */
   static getRecoverySuggestion(errorCode) {
     return (
-      RECOVERY_SUGGESTIONS[errorCode] ||
+      ERROR_CONFIG.RECOVERY_SUGGESTIONS[errorCode] ||
       "Please try again or contact support if the issue persists."
     );
   }
@@ -164,11 +209,13 @@ class ErrorHandler {
    * @private
    */
   static enhanceError(error, context) {
+    // Preserve existing custom error types with updated context
     if (this.isCustomErrorType(error)) {
       error.context = { ...error.context, ...context };
       return error;
     }
 
+    // Enhance based on error characteristics
     if (this.isPermissionError(error)) {
       return new DrivePermissionError(
         "Unable to access file. This may be due to permission restrictions.",
@@ -186,19 +233,21 @@ class ErrorHandler {
       return new ApiError(
         error.message || "API request failed",
         error.statusCode || 0,
-        error.response
+        error.response,
+        context
       );
     }
 
     if (context.sheetName) {
       return new SheetError(
         error.message || "Sheet operation failed",
-        context.sheetName
+        context.sheetName,
+        context
       );
     }
 
     if (error instanceof TypeError || context.validation) {
-      return new ValidationError(error.message || "Validation failed");
+      return new ValidationError(error.message || "Validation failed", context);
     }
 
     return error;
@@ -212,21 +261,21 @@ class ErrorHandler {
    */
   static getUserMessage(error) {
     if (error instanceof DrivePermissionError) {
-      return ERROR_MESSAGES.DRIVE_PERMISSION;
+      return ERROR_CONFIG.MESSAGES.DRIVE_PERMISSION;
     }
 
     if (error instanceof InvalidApiKeyError) {
-      return ERROR_MESSAGES.INVALID_API_KEY;
+      return ERROR_CONFIG.MESSAGES.INVALID_API_KEY;
     }
 
     if (
       error instanceof ApiError &&
       error.statusCode === HTTP_STATUS.UNAUTHORIZED
     ) {
-      return ERROR_MESSAGES.API_KEY_VALIDATION;
+      return ERROR_CONFIG.MESSAGES.API_KEY_VALIDATION;
     }
 
-    return ERROR_MESSAGES.DEFAULT(error.errorId);
+    return ERROR_CONFIG.MESSAGES.DEFAULT(error.errorId);
   }
 
   /**
@@ -252,10 +301,12 @@ class ErrorHandler {
    * @private
    */
   static isPermissionError(error) {
-    const message = error.message || "";
+    if (!error.message) return false;
+    const message = error.message.toLowerCase();
     return (
-      message.includes("Access denied") ||
-      message.includes("Insufficient permissions")
+      message.includes("access denied") ||
+      message.includes("insufficient permissions") ||
+      message.includes("permission")
     );
   }
 }

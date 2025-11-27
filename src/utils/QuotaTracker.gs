@@ -48,18 +48,17 @@ class QuotaTracker {
       const today = new Date().toDateString();
       const lastDate = props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_DATE);
 
-      let currentCount = 0;
-      if (lastDate === today) {
-        currentCount = parseInt(
-          props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) || "0"
-        );
-      }
+      const currentCount =
+        lastDate === today
+          ? parseInt(
+              props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) || "0"
+            )
+          : 0;
 
       const newCount = currentCount + count;
       props.setProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT, String(newCount));
       props.setProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_DATE, today);
 
-      // Check if approaching limit
       if (
         newCount / QUOTA_LIMITS.URL_FETCH_DAILY >=
         QUOTA_LIMITS.WARNING_THRESHOLD
@@ -83,18 +82,17 @@ class QuotaTracker {
         QUOTA_PROPERTY_KEYS.EXECUTION_TIME_DATE
       );
 
-      let currentTime = 0;
-      if (lastDate === today) {
-        currentTime = parseInt(
-          props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) || "0"
-        );
-      }
+      const currentTime =
+        lastDate === today
+          ? parseInt(
+              props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) || "0"
+            )
+          : 0;
 
       const newTime = currentTime + executionTimeMs;
       props.setProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS, String(newTime));
       props.setProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_DATE, today);
 
-      // Check if approaching limit
       if (
         newTime / QUOTA_LIMITS.EXECUTION_TIME_DAILY_MS >=
         QUOTA_LIMITS.WARNING_THRESHOLD
@@ -133,9 +131,9 @@ class QuotaTracker {
         : 0;
 
     return {
-      urlFetchCount: urlFetchCount,
+      urlFetchCount,
       urlFetchLimit: QUOTA_LIMITS.URL_FETCH_DAILY,
-      executionTimeMs: executionTimeMs,
+      executionTimeMs,
       executionTimeLimitMs: QUOTA_LIMITS.EXECUTION_TIME_DAILY_MS,
       lastUpdated: new Date(),
     };

@@ -1,16 +1,17 @@
 /**
  * Utility for translating exercise names from various languages to English.
  * Used as a fallback when exercise_template_id is not available for matching.
+ * @module ExerciseTranslator
  */
 
 /**
  * Normalizes an exercise name for lookup (lowercase, trimmed)
  * @param {string} name - Exercise name to normalize
- * @returns {string} Normalized name
+ * @returns {string} Normalized name (empty string if invalid)
  * @private
  */
 function normalizeExerciseName(name) {
-  return name?.toLowerCase().trim() || "";
+  return name?.toLowerCase().trim() ?? "";
 }
 
 /**
@@ -61,12 +62,12 @@ const EXERCISE_TRANSLATIONS = new Map([
  * @returns {string} The English name if translation exists, otherwise the original name
  */
 function getEnglishName(localizedName) {
-  if (!localizedName || typeof localizedName !== "string") {
-    return localizedName;
+  if (typeof localizedName !== "string" || !localizedName) {
+    return localizedName ?? "";
   }
 
   const normalized = normalizeExerciseName(localizedName);
-  return EXERCISE_TRANSLATIONS.get(normalized) || localizedName;
+  return EXERCISE_TRANSLATIONS.get(normalized) ?? localizedName;
 }
 
 /**
@@ -75,7 +76,7 @@ function getEnglishName(localizedName) {
  * @returns {boolean} True if a translation exists
  */
 function hasTranslation(localizedName) {
-  if (!localizedName || typeof localizedName !== "string") {
+  if (typeof localizedName !== "string" || !localizedName) {
     return false;
   }
 

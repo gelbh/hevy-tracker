@@ -4,6 +4,10 @@
  */
 
 /**
+ * Properties Service Utilities
+ */
+
+/**
  * Gets properties service safely with error handling
  * @param {Function} serviceGetter - Function to get the properties service
  * @param {string} serviceName - Name of the service for error logging
@@ -210,13 +214,7 @@ function isValidCellValue(range, value) {
  * @private
  */
 function extractWeightFromPoint(point) {
-  if (point.value?.[0]?.fpVal != null) {
-    return point.value[0].fpVal;
-  }
-  if (point.fitValue?.[0]?.value?.fpVal != null) {
-    return point.fitValue[0].value.fpVal;
-  }
-  return null;
+  return point.value?.[0]?.fpVal ?? point.fitValue?.[0]?.value?.fpVal ?? null;
 }
 
 /**
@@ -390,33 +388,31 @@ function formatDate(dateString) {
 
 /**
  * Normalizes weight values for consistency
- * @param {number|null} weight - Weight value to normalize
+ * @param {number|null|undefined} weight - Weight value to normalize
  * @returns {number|string} Normalized weight value rounded to configured precision or empty string
  */
 function normalizeWeight(weight) {
-  if (weight === null || weight === undefined) return "";
+  if (weight == null) return "";
   const multiplier = Math.pow(10, WEIGHT_CONFIG.PRECISION_DECIMALS);
   return Math.round(weight * multiplier) / multiplier;
 }
 
 /**
  * Normalizes numeric values for consistency
- * @param {number|null} value - Number to normalize
+ * @param {number|null|undefined} value - Number to normalize
  * @returns {number|string} Normalized value or empty string if null/undefined
  */
 function normalizeNumber(value) {
-  if (value === null || value === undefined) return "";
-  return value;
+  return value == null ? "" : value;
 }
 
 /**
  * Normalizes set types for consistency
- * @param {number|null} value - Set type to normalize
- * @returns {number|string} Normalized value or empty string if null/undefined
+ * @param {string|null|undefined} value - Set type to normalize
+ * @returns {string} Normalized value or "normal" if null/undefined
  */
 function normalizeSetType(value) {
-  if (value === null || value === undefined) return "normal";
-  return value;
+  return value ?? "normal";
 }
 
 /**
@@ -495,39 +491,48 @@ function getDevApiKeyPropertyKey(label) {
 }
 
 /**
+ * Custom error type names that need serialization for HTML service
+ * @type {Set<string>}
+ * @private
+ */
+const CUSTOM_ERROR_TYPES = new Set([
+  "InvalidApiKeyError",
+  "ApiError",
+  "ValidationError",
+  "ConfigurationError",
+  "SheetError",
+  "DrivePermissionError",
+]);
+
+/**
  * Serializes error for HTML service compatibility
- * Custom error objects need to be converted to plain Error objects
+ * HTML service can only serialize plain Error objects with message strings
  * @param {Error} error - The error to serialize
  * @returns {Error} Serialized error with message string
  * @private
  */
 function serializeErrorForHtml(error) {
-  // HTML service can only serialize plain Error objects with message strings
-  // Custom error types need to be converted
-  // Use error.name for more reliable cross-file checking
-  if (error && error.name && typeof error.message === "string") {
-    const errorName = error.name;
-    if (
-      errorName === "InvalidApiKeyError" ||
-      errorName === "ApiError" ||
-      errorName === "ValidationError" ||
-      errorName === "ConfigurationError" ||
-      errorName === "SheetError" ||
-      errorName === "DrivePermissionError"
-    ) {
-      // Create a plain Error with the message for HTML service
-      const plainError = new Error(error.message);
-      plainError.name = errorName;
-      return plainError;
-    }
+  if (!error) {
+    return new Error("Unknown error");
   }
 
-  // If it's already a plain Error, return as-is
+  // Handle custom error types
+  if (
+    error.name &&
+    typeof error.message === "string" &&
+    CUSTOM_ERROR_TYPES.has(error.name)
+  ) {
+    const plainError = new Error(error.message);
+    plainError.name = error.name;
+    return plainError;
+  }
+
+  // Return as-is if already a plain Error
   if (error instanceof Error) {
     return error;
   }
 
-  // For any other type, convert to Error
+  // Convert any other type to Error
   return new Error(String(error));
 }
 
@@ -566,14 +571,14 @@ async function executeWithErrorAggregation(asyncFns, context) {
   return results.map((result, index) => {
     if (result.status === "fulfilled") {
       return { success: true, result: result.value };
-    } else {
-      const errorContext =
-        typeof context === "string"
-          ? { ...context, operationIndex: index }
-          : { ...context, operationIndex: index };
-      ErrorHandler.handle(result.reason, errorContext, false);
-      return { success: false, error: result.reason };
     }
+
+    const errorContext =
+      typeof context === "string"
+        ? { description: context, operationIndex: index }
+        : { ...context, operationIndex: index };
+    ErrorHandler.handle(result.reason, errorContext, false);
+    return { success: false, error: result.reason };
   });
 }
 
@@ -728,7 +733,7 @@ async function runAutomaticImport() {
  */
 async function runInitialImport() {
   try {
-    // Delete this trigger after execution to prevent accumulation
+    // Delete trigger after execution to prevent accumulation
     const triggers = ScriptApp.getProjectTriggers();
     const thisTrigger = triggers.find(
       (t) =>
@@ -739,14 +744,13 @@ async function runInitialImport() {
       ScriptApp.deleteTrigger(thisTrigger);
     }
 
-    // Quick check if import is already active (optional early exit)
-    // runFullImport will do its own checks, so this is just for optimization
+    // Early exit if import already active
     if (ImportProgressTracker.isImportActive()) {
       console.log("Import already active, skipping initial import trigger");
       return;
     }
 
-    // Read API key from properties
+    // Get API key from properties
     const properties = getDocumentProperties();
     const apiKey = properties?.getProperty("HEVY_API_KEY");
 
@@ -755,11 +759,9 @@ async function runInitialImport() {
       return;
     }
 
-    // Run the full import with skipResumeDialog flag
-    // runFullImport handles all locking, active import tracking, and concurrent execution prevention
+    // Run full import with skipResumeDialog flag
     await apiClient.runFullImport(apiKey, true);
   } catch (error) {
-    // Log error but don't throw - this runs in background
     console.error("Initial import failed:", error);
     ErrorHandler.handle(error, { operation: "Running initial import" }, false);
   }

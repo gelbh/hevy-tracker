@@ -20,6 +20,7 @@ const IMPORT_STEPS = ["exercises", "routineFolders", "routines", "workouts"];
 
 /**
  * Import progress tracking utility
+ * Tracks and manages import state across execution sessions
  */
 class ImportProgressTracker {
   /**
@@ -200,7 +201,6 @@ class ImportProgressTracker {
    * Should be called periodically during long-running imports
    */
   static updateImportActiveHeartbeat() {
-    // Simply update the timestamp by marking as active again
     this.markImportActive();
   }
 
