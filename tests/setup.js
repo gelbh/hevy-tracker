@@ -1,4 +1,7 @@
-// Global test setup and Google Apps Script API mocks
+/**
+ * Global test setup and Google Apps Script API mocks
+ * Provides mocks for all Google Apps Script services used in tests
+ */
 
 // Mock SpreadsheetApp
 global.SpreadsheetApp = {
@@ -48,6 +51,9 @@ global.Utilities = {
   jsonParse: jest.fn(JSON.parse),
   base64Encode: jest.fn(),
   base64Decode: jest.fn(),
+  getUuid: jest.fn(
+    () => "test-uuid-" + Math.random().toString(36).substr(2, 9)
+  ),
 };
 
 // Mock Session

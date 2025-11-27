@@ -172,10 +172,13 @@ class ErrorHandler {
   }
 
   static isPermissionError(error) {
-    const message = error.message || "";
+    if (!error.message) {
+      return false;
+    }
+    const message = error.message.toLowerCase();
     return (
-      message.includes("Access denied") ||
-      message.includes("Insufficient permissions")
+      message.includes("access denied") ||
+      message.includes("insufficient permissions")
     );
   }
 }

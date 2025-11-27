@@ -1,5 +1,6 @@
 /**
  * Test helper utilities for generating mock data and common test operations
+ * @module TestHelpers
  */
 
 /**
@@ -299,9 +300,9 @@ function createMockConstants() {
  */
 function assertSheetData(actual, expected, message = "Sheet data mismatch") {
   expect(actual.length).toBe(expected.length);
-  actual.forEach((row, i) => {
-    expect(row).toEqual(expected[i]);
-  });
+  for (let i = 0; i < actual.length; i++) {
+    expect(actual[i]).toEqual(expected[i]);
+  }
 }
 
 module.exports = {
