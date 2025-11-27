@@ -37,7 +37,7 @@ function addDeveloperMenuItems(menu, isTemplate) {
  * @private
  */
 function createImportSubmenu(ui) {
-  return ui
+  const submenu = ui
     .createMenu("📥 Import Data")
     .addItem("📥 Import All", "apiClient.runFullImport")
     .addSeparator()
@@ -45,6 +45,19 @@ function createImportSubmenu(ui) {
     .addItem("💪 Import Exercises", "importAllExercises")
     .addItem("📋 Import Routines", "importAllRoutines")
     .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
+
+  // Add deferred post-processing option if there are deferred operations
+  const deferredOps = ImportProgressTracker.getDeferredOperations();
+  if (deferredOps.length > 0) {
+    submenu
+      .addSeparator()
+      .addItem(
+        `🔄 Complete Post-Processing (${deferredOps.length})`,
+        "runDeferredPostProcessing"
+      );
+  }
+
+  return submenu;
 }
 
 /**
@@ -111,9 +124,7 @@ function onHomepage(e) {
     const spreadsheet = SpreadsheetApp.getActive();
     const isTemplate = spreadsheet.getId() === TEMPLATE_SPREADSHEET_ID;
 
-    const template = HtmlService.createTemplateFromFile(
-      "ui/dialogs/Sidebar"
-    );
+    const template = HtmlService.createTemplateFromFile("ui/dialogs/Sidebar");
     template.data = {
       isTemplate,
       timestamp: new Date().getTime(),
@@ -229,6 +240,10 @@ const MENU_ACTIONS = {
     handler: showTakeoutDialog,
     message: "Weight import initiated",
   },
+  runDeferredPostProcessing: {
+    handler: runDeferredPostProcessing,
+    message: "Post-processing initiated",
+  },
 };
 
 /**
@@ -257,5 +272,79 @@ function runMenuAction(action) {
       success: false,
       error: error.message,
     };
+  }
+}
+
+/**
+ * Operation handlers for deferred post-processing
+ * @type {Object<string, Function>}
+ * @private
+ */
+const DEFERRED_OPERATION_HANDLERS = {
+  syncLocalizedExerciseNames: async (checkTimeout) => {
+    await syncLocalizedExerciseNames(null, checkTimeout);
+  },
+  updateExerciseCounts: async (checkTimeout) => {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
+    if (exerciseSheet) {
+      await updateExerciseCounts(exerciseSheet, checkTimeout);
+    }
+  },
+};
+
+/**
+ * Runs deferred post-processing operations that timed out during import
+ * This allows users to manually complete operations like syncing localized names
+ * and updating exercise counts
+ */
+async function runDeferredPostProcessing() {
+  try {
+    const deferredOps = ImportProgressTracker.getDeferredOperations();
+
+    if (deferredOps.length === 0) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "No deferred post-processing operations found.",
+        "Nothing to Complete",
+        TOAST_DURATION.NORMAL
+      );
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast(
+      `Completing ${deferredOps.length} deferred operation(s)...`,
+      "Post-Processing",
+      TOAST_DURATION.SHORT
+    );
+
+    const checkTimeout = () => false; // No timeout for manual runs
+
+    for (const operation of deferredOps) {
+      try {
+        const handler = DEFERRED_OPERATION_HANDLERS[operation];
+        if (handler) {
+          await handler(checkTimeout);
+          ss.toast(
+            `Completed: ${operation}`,
+            "Post-Processing",
+            TOAST_DURATION.SHORT
+          );
+        }
+      } catch (error) {
+        console.error(`Failed to complete ${operation}:`, error);
+        // Continue with other operations even if one fails
+      }
+    }
+
+    ss.toast(
+      "All deferred post-processing operations completed!",
+      "Post-Processing Complete",
+      TOAST_DURATION.NORMAL
+    );
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Running deferred post-processing",
+    });
   }
 }
