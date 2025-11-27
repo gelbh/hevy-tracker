@@ -199,7 +199,6 @@ function processExercises(exerciseData) {
     let currentExercise = null;
     let currentTemplateId = null;
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const weightUnit =
       ss.getSheetByName("Main").getRange("I5").getValue() || "kg";
 
