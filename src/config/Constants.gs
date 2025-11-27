@@ -148,6 +148,13 @@ const CACHE_CONFIG = {
 };
 
 /**
+ * Import timeout configuration
+ * @type {Object<number|string>}
+ */
+const MAX_IMPORT_EXECUTION_TIME_MS = 5 * 60 * 1000; // 5 minutes - safety margin before 6-minute limit
+const IMPORT_PROGRESS_PROPERTY_KEY = "IMPORT_PROGRESS_STATE";
+
+/**
  * Dialog dimensions configuration
  * @type {Object<number>}
  */
