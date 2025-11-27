@@ -3,17 +3,6 @@
  */
 
 /**
- * Default dialog options for API key setup
- * @type {Object}
- * @private
- */
-const API_KEY_DIALOG_OPTIONS = {
-  width: 450,
-  height: 250,
-  title: "Hevy API Key Setup",
-};
-
-/**
  * Shows initial setup dialog and handles authorization
  */
 function showInitialSetup() {
@@ -24,7 +13,8 @@ function showInitialSetup() {
       apiClient.manageApiKey();
     } else {
       showHtmlDialog("ui/dialogs/SetApiKey", {
-        ...API_KEY_DIALOG_OPTIONS,
+        width: DIALOG_DIMENSIONS.API_KEY_WIDTH,
+        height: DIALOG_DIMENSIONS.API_KEY_HEIGHT,
         title: "Hevy Tracker Setup",
       });
     }
@@ -39,8 +29,8 @@ function showInitialSetup() {
 function showGuideDialog() {
   try {
     showHtmlDialog("ui/dialogs/SetupInstructions", {
-      width: 700,
-      height: 700,
+      width: DIALOG_DIMENSIONS.SETUP_INSTRUCTIONS_WIDTH,
+      height: DIALOG_DIMENSIONS.SETUP_INSTRUCTIONS_HEIGHT,
       title: "Hevy Tracker Setup Guide",
       templateData: {
         TEMPLATE_SPREADSHEET_ID: TEMPLATE_SPREADSHEET_ID,
@@ -58,8 +48,8 @@ function showTakeoutDialog() {
   try {
     showHtmlDialog("ui/dialogs/ImportWeight", {
       title: "Import Google Fit Weight",
-      width: 600,
-      height: 420,
+      width: DIALOG_DIMENSIONS.IMPORT_WEIGHT_WIDTH,
+      height: DIALOG_DIMENSIONS.IMPORT_WEIGHT_HEIGHT,
     });
   } catch (error) {
     throw ErrorHandler.handle(error, { operation: "Showing import dialog" });
@@ -97,8 +87,8 @@ function showMultiLoginWarning() {
  */
 function showDevApiManagerDialog() {
   showHtmlDialog("ui/dialogs/DevApiManager", {
-    width: 600,
-    height: 480,
+    width: DIALOG_DIMENSIONS.DEV_API_MANAGER_WIDTH,
+    height: DIALOG_DIMENSIONS.DEV_API_MANAGER_HEIGHT,
     title: "Developer API Key Manager",
   });
 }
