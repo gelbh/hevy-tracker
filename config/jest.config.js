@@ -1,5 +1,6 @@
 /**
  * Jest configuration for Hevy Tracker tests
+ * @module JestConfig
  */
 const path = require("path");
 
@@ -18,9 +19,10 @@ module.exports = {
 
   // Coverage collection settings
   collectCoverageFrom: [
-    "src/**/*.js",
+    "src/**/*.gs",
     "!src/**/*.test.js",
     "!**/node_modules/**",
+    "!**/__mocks__/**",
   ],
 
   // Coverage output directory
@@ -31,4 +33,7 @@ module.exports = {
 
   // Test timeout (10 seconds)
   testTimeout: 10000,
+
+  // Verbose output for better test reporting
+  verbose: true,
 };

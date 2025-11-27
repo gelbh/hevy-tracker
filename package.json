@@ -27,5 +27,8 @@
     "test": "jest --config config/jest.config.js",
     "test:watch": "jest --watch --config config/jest.config.js",
     "test:coverage": "jest --coverage --config config/jest.config.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
