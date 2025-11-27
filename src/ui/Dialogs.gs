@@ -1,5 +1,6 @@
 /**
- * Dialogs
+ * Dialog management for the Hevy Tracker add-on
+ * @module Dialogs
  */
 
 /**
