@@ -727,28 +727,7 @@ async function runAutomaticImport() {
  * @returns {Promise<void>}
  */
 async function runInitialImport() {
-  const lock = LockService.getScriptLock();
-  let lockAcquired = false;
-
   try {
-    // Try to acquire lock to prevent concurrent execution (shorter timeout for background trigger)
-    try {
-      lock.waitLock(5000); // Wait up to 5 seconds for lock
-      lockAcquired = true;
-    } catch (lockError) {
-      // Lock acquisition failed - fall back to active import check
-      console.warn(
-        "Failed to acquire lock for initial import, checking active import status:",
-        lockError
-      );
-    }
-
-    // Check if import is already active before proceeding
-    if (ImportProgressTracker.isImportActive()) {
-      console.log("Import already active, skipping initial import trigger");
-      return;
-    }
-
     // Delete this trigger after execution to prevent accumulation
     const triggers = ScriptApp.getProjectTriggers();
     const thisTrigger = triggers.find(
@@ -760,9 +739,10 @@ async function runInitialImport() {
       ScriptApp.deleteTrigger(thisTrigger);
     }
 
-    // Check again if import is active after deleting trigger (another import may have started)
+    // Quick check if import is already active (optional early exit)
+    // runFullImport will do its own checks, so this is just for optimization
     if (ImportProgressTracker.isImportActive()) {
-      console.log("Import became active after trigger deletion, skipping");
+      console.log("Import already active, skipping initial import trigger");
       return;
     }
 
@@ -776,21 +756,12 @@ async function runInitialImport() {
     }
 
     // Run the full import with skipResumeDialog flag
-    // Note: runFullImport will handle its own LockService and active import tracking
+    // runFullImport handles all locking, active import tracking, and concurrent execution prevention
     await apiClient.runFullImport(apiKey, true);
   } catch (error) {
     // Log error but don't throw - this runs in background
     console.error("Initial import failed:", error);
     ErrorHandler.handle(error, { operation: "Running initial import" }, false);
-  } finally {
-    // Always release lock if acquired
-    if (lockAcquired) {
-      try {
-        lock.releaseLock();
-      } catch (lockError) {
-        console.warn("Failed to release lock in runInitialImport:", lockError);
-      }
-    }
   }
 }
 

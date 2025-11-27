@@ -556,7 +556,20 @@ class ApiClient {
         return;
       }
 
+      // Validate API key BEFORE marking import as active
+      // This prevents marking as active if validation fails
+      const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
+      if (!apiKey) {
+        this._showToast(
+          "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
+          "API Key Required",
+          TOAST_DURATION.NORMAL
+        );
+        return;
+      }
+
       // Mark import as active and cancel any pending triggers
+      // Only reaches here if API key validation passed
       ImportProgressTracker.markImportActive();
       this._cancelPendingInitialImportTriggers();
 
@@ -569,17 +582,6 @@ class ApiClient {
           "Setup Progress",
           TOAST_DURATION.NORMAL
         );
-      }
-
-      // Use provided API key or get from properties
-      const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
-      if (!apiKey) {
-        this._showToast(
-          "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
-          "API Key Required",
-          TOAST_DURATION.NORMAL
-        );
-        return;
       }
 
       if (apiKey === AUTHORIZED_API_KEY) {
