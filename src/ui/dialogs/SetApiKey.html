@@ -72,10 +72,39 @@
         margin-top: 10px;
         font-size: 14px;
       }
+      .header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
+      }
+      .logo {
+        max-width: 120px;
+        height: auto;
+        display: block;
+      }
+      .header-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #202124;
+        margin: 0;
+      }
     </style>
   </head>
   <body>
     <div class="container">
+      <div class="header">
+        <img
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSoGEB844_CYQW6htIdn_4jDFuks7kmLBU-Rg&s"
+          alt="Hevy Logo"
+          class="logo"
+          onerror="this.onerror=null; this.src='https://hevy.com/favicon.ico';"
+        />
+        <h1 class="header-title">Hevy API Key Setup</h1>
+      </div>
       <div>
         Enter your Hevy API key. You can find it in your
         <a href="https://hevy.com/settings?developer">Hevy Developer Settings</a
