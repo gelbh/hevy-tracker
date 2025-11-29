@@ -80,7 +80,6 @@ const getDocumentProperties = () =>
  * @property {number} [width] - Dialog width in pixels
  * @property {number} [height] - Dialog height in pixels
  * @property {string} [title] - Dialog title
- * @property {string} [modalTitle] - Title shown in the modal header
  * @property {Object} [templateData] - Data to pass to the template
  * @property {boolean} [showAsSidebar] - Whether to show as sidebar instead of modal
  */
@@ -102,7 +101,6 @@ function showHtmlDialog(filename, options = {}) {
     width = DIALOG_DIMENSIONS.DEFAULT_WIDTH,
     height = DIALOG_DIMENSIONS.DEFAULT_HEIGHT,
     title = "",
-    modalTitle = "",
     templateData = {},
     showAsSidebar = false,
   } = options;
@@ -110,7 +108,7 @@ function showHtmlDialog(filename, options = {}) {
   try {
     const html = createHtmlOutput(filename, templateData);
     const htmlOutput = configureHtmlOutput(html, filename, title);
-    showDialog(htmlOutput, width, height, modalTitle, showAsSidebar);
+    showDialog(htmlOutput, width, height, showAsSidebar);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       context: "Showing HTML dialog",
@@ -146,14 +144,14 @@ const configureHtmlOutput = (html, filename, title) =>
  * Shows the configured dialog
  * @private
  */
-const showDialog = (htmlOutput, width, height, modalTitle, showAsSidebar) => {
+const showDialog = (htmlOutput, width, height, showAsSidebar) => {
   const ui = SpreadsheetApp.getUi();
   if (showAsSidebar) {
     htmlOutput.setWidth(width);
     ui.showSidebar(htmlOutput);
   } else {
     htmlOutput.setWidth(width).setHeight(height);
-    ui.showModalDialog(htmlOutput, modalTitle || htmlOutput.getTitle());
+    ui.showModalDialog(htmlOutput, "");
   }
 };
 
