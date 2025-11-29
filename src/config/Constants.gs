@@ -185,13 +185,24 @@ const CACHE_CONFIG = {
 
 /**
  * Import timeout configuration to prevent execution time limit issues
+ * @type {Object<number|string>}
  */
-const MAX_IMPORT_EXECUTION_TIME_MS = 5 * 60 * 1000; // 5 minutes - safety margin before 6-minute limit
-const IMPORT_PROGRESS_PROPERTY_KEY = "IMPORT_PROGRESS_STATE";
-const ACTIVE_IMPORT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes - considers import stale if older
-const ACTIVE_IMPORT_HEARTBEAT_MS = 2 * 60 * 1000; // 2 minutes - how often to update timestamp
-const ACTIVE_IMPORT_PROPERTY_KEY = "IMPORT_ACTIVE_STATE";
-const DEFERRED_POST_PROCESSING_KEY = "DEFERRED_POST_PROCESSING";
+const IMPORT_CONFIG = {
+  MAX_EXECUTION_TIME_MS: 5 * 60 * 1000, // 5 minutes - safety margin before 6-minute limit
+  ACTIVE_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes - considers import stale if older
+  HEARTBEAT_MS: 2 * 60 * 1000, // 2 minutes - how often to update timestamp
+  PROGRESS_PROPERTY_KEY: "IMPORT_PROGRESS_STATE",
+  ACTIVE_PROPERTY_KEY: "IMPORT_ACTIVE_STATE",
+  DEFERRED_POST_PROCESSING_KEY: "DEFERRED_POST_PROCESSING",
+};
+
+// Legacy constants for backward compatibility
+const MAX_IMPORT_EXECUTION_TIME_MS = IMPORT_CONFIG.MAX_EXECUTION_TIME_MS;
+const IMPORT_PROGRESS_PROPERTY_KEY = IMPORT_CONFIG.PROGRESS_PROPERTY_KEY;
+const ACTIVE_IMPORT_TIMEOUT_MS = IMPORT_CONFIG.ACTIVE_TIMEOUT_MS;
+const ACTIVE_IMPORT_HEARTBEAT_MS = IMPORT_CONFIG.HEARTBEAT_MS;
+const ACTIVE_IMPORT_PROPERTY_KEY = IMPORT_CONFIG.ACTIVE_PROPERTY_KEY;
+const DEFERRED_POST_PROCESSING_KEY = IMPORT_CONFIG.DEFERRED_POST_PROCESSING_KEY;
 
 /**
  * UI Configuration
@@ -204,15 +215,15 @@ const DEFERRED_POST_PROCESSING_KEY = "DEFERRED_POST_PROCESSING";
 const DIALOG_DIMENSIONS = {
   DEFAULT_WIDTH: 500,
   DEFAULT_HEIGHT: 500,
-  API_KEY_WIDTH: 450,
-  API_KEY_HEIGHT: 400,
+  API_KEY_WIDTH: 510,
+  API_KEY_HEIGHT: 570,
   ROUTINE_CREATED_WIDTH: 400,
-  ROUTINE_CREATED_HEIGHT: 300,
+  ROUTINE_CREATED_HEIGHT: 380,
   SIDEBAR_WIDTH: 300,
-  SETUP_INSTRUCTIONS_WIDTH: 700,
-  SETUP_INSTRUCTIONS_HEIGHT: 700,
-  IMPORT_WEIGHT_WIDTH: 600,
-  IMPORT_WEIGHT_HEIGHT: 420,
+  SETUP_INSTRUCTIONS_WIDTH: 650,
+  SETUP_INSTRUCTIONS_HEIGHT: 650,
+  IMPORT_WEIGHT_WIDTH: 550,
+  IMPORT_WEIGHT_HEIGHT: 670,
   DEV_API_MANAGER_WIDTH: 600,
   DEV_API_MANAGER_HEIGHT: 480,
 };
@@ -325,22 +336,20 @@ const SHEET_HEADERS = {
  * @param {string} borderColor - Border color
  * @param {string} fontColor - Font color
  * @param {string} [oddRowColor="#FFFFFF"] - Color for odd rows
- * @returns {Object} Theme object
+ * @returns {SheetTheme} Theme object
  * @private
  */
-function createTheme(
+const createTheme = (
   evenRowColor,
   borderColor,
   fontColor,
   oddRowColor = "#FFFFFF"
-) {
-  return {
-    evenRowColor,
-    oddRowColor,
-    borderColor,
-    fontColor,
-  };
-}
+) => ({
+  evenRowColor,
+  oddRowColor,
+  borderColor,
+  fontColor,
+});
 
 /**
  * Sheet theme definitions
