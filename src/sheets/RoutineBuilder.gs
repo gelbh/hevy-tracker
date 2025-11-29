@@ -48,9 +48,8 @@ const MISSING_SHEET_MESSAGE =
  * @returns {GoogleAppsScript.Spreadsheet.Sheet|null} The sheet or null if not found
  * @private
  */
-function getRoutineBuilderSheet() {
-  const sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Routine Builder");
+const getRoutineBuilderSheet = () => {
+  const sheet = getActiveSpreadsheet().getSheetByName("Routine Builder");
   if (!sheet) {
     SpreadsheetApp.getUi().alert(
       "Missing 'Routine Builder' Sheet",
@@ -59,7 +58,7 @@ function getRoutineBuilderSheet() {
     );
   }
   return sheet;
-}
+};
 
 /**
  * Creates a routine from the sheet data and submits it to Hevy API
@@ -137,7 +136,7 @@ async function createRoutineFromSheet() {
 
     const response = await submitRoutine(routineData);
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     ss.toast("Routine created successfully!", "Success", TOAST_DURATION.NORMAL);
 
     await showHtmlDialog("ui/dialogs/RoutineCreated", {
@@ -165,7 +164,7 @@ function clearRoutineBuilder() {
     sheet.getRange("C2:H4").clearContent();
     sheet.getRange("A8:G").clearContent();
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     ss.toast("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -181,7 +180,7 @@ function clearRoutineBuilder() {
  */
 function processExercises(exerciseData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     const exercisesSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
     const exerciseValues = exercisesSheet.getDataRange().getValues();
     const headersRow = exerciseValues.shift();
@@ -277,16 +276,22 @@ function validateRoutineData(title, exercises) {
   } else {
     exercises.forEach((exercise, index) => {
       if (!exercise.exercise_template_id) {
-        errors.push(`Exercise at position ${index + 1} is missing a template ID`);
+        errors.push(
+          `Exercise at position ${index + 1} is missing a template ID`
+        );
       }
 
       if (!exercise.sets || exercise.sets.length === 0) {
-        errors.push(`Exercise at position ${index + 1} requires at least one set`);
+        errors.push(
+          `Exercise at position ${index + 1} requires at least one set`
+        );
       }
 
       exercise.sets?.forEach((set, setIndex) => {
         if (!set.type) {
-          errors.push(`Set ${setIndex + 1} of exercise ${index + 1} is missing a type`);
+          errors.push(
+            `Set ${setIndex + 1} of exercise ${index + 1} is missing a type`
+          );
         }
       });
     });

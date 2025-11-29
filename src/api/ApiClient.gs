@@ -91,7 +91,7 @@ class ApiClient {
    */
   _getApiKeyFromProperties() {
     const properties = getDocumentProperties();
-    return properties?.getProperty("HEVY_API_KEY") || null;
+    return properties?.getProperty("HEVY_API_KEY") ?? null;
   }
 
   /**
@@ -162,7 +162,8 @@ class ApiClient {
 
     // UUID v4 format validation: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     // 8-4-4-4-12 hexadecimal characters
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(trimmed)) {
       throw new ValidationError(
         "Invalid API key format. API key must be a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
@@ -177,7 +178,7 @@ class ApiClient {
     // Save API key first (synchronously) - this ensures immediate completion
     const properties = this._getDocumentProperties();
     const currentKey = properties.getProperty("HEVY_API_KEY");
-    
+
     // Use trimmed key for storage
     const apiKeyToSave = trimmed;
 
@@ -268,7 +269,7 @@ class ApiClient {
    * @private
    */
   _showToast(message, title, duration = TOAST_DURATION.NORMAL) {
-    SpreadsheetApp.getActiveSpreadsheet().toast(message, title, duration);
+    getActiveSpreadsheet().toast(message, title, duration);
   }
 
   /**
@@ -293,7 +294,7 @@ class ApiClient {
       "Import Progress",
       TOAST_DURATION.SHORT
     );
-    
+
     try {
       await importFn();
       completedSteps.push(stepName);
@@ -581,7 +582,7 @@ class ApiClient {
    * @private
    */
   _setupAuthorizedWeightImport() {
-    SpreadsheetApp.getActiveSpreadsheet()
+    getActiveSpreadsheet()
       .getSheetByName(WEIGHT_SHEET_NAME)
       .getRange("A2")
       .setFormula(
@@ -627,7 +628,7 @@ class ApiClient {
 
       // Validate API key BEFORE marking import as active
       // This prevents marking as active if validation fails
-      const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
+      const apiKey = apiKeyOverride ?? this._getApiKeyFromProperties();
       if (!apiKey) {
         showInitialSetup();
         return;
@@ -638,7 +639,7 @@ class ApiClient {
       ImportProgressTracker.markImportActive();
       this._cancelPendingInitialImportTriggers();
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = getActiveSpreadsheet();
       this._ensureImportTrigger(ss);
 
       if (checkForMultiLoginIssues()) {
@@ -655,7 +656,7 @@ class ApiClient {
 
       // Check for existing progress and prompt user
       const existingProgress = ImportProgressTracker.loadProgress();
-      if (existingProgress && existingProgress.completedSteps?.length > 0) {
+      if (existingProgress?.completedSteps?.length > 0) {
         if (skipResumeDialog) {
           // Skip dialog and automatically start fresh when called from saveUserApiKey
           ImportProgressTracker.clearProgress();
@@ -881,7 +882,7 @@ class ApiClient {
    * @returns {Promise<{processedCount: number, hasMore: boolean}>}
    */
   async processPageData(response, dataKey, processFn, pageSize, page) {
-    const items = response[dataKey] || [];
+    const items = response[dataKey] ?? [];
     if (items.length === 0) {
       return { processedCount: 0, hasMore: false };
     }
@@ -905,7 +906,7 @@ class ApiClient {
   _serializePayload(payload) {
     if (typeof payload === "string") return payload;
     if (payload?.body) return payload.body;
-    return JSON.stringify(payload);
+    return JSON.stringify(payload ?? {});
   }
 
   /**
@@ -934,15 +935,9 @@ class ApiClient {
    * @private
    */
   _isNetworkError(error) {
-    if (!error.message) {
-      return false;
-    }
-    const message = error.message.toLowerCase();
-    return (
-      message.includes("timeout") ||
-      message.includes("dns error") ||
-      message.includes("network")
-    );
+    const message = error?.message?.toLowerCase() ?? "";
+    const networkKeywords = ["timeout", "dns error", "network"];
+    return networkKeywords.some((keyword) => message.includes(keyword));
   }
 
   /**
@@ -1304,7 +1299,7 @@ class ApiClient {
    */
   buildQueryString(params) {
     return Object.entries(params)
-      .filter(([_, value]) => value != null)
+      .filter(([, value]) => value != null)
       .map(
         ([key, value]) =>
           `${encodeURIComponent(key)}=${encodeURIComponent(value)}`

@@ -38,7 +38,7 @@ class ImportProgressTracker {
       }
 
       const progressState = {
-        completedSteps: completedSteps || [],
+        completedSteps: completedSteps ?? [],
         timestamp: new Date().toISOString(),
         isResuming: true,
       };
@@ -96,11 +96,7 @@ class ImportProgressTracker {
    */
   static isStepComplete(stepName) {
     const progress = this.loadProgress();
-    if (!progress || !progress.completedSteps) {
-      return false;
-    }
-
-    return progress.completedSteps.includes(stepName);
+    return progress?.completedSteps?.includes(stepName) ?? false;
   }
 
   /**
@@ -109,7 +105,7 @@ class ImportProgressTracker {
    */
   static getRemainingSteps() {
     const progress = this.loadProgress();
-    const completedSteps = progress?.completedSteps || [];
+    const completedSteps = progress?.completedSteps ?? [];
 
     return IMPORT_STEPS.filter((step) => !completedSteps.includes(step));
   }
@@ -120,7 +116,7 @@ class ImportProgressTracker {
    */
   static getCompletedSteps() {
     const progress = this.loadProgress();
-    return progress?.completedSteps || [];
+    return progress?.completedSteps ?? [];
   }
 
   /**
@@ -129,7 +125,7 @@ class ImportProgressTracker {
    */
   static hasProgress() {
     const progress = this.loadProgress();
-    return progress !== null && progress.completedSteps?.length > 0;
+    return progress?.completedSteps?.length > 0 ?? false;
   }
 
   /**
@@ -275,7 +271,7 @@ class ImportProgressTracker {
    * @param {string} operationName - Name of the deferred operation
    */
   static markDeferredOperation(operationName) {
-    const deferred = this._getDeferredOperationsData() || {};
+    const deferred = this._getDeferredOperationsData() ?? {};
     deferred[operationName] = {
       timestamp: new Date().toISOString(),
       needsCompletion: true,

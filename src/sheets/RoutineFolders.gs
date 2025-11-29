@@ -27,7 +27,7 @@ async function importAllRoutineFolders(checkTimeout = null) {
       const processedData = processFolderData(folders);
       processedFolders.push(...processedData);
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = getActiveSpreadsheet();
       ss.toast(
         `Processed ${processedFolders.length} folders...`,
         "Processing Progress"
@@ -44,7 +44,7 @@ async function importAllRoutineFolders(checkTimeout = null) {
     );
 
     await updateFoldersInSheet(manager.sheet, processedFolders);
-    
+
     try {
       await manager.formatSheet(checkTimeout);
     } catch (error) {
@@ -55,7 +55,7 @@ async function importAllRoutineFolders(checkTimeout = null) {
       }
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     ss.toast(
       `Imported ${totalFolders} folders successfully!`,
       "Import Complete",
@@ -77,7 +77,7 @@ async function importAllRoutineFolders(checkTimeout = null) {
  * Processes folder data into the correct format
  * @private
  */
-function processFolderData(folders) {
+const processFolderData = (folders) => {
   try {
     return folders.map((folder) => [
       folder.id,
@@ -89,10 +89,10 @@ function processFolderData(folders) {
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Processing folder data",
-      folderCount: folders?.length || 0,
+      folderCount: folders?.length ?? 0,
     });
   }
-}
+};
 
 /**
  * Updates the sheet with folder data in a single batch operation
@@ -107,7 +107,9 @@ async function updateFoldersInSheet(sheet, processedFolders) {
     }
 
     const numCols = SHEET_HEADERS[ROUTINE_FOLDERS_SHEET_NAME].length;
-    sheet.getRange(2, 1, processedFolders.length, numCols).setValues(processedFolders);
+    sheet
+      .getRange(2, 1, processedFolders.length, numCols)
+      .setValues(processedFolders);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Updating folders in sheet",

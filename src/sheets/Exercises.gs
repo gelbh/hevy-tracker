@@ -51,7 +51,7 @@ async function importAllExercises(checkTimeout = null) {
       checkTimeout
     );
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     if (ss.getId() !== TEMPLATE_SPREADSHEET_ID) {
       syncCustomExerciseIds(sheet, allApiExercises);
     }
@@ -104,7 +104,7 @@ async function handlePostProcessing(sheet, checkTimeout, updateMessage) {
     }
   }
 
-  SpreadsheetApp.getActiveSpreadsheet().toast(
+  getActiveSpreadsheet().toast(
     `${updateMessage}Updated counts for all exercises!`,
     "Import Complete",
     TOAST_DURATION.NORMAL
@@ -205,7 +205,7 @@ function getExistingExercises(sheet) {
 function processExercisesData(exercises) {
   try {
     const isTemplate =
-      SpreadsheetApp.getActiveSpreadsheet().getId() === TEMPLATE_SPREADSHEET_ID;
+      getActiveSpreadsheet().getId() === TEMPLATE_SPREADSHEET_ID;
     return exercises.map((exercise) => [
       isTemplate ? "" : exercise.id,
       exercise.title,
@@ -372,8 +372,9 @@ function incrementTitleBasedCount(
  * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  */
 async function updateExerciseCounts(exerciseSheet, checkTimeout = null) {
-  const workoutSheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(WORKOUTS_SHEET_NAME);
+  // Cache spreadsheet reference to avoid repeated service calls
+  const ss = getActiveSpreadsheet();
+  const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
 
   if (!workoutSheet) {
     return;
@@ -714,7 +715,7 @@ async function syncLocalizedExerciseNames(
   idToLocalizedName = null,
   checkTimeout = null
 ) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getActiveSpreadsheet();
   const workoutSheet = ss.getSheetByName(WORKOUTS_SHEET_NAME);
   const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
 

@@ -6,7 +6,7 @@
 /**
  * Shows initial setup dialog and handles authorization
  */
-function showInitialSetup() {
+const showInitialSetup = () => {
   try {
     const hasApiKey = getDocumentProperties()?.getProperty("HEVY_API_KEY");
 
@@ -22,12 +22,12 @@ function showInitialSetup() {
   } catch (error) {
     throw ErrorHandler.handle(error, { operation: "Showing initial setup" });
   }
-}
+};
 
 /**
  * Shows the setup guide dialog
  */
-function showGuideDialog() {
+const showGuideDialog = () => {
   try {
     showHtmlDialog("ui/dialogs/SetupInstructions", {
       width: DIALOG_DIMENSIONS.SETUP_INSTRUCTIONS_WIDTH,
@@ -40,12 +40,12 @@ function showGuideDialog() {
   } catch (error) {
     throw ErrorHandler.handle(error, { operation: "Showing guide dialog" });
   }
-}
+};
 
 /**
  * Opens the Takeout-import dialog
  */
-function showTakeoutDialog() {
+const showTakeoutDialog = () => {
   try {
     showHtmlDialog("ui/dialogs/ImportWeight", {
       title: "Import Google Fit Weight",
@@ -55,7 +55,7 @@ function showTakeoutDialog() {
   } catch (error) {
     throw ErrorHandler.handle(error, { operation: "Showing import dialog" });
   }
-}
+};
 
 /**
  * Shows a warning dialog about multi-login issues
@@ -86,10 +86,10 @@ function showMultiLoginWarning() {
 /**
  * Shows the Developer API Key Manager dialog
  */
-function showDevApiManagerDialog() {
+const showDevApiManagerDialog = () => {
   showHtmlDialog("ui/dialogs/DevApiManager", {
     width: DIALOG_DIMENSIONS.DEV_API_MANAGER_WIDTH,
     height: DIALOG_DIMENSIONS.DEV_API_MANAGER_HEIGHT,
     title: "Developer API Key Manager",
   });
-}
+};

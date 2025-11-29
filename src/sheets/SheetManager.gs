@@ -35,12 +35,8 @@ class SheetManager {
    */
   static getOrCreate(sheetName) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let sheet = ss.getSheetByName(sheetName);
-
-      if (!sheet) {
-        sheet = ss.insertSheet(sheetName);
-      }
+      const ss = getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(sheetName) ?? ss.insertSheet(sheetName);
 
       return new SheetManager(sheet, sheetName);
     } catch (error) {

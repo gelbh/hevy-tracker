@@ -10,9 +10,7 @@
  * @returns {string} Normalized name (empty string if invalid)
  * @private
  */
-function normalizeExerciseName(name) {
-  return name?.toLowerCase().trim() ?? "";
-}
+const normalizeExerciseName = (name) => name?.toLowerCase().trim() ?? "";
 
 /**
  * Translation dictionary mapping localized exercise names to English names.
@@ -61,25 +59,25 @@ const EXERCISE_TRANSLATIONS = new Map([
  * @param {string} localizedName - The exercise name in the user's language
  * @returns {string} The English name if translation exists, otherwise the original name
  */
-function getEnglishName(localizedName) {
+const getEnglishName = (localizedName) => {
   if (typeof localizedName !== "string" || !localizedName) {
     return localizedName ?? "";
   }
 
   const normalized = normalizeExerciseName(localizedName);
   return EXERCISE_TRANSLATIONS.get(normalized) ?? localizedName;
-}
+};
 
 /**
  * Checks if a translation exists for the given exercise name.
  * @param {string} localizedName - The exercise name to check
  * @returns {boolean} True if a translation exists
  */
-function hasTranslation(localizedName) {
+const hasTranslation = (localizedName) => {
   if (typeof localizedName !== "string" || !localizedName) {
     return false;
   }
 
   const normalized = normalizeExerciseName(localizedName);
   return EXERCISE_TRANSLATIONS.has(normalized);
-}
+};

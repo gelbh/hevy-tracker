@@ -21,14 +21,14 @@ function onInstall(e) {
  * @param {boolean} isTemplate - Whether this is the template spreadsheet
  * @private
  */
-function addDeveloperMenuItems(menu, isTemplate) {
+const addDeveloperMenuItems = (menu, isTemplate) => {
   menu
     .addItem("🔧 Developer API Manager", "showDevApiManagerDialog")
     .addSeparator();
   if (isTemplate) {
     menu.addItem("💪 Import Exercises", "importAllExercises").addSeparator();
   }
-}
+};
 
 /**
  * Creates import submenu
@@ -36,7 +36,7 @@ function addDeveloperMenuItems(menu, isTemplate) {
  * @returns {GoogleAppsScript.Base.Menu} Import submenu
  * @private
  */
-function createImportSubmenu(ui) {
+const createImportSubmenu = (ui) => {
   const submenu = ui
     .createMenu("📥 Import Data")
     .addItem("📥 Import All", "apiClient.runFullImport")
@@ -58,7 +58,7 @@ function createImportSubmenu(ui) {
   }
 
   return submenu;
-}
+};
 
 /**
  * Creates routine builder submenu
@@ -66,12 +66,11 @@ function createImportSubmenu(ui) {
  * @returns {GoogleAppsScript.Base.Menu} Routine builder submenu
  * @private
  */
-function createRoutineBuilderSubmenu(ui) {
-  return ui
+const createRoutineBuilderSubmenu = (ui) =>
+  ui
     .createMenu("📝 Routine Builder")
     .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
     .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
-}
 
 /**
  * Creates a custom menu in the Google Sheets UI when the spreadsheet is opened
@@ -164,7 +163,8 @@ function onEdit(e) {
       return;
     }
 
-    const sheet = SpreadsheetApp.getActiveSpreadsheet();
+    // Cache spreadsheet and sheet references to avoid repeated service calls
+    const sheet = getActiveSpreadsheet();
     const mainSheet = sheet.getSheetByName("Main");
     const dataSheet = sheet.getSheetByName("Data");
     const lastRow = dataSheet.getLastRow();
@@ -285,7 +285,7 @@ const DEFERRED_OPERATION_HANDLERS = {
     await syncLocalizedExerciseNames(null, checkTimeout);
   },
   updateExerciseCounts: async (checkTimeout) => {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     const exerciseSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
     if (exerciseSheet) {
       await updateExerciseCounts(exerciseSheet, checkTimeout);
@@ -303,7 +303,7 @@ async function runDeferredPostProcessing() {
     const deferredOps = ImportProgressTracker.getDeferredOperations();
 
     if (deferredOps.length === 0) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      getActiveSpreadsheet().toast(
         "No deferred post-processing operations found.",
         "Nothing to Complete",
         TOAST_DURATION.NORMAL
@@ -311,7 +311,7 @@ async function runDeferredPostProcessing() {
       return;
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     ss.toast(
       `Completing ${deferredOps.length} deferred operation(s)...`,
       "Post-Processing",

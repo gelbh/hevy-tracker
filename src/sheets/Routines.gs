@@ -49,7 +49,7 @@ async function importAllRoutines(checkTimeout = null) {
       );
       processedRoutines.push(...routineData);
 
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = getActiveSpreadsheet();
       ss.toast(
         `Processed ${processedRoutines.length} routine entries...`,
         "Processing Progress"
@@ -65,7 +65,7 @@ async function importAllRoutines(checkTimeout = null) {
       checkTimeout
     );
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     if (processedRoutines.length > 0) {
       await updateRoutinesInSheet(manager.sheet, processedRoutines);
       ss.toast(
@@ -95,7 +95,9 @@ async function importAllRoutines(checkTimeout = null) {
       await syncLocalizedExerciseNames(null, checkTimeout);
     } catch (error) {
       if (error instanceof ImportTimeoutError) {
-        console.warn("syncLocalizedExerciseNames timed out during routine import");
+        console.warn(
+          "syncLocalizedExerciseNames timed out during routine import"
+        );
       } else {
         throw error;
       }

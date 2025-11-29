@@ -51,7 +51,7 @@ class QuotaTracker {
       const currentCount =
         lastDate === today
           ? parseInt(
-              props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) || "0"
+              props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) ?? "0"
             )
           : 0;
 
@@ -85,7 +85,7 @@ class QuotaTracker {
       const currentTime =
         lastDate === today
           ? parseInt(
-              props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) || "0"
+              props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) ?? "0"
             )
           : 0;
 
@@ -116,7 +116,7 @@ class QuotaTracker {
     const urlFetchCount =
       urlFetchDate === today
         ? parseInt(
-            props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) || "0"
+            props.getProperty(QUOTA_PROPERTY_KEYS.URL_FETCH_COUNT) ?? "0"
           )
         : 0;
 
@@ -126,7 +126,7 @@ class QuotaTracker {
     const executionTimeMs =
       executionTimeDate === today
         ? parseInt(
-            props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) || "0"
+            props.getProperty(QUOTA_PROPERTY_KEYS.EXECUTION_TIME_MS) ?? "0"
           )
         : 0;
 
@@ -187,7 +187,7 @@ class QuotaTracker {
     );
 
     if (percent >= 90) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      getActiveSpreadsheet().toast(
         `Warning: ${percent}% of daily UrlFetch quota used. ${remaining} calls remaining.`,
         "Quota Warning",
         TOAST_DURATION.LONG
@@ -213,7 +213,7 @@ class QuotaTracker {
     );
 
     if (percent >= 90) {
-      SpreadsheetApp.getActiveSpreadsheet().toast(
+      getActiveSpreadsheet().toast(
         `Warning: ${percent}% of daily execution time quota used. ${remainingMinutes} minutes remaining.`,
         "Quota Warning",
         TOAST_DURATION.LONG

@@ -32,15 +32,28 @@
 
 /**
  * Gets the last workout update timestamp
+ * Optimized to check properties first (faster than reading sheet)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - The workouts sheet
  * @returns {string|false} Last update timestamp or false if no data
  * @private
  */
-function getLastWorkoutUpdate(sheet) {
-  if (!sheet.getRange("A2").getValue()) return false;
+const getLastWorkoutUpdate = (sheet) => {
   const properties = getDocumentProperties();
-  return properties?.getProperty("LAST_WORKOUT_UPDATE") || false;
-}
+  const lastUpdate = properties?.getProperty("LAST_WORKOUT_UPDATE");
+
+  // If we have a stored timestamp, return it
+  if (lastUpdate) {
+    return lastUpdate;
+  }
+
+  // Only check sheet if no stored timestamp (first run scenario)
+  // Use getValue() on single cell - acceptable for one-time check
+  if (sheet.getLastRow() > 1 && sheet.getRange("A2").getValue()) {
+    return false; // Data exists but no timestamp stored
+  }
+
+  return false;
+};
 
 /**
  * Synchronizes workout data to the 'Workouts' sheet.
@@ -138,7 +151,7 @@ async function importAllWorkoutsFull(checkTimeout = null) {
   });
 
   props?.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getActiveSpreadsheet();
   ss.toast(
     `Imported ${rows.length} workout records.`,
     "Full Import Complete",
@@ -241,7 +254,7 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
     );
 
     if (!events.length) {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = getActiveSpreadsheet();
       ss.toast(
         "No new workout events found since last import.",
         "Delta Import Complete",
@@ -320,7 +333,7 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
       }
     });
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getActiveSpreadsheet();
     ss.toast(
       `Imported ${rows.length} workout records.`,
       "Delta Import Complete",
@@ -353,9 +366,17 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
 
 /**
  * Deletes workout rows from the sheet in a single bulk rewrite.
+ * Optimized to check last row before reading entire range.
  * @private
  */
 function deleteWorkoutRows(sheet, workoutIds) {
+  // Early return if sheet is empty
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return; // Nothing to delete (only headers or empty)
+  }
+
+  // Read entire data range in one batch operation
   const values = sheet.getDataRange().getValues();
 
   // Validate that we have data
@@ -392,9 +413,16 @@ function deleteWorkoutRows(sheet, workoutIds) {
 
 /**
  * Updates workout data in the sheet using contiguous block writes.
+ * Optimized to read range only once and batch all updates.
  * @private
  */
 function updateWorkoutData(sheet, processedData) {
+  // Early return if no data to process
+  if (!processedData || processedData.length === 0) {
+    return;
+  }
+
+  // Read entire data range in one batch operation (most efficient)
   const values = sheet.getDataRange().getValues();
   const headers = values.shift();
   const idIdx = headers.indexOf("ID");
