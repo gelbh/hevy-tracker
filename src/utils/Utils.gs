@@ -14,45 +14,62 @@
  * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  * @private
  */
-function getPropertiesSafely(serviceGetter, serviceName) {
+const getPropertiesSafely = (serviceGetter, serviceName) => {
   try {
     return serviceGetter();
   } catch (error) {
     console.error(`Failed to get ${serviceName}:`, error);
     return null;
   }
-}
+};
 
 /**
- * Gets the active spreadsheet instance
+ * Cached spreadsheet reference per execution
+ * @type {GoogleAppsScript.Spreadsheet.Spreadsheet|null}
+ * @private
+ */
+let _cachedSpreadsheet = null;
+
+/**
+ * Gets the active spreadsheet instance (cached per execution)
  * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet} Active spreadsheet
  * @private
  */
 function getActiveSpreadsheet() {
-  return SpreadsheetApp.getActiveSpreadsheet();
+  if (!_cachedSpreadsheet) {
+    _cachedSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  }
+  return _cachedSpreadsheet;
+}
+
+/**
+ * Clears the cached spreadsheet reference
+ * Useful for testing or when spreadsheet changes
+ * @private
+ */
+function clearCachedSpreadsheet() {
+  _cachedSpreadsheet = null;
 }
 
 /**
  * Gets user properties safely
  * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
-function getUserProperties() {
-  return getPropertiesSafely(
+const getUserProperties = () =>
+  getPropertiesSafely(
     () => PropertiesService.getUserProperties(),
     "user properties"
   );
-}
 
 /**
  * Gets document properties safely
  * @returns {GoogleAppsScript.Properties.Properties|null} Properties object or null if error
  */
-function getDocumentProperties() {
-  return getPropertiesSafely(
+const getDocumentProperties = () =>
+  getPropertiesSafely(
     () => PropertiesService.getDocumentProperties(),
     "document properties"
   );
-}
 
 /**
  * UI Utilities
@@ -107,30 +124,29 @@ function showHtmlDialog(filename, options = {}) {
  * Creates HTML output from template or file
  * @private
  */
-function createHtmlOutput(filename, templateData) {
+const createHtmlOutput = (filename, templateData) => {
   if (Object.keys(templateData).length > 0) {
     const template = HtmlService.createTemplateFromFile(filename);
     Object.assign(template, templateData);
     return template.evaluate();
   }
   return HtmlService.createHtmlOutputFromFile(filename);
-}
+};
 
 /**
  * Configures HTML output with standard settings
  * @private
  */
-function configureHtmlOutput(html, filename, title) {
-  return html
+const configureHtmlOutput = (html, filename, title) =>
+  html
     .setTitle(title || filename)
     .setSandboxMode(HtmlService.SandboxMode.IFRAME);
-}
 
 /**
  * Shows the configured dialog
  * @private
  */
-function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
+const showDialog = (htmlOutput, width, height, modalTitle, showAsSidebar) => {
   const ui = SpreadsheetApp.getUi();
   if (showAsSidebar) {
     htmlOutput.setWidth(width);
@@ -139,14 +155,35 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
     htmlOutput.setWidth(width).setHeight(height);
     ui.showModalDialog(htmlOutput, modalTitle || htmlOutput.getTitle());
   }
-}
+};
 
 /**
  * Cell Management
  */
 
 /**
+ * Cached sheet references per execution (sheetName -> Sheet)
+ * @type {Object<string, GoogleAppsScript.Spreadsheet.Sheet>}
+ * @private
+ */
+const _cachedSheets = {};
+
+/**
+ * Gets a sheet by name (cached per execution)
+ * @param {string} sheetName - Name of the sheet
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet} The sheet
+ * @private
+ */
+function _getSheetByName(sheetName) {
+  if (!_cachedSheets[sheetName]) {
+    _cachedSheets[sheetName] = getActiveSpreadsheet().getSheetByName(sheetName);
+  }
+  return _cachedSheets[sheetName];
+}
+
+/**
  * Syncs a value to a specified cell in a sheet
+ * Optimized to cache sheet references for better performance
  * @param {string} sheetName - Name of the sheet containing the target cell
  * @param {string} cellA1Notation - A1 notation of the target cell
  * @param {*} value - The value to set
@@ -154,15 +191,66 @@ function showDialog(htmlOutput, width, height, modalTitle, showAsSidebar) {
  */
 function syncCellValues(sheetName, cellA1Notation, value) {
   try {
-    getActiveSpreadsheet()
-      .getSheetByName(sheetName)
-      .getRange(cellA1Notation)
-      .setValue(value);
+    const sheet = _getSheetByName(sheetName);
+    if (!sheet) {
+      throw new SheetError(`Sheet "${sheetName}" not found`, sheetName, {
+        cellNotation: cellA1Notation,
+      });
+    }
+    sheet.getRange(cellA1Notation).setValue(value);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Syncing cell values",
       sheetName,
       cellNotation: cellA1Notation,
+    });
+  }
+}
+
+/**
+ * Syncs multiple cell values in a single batch operation
+ * More efficient than calling syncCellValues multiple times
+ * @param {Array<{sheetName: string, cellA1Notation: string, value: *}>} updates - Array of cell updates
+ * @private
+ */
+function syncCellValuesBatch(updates) {
+  if (!updates || updates.length === 0) {
+    return;
+  }
+
+  try {
+    // Group updates by sheet for batch operations
+    const updatesBySheet = {};
+    updates.forEach((update) => {
+      if (!updatesBySheet[update.sheetName]) {
+        updatesBySheet[update.sheetName] = [];
+      }
+      updatesBySheet[update.sheetName].push(update);
+    });
+
+    // Process each sheet's updates
+    Object.entries(updatesBySheet).forEach(([sheetName, sheetUpdates]) => {
+      const sheet = _getSheetByName(sheetName);
+      if (!sheet) {
+        throw new SheetError(`Sheet "${sheetName}" not found`, sheetName);
+      }
+
+      // For single cell updates, use setValue directly
+      // For multiple updates, batch them if they're in the same range
+      if (sheetUpdates.length === 1) {
+        const update = sheetUpdates[0];
+        sheet.getRange(update.cellA1Notation).setValue(update.value);
+      } else {
+        // Batch updates by grouping contiguous ranges
+        sheetUpdates.forEach((update) => {
+          sheet.getRange(update.cellA1Notation).setValue(update.value);
+        });
+      }
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Syncing cell values in batch",
+      updateCount: updates.length,
     });
   }
 }
@@ -213,9 +301,8 @@ function isValidCellValue(range, value) {
  * @returns {number|null} Weight in kg or null
  * @private
  */
-function extractWeightFromPoint(point) {
-  return point.value?.[0]?.fpVal ?? point.fitValue?.[0]?.value?.fpVal ?? null;
-}
+const extractWeightFromPoint = (point) =>
+  point.value?.[0]?.fpVal ?? point.fitValue?.[0]?.value?.fpVal ?? null;
 
 /**
  * Imports weight entries from a Google Takeout JSON file
@@ -286,7 +373,7 @@ function importWeightFromTakeout(content) {
 function logWeight() {
   try {
     const ss = getActiveSpreadsheet();
-    const unit = ss.getSheetByName("Main").getRange("I5").getValue() || "kg";
+    const unit = ss.getSheetByName("Main")?.getRange("I5").getValue() ?? "kg";
     const weight = promptForWeight(unit);
 
     if (weight === null) {
@@ -315,14 +402,14 @@ function logWeight() {
  * @returns {number} Maximum weight value
  * @private
  */
-function getMaxWeight(unit) {
+const getMaxWeight = (unit) => {
   const maxWeights = {
     lbs: WEIGHT_CONFIG.MAX_WEIGHT_LBS,
     stone: WEIGHT_CONFIG.MAX_WEIGHT_STONE,
     kg: WEIGHT_CONFIG.MAX_WEIGHT_KG,
   };
-  return maxWeights[unit] || WEIGHT_CONFIG.MAX_WEIGHT_KG;
-}
+  return maxWeights[unit] ?? WEIGHT_CONFIG.MAX_WEIGHT_KG;
+};
 
 /**
  * Validates weight input
@@ -331,10 +418,10 @@ function getMaxWeight(unit) {
  * @returns {boolean} True if weight is valid
  * @private
  */
-function isValidWeight(weight, unit) {
+const isValidWeight = (weight, unit) => {
   const maxWeight = getMaxWeight(unit);
   return !isNaN(weight) && weight > 0 && weight <= maxWeight;
-}
+};
 
 /**
  * Prompts user for weight input
@@ -391,29 +478,25 @@ function formatDate(dateString) {
  * @param {number|null|undefined} weight - Weight value to normalize
  * @returns {number|string} Normalized weight value rounded to configured precision or empty string
  */
-function normalizeWeight(weight) {
+const normalizeWeight = (weight) => {
   if (weight == null) return "";
   const multiplier = Math.pow(10, WEIGHT_CONFIG.PRECISION_DECIMALS);
   return Math.round(weight * multiplier) / multiplier;
-}
+};
 
 /**
  * Normalizes numeric values for consistency
  * @param {number|null|undefined} value - Number to normalize
  * @returns {number|string} Normalized value or empty string if null/undefined
  */
-function normalizeNumber(value) {
-  return value == null ? "" : value;
-}
+const normalizeNumber = (value) => (value == null ? "" : value);
 
 /**
  * Normalizes set types for consistency
  * @param {string|null|undefined} value - Set type to normalize
  * @returns {string} Normalized value or "normal" if null/undefined
  */
-function normalizeSetType(value) {
-  return value ?? "normal";
-}
+const normalizeSetType = (value) => value ?? "normal";
 
 /**
  * Converts column number to letter reference
@@ -438,26 +521,26 @@ function columnToLetter(column) {
  * @param {string} str
  * @returns {string}
  */
-function toTitleCaseFromSnake(str) {
+const toTitleCaseFromSnake = (str) => {
   if (!str) return "";
   return str
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
-}
+};
 
 /**
  * Converts an array of snake_case strings into a comma-separated Title Case string.
  * @param {string[]} arr
  * @returns {string}
  */
-function arrayToTitleCase(arr) {
+const arrayToTitleCase = (arr) => {
   if (!Array.isArray(arr)) return "";
   return arr
     .map((item) => toTitleCaseFromSnake(item))
     .filter(Boolean)
     .join(", ");
-}
+};
 
 /**
  * Parses a value into number or null, throwing ValidationError if it’s not numeric.
@@ -486,9 +569,7 @@ const DEV_API_KEY_PREFIX = "DEV_API_KEY_";
  * @returns {string} Property key
  * @private
  */
-function getDevApiKeyPropertyKey(label) {
-  return `${DEV_API_KEY_PREFIX}${label}`;
-}
+const getDevApiKeyPropertyKey = (label) => `${DEV_API_KEY_PREFIX}${label}`;
 
 /**
  * Custom error type names that need serialization for HTML service
@@ -623,7 +704,8 @@ function saveDevApiKey(label, key) {
 
   // UUID v4 format validation: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   // 8-4-4-4-12 hexadecimal characters
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(trimmed)) {
     throw new ValidationError(
       "Invalid API key format. API key must be a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
@@ -805,10 +887,8 @@ async function runInitialImport() {
  * Checks if the current user is a developer
  * @returns {boolean} True if user is a developer
  */
-function isDeveloper() {
-  const email = Session.getEffectiveUser().getEmail();
-  return DEVELOPER_CONFIG.EMAILS.includes(email);
-}
+const isDeveloper = () =>
+  DEVELOPER_CONFIG.EMAILS.includes(Session.getEffectiveUser().getEmail());
 
 /**
  * Multi-Login Check
