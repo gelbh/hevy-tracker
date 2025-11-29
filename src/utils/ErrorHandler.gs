@@ -66,15 +66,14 @@ class ErrorHandler {
     const contextObj =
       typeof context === "string" ? { description: context } : context;
     const enhancedError = this.enhanceError(error, contextObj);
+    const errorCode = this.getErrorCode(enhancedError);
 
     // Add error metadata
     Object.assign(enhancedError, {
       errorId,
-      errorCode: this.getErrorCode(enhancedError),
+      errorCode,
       timestamp: new Date().toISOString(),
-      recoverySuggestion: this.getRecoverySuggestion(
-        this.getErrorCode(enhancedError)
-      ),
+      recoverySuggestion: this.getRecoverySuggestion(errorCode),
     });
 
     // Log error with structured data
@@ -116,11 +115,7 @@ class ErrorHandler {
   static _showErrorToast(error) {
     try {
       const userMessage = this.getUserMessage(error);
-      SpreadsheetApp.getActiveSpreadsheet().toast(
-        userMessage,
-        "Error",
-        TOAST_DURATION.NORMAL
-      );
+      getActiveSpreadsheet().toast(userMessage, "Error", TOAST_DURATION.NORMAL);
     } catch (uiError) {
       console.warn("ErrorHandler: Unable to show toast:", uiError);
     }
@@ -134,33 +129,30 @@ class ErrorHandler {
    */
   static getErrorCode(error) {
     // Check custom error types first
-    if (error instanceof DrivePermissionError) {
-      return ERROR_CONFIG.CODES.DRIVE_PERMISSION;
-    }
-    if (error instanceof InvalidApiKeyError) {
-      return ERROR_CONFIG.CODES.INVALID_API_KEY;
-    }
-    if (error instanceof ValidationError) {
-      return ERROR_CONFIG.CODES.VALIDATION_ERROR;
-    }
-    if (error instanceof ConfigurationError) {
-      return ERROR_CONFIG.CODES.CONFIGURATION_ERROR;
-    }
-    if (error instanceof SheetError) {
-      return ERROR_CONFIG.CODES.SHEET_ERROR;
-    }
-    if (error instanceof ImportTimeoutError) {
-      return ERROR_CONFIG.CODES.TIMEOUT_ERROR;
+    const errorTypeMap = new Map([
+      [DrivePermissionError, ERROR_CONFIG.CODES.DRIVE_PERMISSION],
+      [InvalidApiKeyError, ERROR_CONFIG.CODES.INVALID_API_KEY],
+      [ValidationError, ERROR_CONFIG.CODES.VALIDATION_ERROR],
+      [ConfigurationError, ERROR_CONFIG.CODES.CONFIGURATION_ERROR],
+      [SheetError, ERROR_CONFIG.CODES.SHEET_ERROR],
+      [ImportTimeoutError, ERROR_CONFIG.CODES.TIMEOUT_ERROR],
+    ]);
+
+    for (const [ErrorClass, code] of errorTypeMap) {
+      if (error instanceof ErrorClass) {
+        return code;
+      }
     }
 
     // Handle ApiError with status-specific codes
     if (error instanceof ApiError) {
-      if (error.statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
+      const { statusCode } = error;
+      if (statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
         return ERROR_CONFIG.CODES.RATE_LIMIT_ERROR;
       }
       if (
-        error.statusCode === HTTP_STATUS.REQUEST_TIMEOUT ||
-        error.statusCode === HTTP_STATUS.GATEWAY_TIMEOUT
+        statusCode === HTTP_STATUS.REQUEST_TIMEOUT ||
+        statusCode === HTTP_STATUS.GATEWAY_TIMEOUT
       ) {
         return ERROR_CONFIG.CODES.TIMEOUT_ERROR;
       }
@@ -182,13 +174,9 @@ class ErrorHandler {
    * @private
    */
   static _isNetworkError(error) {
-    if (!error.message) return false;
-    const message = error.message.toLowerCase();
-    return (
-      message.includes("network") ||
-      message.includes("dns") ||
-      message.includes("connection")
-    );
+    const message = error?.message?.toLowerCase() ?? "";
+    const networkKeywords = ["network", "dns", "connection"];
+    return networkKeywords.some((keyword) => message.includes(keyword));
   }
 
   /**
@@ -199,7 +187,7 @@ class ErrorHandler {
    */
   static getRecoverySuggestion(errorCode) {
     return (
-      ERROR_CONFIG.RECOVERY_SUGGESTIONS[errorCode] ||
+      ERROR_CONFIG.RECOVERY_SUGGESTIONS[errorCode] ??
       "Please try again or contact support if the issue persists."
     );
   }
@@ -214,7 +202,7 @@ class ErrorHandler {
   static enhanceError(error, context) {
     // Preserve existing custom error types with updated context
     if (this.isCustomErrorType(error)) {
-      error.context = { ...error.context, ...context };
+      error.context = { ...(error.context ?? {}), ...context };
       return error;
     }
 
@@ -228,14 +216,14 @@ class ErrorHandler {
 
     if (error.statusCode === HTTP_STATUS.UNAUTHORIZED) {
       return new InvalidApiKeyError(
-        error.message || "Invalid or revoked API key"
+        error.message ?? "Invalid or revoked API key"
       );
     }
 
-    if (error.statusCode || context.endpoint) {
+    if (error.statusCode ?? context.endpoint) {
       return new ApiError(
-        error.message || "API request failed",
-        error.statusCode || 0,
+        error.message ?? "API request failed",
+        error.statusCode ?? 0,
         error.response,
         context
       );
@@ -243,14 +231,14 @@ class ErrorHandler {
 
     if (context.sheetName) {
       return new SheetError(
-        error.message || "Sheet operation failed",
+        error.message ?? "Sheet operation failed",
         context.sheetName,
         context
       );
     }
 
     if (error instanceof TypeError || context.validation) {
-      return new ValidationError(error.message || "Validation failed", context);
+      return new ValidationError(error.message ?? "Validation failed", context);
     }
 
     return error;
@@ -278,7 +266,7 @@ class ErrorHandler {
       return ERROR_CONFIG.MESSAGES.API_KEY_VALIDATION;
     }
 
-    return ERROR_CONFIG.MESSAGES.DEFAULT(error.errorId);
+    return ERROR_CONFIG.MESSAGES.DEFAULT(error?.errorId ?? "unknown");
   }
 
   /**
@@ -305,13 +293,13 @@ class ErrorHandler {
    * @private
    */
   static isPermissionError(error) {
-    if (!error.message) return false;
-    const message = error.message.toLowerCase();
-    return (
-      message.includes("access denied") ||
-      message.includes("insufficient permissions") ||
-      message.includes("permission")
-    );
+    const message = error?.message?.toLowerCase() ?? "";
+    const permissionKeywords = [
+      "access denied",
+      "insufficient permissions",
+      "permission",
+    ];
+    return permissionKeywords.some((keyword) => message.includes(keyword));
   }
 }
 
@@ -334,14 +322,15 @@ class ApiError extends Error {
   }
 
   isRetryable() {
-    return [
+    const retryableStatusCodes = [
       HTTP_STATUS.REQUEST_TIMEOUT,
       HTTP_STATUS.TOO_MANY_REQUESTS,
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       HTTP_STATUS.BAD_GATEWAY,
       HTTP_STATUS.SERVICE_UNAVAILABLE,
       HTTP_STATUS.GATEWAY_TIMEOUT,
-    ].includes(this.statusCode);
+    ];
+    return retryableStatusCodes.includes(this.statusCode);
   }
 }
 
