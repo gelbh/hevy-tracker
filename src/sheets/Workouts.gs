@@ -59,7 +59,7 @@ async function importAllWorkouts(checkTimeout = null) {
 
   if (changes > 0) {
     const exerciseSheet = SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet;
-    
+
     // Handle post-processing with timeout checks
     // Note: syncLocalizedExerciseNames is already called in importAllWorkoutsFull/Delta
     // with the idToLocalizedName map for optimization
@@ -282,7 +282,10 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
         fullWorkouts.push(result.value);
       } else {
         failedIds.push(upsertIds[index]);
-        console.error(`Failed to fetch workout ${upsertIds[index]}:`, result.reason);
+        console.error(
+          `Failed to fetch workout ${upsertIds[index]}:`,
+          result.reason
+        );
       }
     }
 
@@ -330,7 +333,9 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
         await syncLocalizedExerciseNames(idToLocalizedName, checkTimeout);
       } catch (error) {
         if (error instanceof ImportTimeoutError) {
-          console.warn("syncLocalizedExerciseNames timed out after delta import");
+          console.warn(
+            "syncLocalizedExerciseNames timed out after delta import"
+          );
         } else {
           throw error;
         }
@@ -352,14 +357,37 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
  */
 function deleteWorkoutRows(sheet, workoutIds) {
   const values = sheet.getDataRange().getValues();
+
+  // Validate that we have data
+  if (!values || values.length === 0) {
+    return; // Nothing to delete
+  }
+
   const headers = values[0];
   const idIdx = headers.indexOf("ID");
+
+  // Validate that ID column exists
+  if (idIdx === -1) {
+    throw new SheetError("ID column not found in sheet", sheet.getName(), {
+      headers: headers,
+    });
+  }
 
   const filtered = values.filter(
     (row, i) => i === 0 || !workoutIds.has(row[idIdx])
   );
+
   sheet.clearContents();
-  sheet.getRange(1, 1, filtered.length, filtered[0].length).setValues(filtered);
+
+  // Validate that filtered array is not empty before accessing filtered[0]
+  if (filtered.length === 0) {
+    // Sheet is now empty, nothing to write
+    return;
+  }
+
+  // Safely get column count - use headers.length as fallback
+  const numCols = filtered[0]?.length || headers.length;
+  sheet.getRange(1, 1, filtered.length, numCols).setValues(filtered);
 }
 
 /**
