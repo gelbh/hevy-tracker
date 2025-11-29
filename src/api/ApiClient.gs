@@ -629,11 +629,7 @@ class ApiClient {
       // This prevents marking as active if validation fails
       const apiKey = apiKeyOverride || this._getApiKeyFromProperties();
       if (!apiKey) {
-        this._showToast(
-          "API key not found. Please set it using Extensions > Hevy Tracker > Set API Key",
-          "API Key Required",
-          TOAST_DURATION.NORMAL
-        );
+        showInitialSetup();
         return;
       }
 
