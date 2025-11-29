@@ -123,6 +123,10 @@ async function handlePostProcessing(sheet, checkTimeout, updateMessage) {
  */
 function syncCustomExerciseIds(sheet, apiExercises) {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // Validate required headers exist
+  validateExerciseSheetHeaders(headers, ["ID", "Title"]);
+
   const idCol = headers.indexOf("ID") + 1;
   const titleCol = headers.indexOf("Title") + 1;
 
@@ -394,6 +398,7 @@ async function updateExerciseCounts(exerciseSheet, checkTimeout = null) {
       exerciseData,
       exerciseCountsById,
       exerciseCountsByTitle,
+      indices,
       checkTimeout
     );
 
@@ -418,6 +423,10 @@ async function updateExerciseCounts(exerciseSheet, checkTimeout = null) {
 function buildExerciseMaps(exerciseSheet) {
   const exerciseData = exerciseSheet.getDataRange().getValues();
   const exerciseHeaders = exerciseData.shift();
+
+  // Validate required headers exist
+  validateExerciseSheetHeaders(exerciseHeaders, ["ID", "Title", "Count"]);
+
   const idIndex = exerciseHeaders.indexOf("ID");
   const titleIndex = exerciseHeaders.indexOf("Title");
   const countIndex = exerciseHeaders.indexOf("Count");
@@ -443,6 +452,35 @@ function buildExerciseMaps(exerciseSheet) {
     titleToIdMap,
     indices: { idIndex, titleIndex, countIndex },
   };
+}
+
+/**
+ * Validates that required headers exist in the exercise sheet
+ * @param {Array<string>} headers - Array of header strings from the sheet
+ * @param {Array<string>} requiredHeaders - Array of required header names
+ * @throws {ConfigurationError} If any required headers are missing
+ * @private
+ */
+function validateExerciseSheetHeaders(headers, requiredHeaders) {
+  const missingHeaders = requiredHeaders.filter(
+    (header) => headers.indexOf(header) === -1
+  );
+
+  if (missingHeaders.length > 0) {
+    const expectedHeaders = SHEET_HEADERS[EXERCISES_SHEET_NAME].join(", ");
+    throw new ConfigurationError(
+      `Missing required column headers in Exercises sheet: ${missingHeaders.join(
+        ", "
+      )}. ` +
+        `Expected headers: ${expectedHeaders}. ` +
+        `Please restore the sheet from the template or recreate it with the correct structure.`,
+      {
+        missingHeaders: missingHeaders,
+        expectedHeaders: SHEET_HEADERS[EXERCISES_SHEET_NAME],
+        sheetName: EXERCISES_SHEET_NAME,
+      }
+    );
+  }
 }
 
 /**
@@ -583,6 +621,7 @@ function incrementTitleCount(
  * @param {Array} exerciseData - Exercise data array
  * @param {Map} exerciseCountsById - Map of ID to count
  * @param {Map} exerciseCountsByTitle - Map of title to count
+ * @param {Object} indices - Object with idIndex, titleIndex, countIndex
  * @param {Function} checkTimeout - Timeout checker
  * @private
  */
@@ -591,12 +630,23 @@ async function updateExerciseSheetCounts(
   exerciseData,
   exerciseCountsById,
   exerciseCountsByTitle,
+  indices,
   checkTimeout
 ) {
   const batchSize = BATCH_CONFIG.EXERCISE_COUNT_BATCH_SIZE;
   const timeoutCheckInterval = 200;
-  const { idIndex, titleIndex, countIndex } =
-    buildExerciseMaps(exerciseSheet).indices;
+  const { idIndex, titleIndex, countIndex } = indices;
+
+  // Validate countIndex is valid (should already be validated in buildExerciseMaps, but double-check)
+  if (countIndex < 0) {
+    throw new ConfigurationError(
+      "Count column not found in Exercises sheet. Please restore the sheet from the template.",
+      {
+        sheetName: exerciseSheet.getName(),
+        missingColumn: "Count",
+      }
+    );
+  }
 
   for (let i = 0; i < exerciseData.length; i += batchSize) {
     checkAndThrowTimeout(checkTimeout, "updateExerciseCounts");
@@ -747,16 +797,12 @@ function buildLocalizedNameMapFromSheet(workoutSheet) {
 function buildExerciseNameMaps(exerciseSheet, idToLocalizedName) {
   const exerciseData = exerciseSheet.getDataRange().getValues();
   const exerciseHeaders = exerciseData.shift();
+
+  // Validate required headers exist
+  validateExerciseSheetHeaders(exerciseHeaders, ["ID", "Title"]);
+
   const idIndex = exerciseHeaders.indexOf("ID");
   const titleIndex = exerciseHeaders.indexOf("Title");
-
-  if (idIndex === -1 || titleIndex === -1) {
-    return {
-      exerciseData: [],
-      exerciseNameToLocalized: new Map(),
-      nameToExerciseId: new Map(),
-    };
-  }
 
   const exerciseNameToLocalized = new Map();
   const exerciseUpdates = [];
@@ -836,7 +882,19 @@ async function updateExercisesSheetNames(
     idToLocalizedName
   );
 
-  if (exerciseUpdates.length === 0) return;
+  // If no updates needed, return early
+  if (!exerciseUpdates || exerciseUpdates.length === 0) return;
+
+  // Validate titleIndex is valid (should already be validated in buildExerciseNameMaps, but double-check)
+  if (titleIndex < 0) {
+    throw new ConfigurationError(
+      "Title column not found in Exercises sheet. Please restore the sheet from the template.",
+      {
+        sheetName: exerciseSheet.getName(),
+        missingColumn: "Title",
+      }
+    );
+  }
 
   exerciseUpdates.sort((a, b) => a.row - b.row);
 
