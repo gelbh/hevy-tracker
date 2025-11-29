@@ -108,7 +108,7 @@ function showHtmlDialog(filename, options = {}) {
   try {
     const html = createHtmlOutput(filename, templateData);
     const htmlOutput = configureHtmlOutput(html, filename, title);
-    showDialog(htmlOutput, width, height, showAsSidebar);
+    showDialog(htmlOutput, width, height, showAsSidebar, title);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       context: "Showing HTML dialog",
@@ -144,14 +144,14 @@ const configureHtmlOutput = (html, filename, title) =>
  * Shows the configured dialog
  * @private
  */
-const showDialog = (htmlOutput, width, height, showAsSidebar) => {
+const showDialog = (htmlOutput, width, height, showAsSidebar, title = "") => {
   const ui = SpreadsheetApp.getUi();
   if (showAsSidebar) {
     htmlOutput.setWidth(width);
     ui.showSidebar(htmlOutput);
   } else {
     htmlOutput.setWidth(width).setHeight(height);
-    ui.showModalDialog(htmlOutput, "");
+    ui.showModalDialog(htmlOutput, title || "");
   }
 };
 
