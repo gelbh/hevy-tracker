@@ -138,12 +138,28 @@
         try {
           initSidebar();
         } catch (err) {
-          document.getElementById("sidebar-content").innerHTML =
-            '<div class="p-4 bg-red-100 text-red-800 rounded">' +
-            "<p>Error loading sidebar content. Please try closing and reopening the add-on.</p>" +
-            '<button class="mt-2 px-3 py-1 bg-red-800 text-white rounded" ' +
-            'onclick="window.location.reload()">Reload</button>' +
-            "</div>";
+          // Use safe DOM manipulation instead of innerHTML to prevent XSS
+          const sidebarContent = document.getElementById("sidebar-content");
+          sidebarContent.innerHTML = ""; // Clear existing content safely
+
+          const errorDiv = document.createElement("div");
+          errorDiv.className = "p-4 bg-red-100 text-red-800 rounded";
+
+          const errorMessage = document.createElement("p");
+          errorMessage.textContent =
+            "Error loading sidebar content. Please try closing and reopening the add-on.";
+          errorDiv.appendChild(errorMessage);
+
+          const reloadButton = document.createElement("button");
+          reloadButton.className =
+            "mt-2 px-3 py-1 bg-red-800 text-white rounded";
+          reloadButton.textContent = "Reload";
+          reloadButton.addEventListener("click", function () {
+            window.location.reload();
+          });
+          errorDiv.appendChild(reloadButton);
+
+          sidebarContent.appendChild(errorDiv);
           console.error("Sidebar initialization error:", err);
         }
       });
