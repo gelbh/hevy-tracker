@@ -603,11 +603,41 @@ function saveUserApiKey(apiKey) {
  * Saves a developer API key to script properties
  * @param {string} label - The label for the API key
  * @param {string} key - The API key to save
+ * @throws {ValidationError} If API key format is invalid
  */
 function saveDevApiKey(label, key) {
+  // Validate label
+  if (!label || typeof label !== "string" || label.trim().length === 0) {
+    throw new ValidationError("Label must be a non-empty string");
+  }
+
+  // Validate API key format
+  if (!key || typeof key !== "string") {
+    throw new ValidationError("API key must be a non-empty string");
+  }
+
+  const trimmed = key.trim();
+  if (trimmed.length === 0) {
+    throw new ValidationError("API key cannot be empty");
+  }
+
+  // UUID v4 format validation: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  // 8-4-4-4-12 hexadecimal characters
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(trimmed)) {
+    throw new ValidationError(
+      "Invalid API key format. API key must be a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+    );
+  }
+
+  // Length validation (UUID should be exactly 36 characters including hyphens)
+  if (trimmed.length !== 36) {
+    throw new ValidationError("API key must be exactly 36 characters long.");
+  }
+
   PropertiesService.getScriptProperties().setProperty(
-    getDevApiKeyPropertyKey(label),
-    key
+    getDevApiKeyPropertyKey(label.trim()),
+    trimmed
   );
 }
 

@@ -147,13 +147,41 @@ class ApiClient {
    * Saves the API key and initiates initial data import if needed
    * Saves synchronously first, then validates in background for reliability
    * @param {string} apiKey - The API key to save
+   * @throws {ValidationError} If API key format is invalid
    */
   saveUserApiKey(apiKey) {
+    // Server-side validation: Validate API key format before saving
+    if (!apiKey || typeof apiKey !== "string") {
+      throw new ValidationError("API key must be a non-empty string");
+    }
+
+    const trimmed = apiKey.trim();
+    if (trimmed.length === 0) {
+      throw new ValidationError("API key cannot be empty");
+    }
+
+    // UUID v4 format validation: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    // 8-4-4-4-12 hexadecimal characters
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(trimmed)) {
+      throw new ValidationError(
+        "Invalid API key format. API key must be a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+      );
+    }
+
+    // Length validation (UUID should be exactly 36 characters including hyphens)
+    if (trimmed.length !== 36) {
+      throw new ValidationError("API key must be exactly 36 characters long.");
+    }
+
     // Save API key first (synchronously) - this ensures immediate completion
     const properties = this._getDocumentProperties();
     const currentKey = properties.getProperty("HEVY_API_KEY");
+    
+    // Use trimmed key for storage
+    const apiKeyToSave = trimmed;
 
-    properties.setProperty("HEVY_API_KEY", apiKey);
+    properties.setProperty("HEVY_API_KEY", apiKeyToSave);
     properties.deleteProperty("LAST_WORKOUT_UPDATE");
     this._apiKeyCheckInProgress = false;
 
@@ -179,7 +207,7 @@ class ApiClient {
     // This ensures the HTML dialog can close without timeout
 
     // Validate API key in background - if it fails, remove the key
-    this.validateApiKey(apiKey)
+    this.validateApiKey(apiKeyToSave)
       .then(() => {
         // Validation succeeded - key is valid
         console.log("API key validation succeeded");
@@ -321,7 +349,7 @@ class ApiClient {
     let totalProcessed = 0;
     let hasMore = true;
 
-    while (hasMore) {
+    while (hasMore && page <= MAX_PAGES) {
       try {
         // Check timeout before each page fetch
         if (checkTimeout && checkTimeout()) {
@@ -369,6 +397,23 @@ class ApiClient {
           operation: "Fetching paginated data",
         });
       }
+    }
+
+    // Safety check: If we hit the maximum page limit, something is wrong
+    if (page > MAX_PAGES) {
+      throw ErrorHandler.handle(
+        new Error(
+          `Maximum page limit (${MAX_PAGES}) reached while fetching ${endpoint}. ` +
+            "This may indicate an infinite loop or API inconsistency. " +
+            `Total items processed: ${totalProcessed}`
+        ),
+        {
+          endpoint,
+          page,
+          totalProcessed,
+          operation: "Fetching paginated data - maximum page limit exceeded",
+        }
+      );
     }
 
     return totalProcessed;

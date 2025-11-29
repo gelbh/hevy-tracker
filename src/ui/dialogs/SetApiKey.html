@@ -224,6 +224,37 @@
         return "An unknown error occurred. Please try again.";
       }
 
+      /**
+       * Validates API key format (UUID v4 format)
+       * @param {string} apiKey - The API key to validate
+       * @returns {string|null} Error message if invalid, null if valid
+       */
+      function validateApiKeyFormat(apiKey) {
+        if (!apiKey || typeof apiKey !== "string") {
+          return "API key is required.";
+        }
+
+        const trimmed = apiKey.trim();
+        if (trimmed.length === 0) {
+          return "API key cannot be empty.";
+        }
+
+        // UUID v4 format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        // 8-4-4-4-12 hexadecimal characters
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (!uuidRegex.test(trimmed)) {
+          return "Invalid API key format. Please enter a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).";
+        }
+
+        // Length validation (UUID should be exactly 36 characters including hyphens)
+        if (trimmed.length !== 36) {
+          return "API key must be exactly 36 characters long.";
+        }
+
+        return null; // Valid
+      }
+
       function saveApiKey() {
         // Prevent multiple simultaneous save attempts
         if (isSaving) {
@@ -237,6 +268,14 @@
         const spinner = document.getElementById("spinner");
         const errorMessage = document.getElementById("errorMessage");
         const apiKeyInput = document.getElementById("apiKey");
+
+        // Client-side validation
+        const validationError = validateApiKeyFormat(apiKey);
+        if (validationError) {
+          errorMessage.textContent = validationError;
+          errorMessage.style.display = "block";
+          return;
+        }
 
         // Set saving flag
         isSaving = true;

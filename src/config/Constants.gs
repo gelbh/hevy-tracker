@@ -93,6 +93,13 @@ const PAGE_SIZE = {
 };
 
 /**
+ * Maximum number of pages to fetch in pagination loops
+ * Safety limit to prevent infinite loops if API returns inconsistent data
+ * @type {number}
+ */
+const MAX_PAGES = 10000;
+
+/**
  * Rate limiting configuration to respect API quotas
  * @type {Object<number>}
  */

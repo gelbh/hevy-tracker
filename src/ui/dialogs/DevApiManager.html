@@ -81,13 +81,32 @@
       .switch-btn:hover {
         background-color: #2d8f47;
       }
+      .toggle-btn {
+        background-color: #5f6368;
+        color: white;
+      }
+      .toggle-btn:hover {
+        background-color: #4a4d52;
+      }
     </style>
   </head>
   <body>
     <div>
       <div class="section">
-        <label>Current API Key</label>
-        <p id="currentKey">Loading...</p>
+        <label for="currentKey">Current API Key</label>
+        <div class="inline-actions">
+          <p id="currentKey" role="status" aria-live="polite" style="flex: 1; margin: 0;">Loading...</p>
+          <button
+            type="button"
+            class="button toggle-btn"
+            id="toggleKeyBtn"
+            onclick="toggleKeyVisibility()"
+            aria-label="Toggle API key visibility"
+            style="display: none;"
+          >
+            Show
+          </button>
+        </div>
       </div>
 
       <div class="section">
@@ -154,10 +173,48 @@
           .getApiKeyDataForUI();
       }
 
+      // Store full key for toggle functionality
+      let fullApiKey = null;
+      let isKeyVisible = false;
+
+      function maskApiKey(key) {
+        if (!key || key.length < 4) {
+          return "Not set";
+        }
+        // Show only last 4 characters, mask the rest
+        const lastFour = key.slice(-4);
+        const masked = "****-****-****-" + lastFour;
+        return masked;
+      }
+
+      function toggleKeyVisibility() {
+        const currentDisplay = document.getElementById("currentKey");
+        const toggleBtn = document.getElementById("toggleKeyBtn");
+        
+        if (!fullApiKey) {
+          return;
+        }
+
+        isKeyVisible = !isKeyVisible;
+        
+        if (isKeyVisible) {
+          currentDisplay.textContent = `Label: ${currentKeyLabel || "N/A"}, Key: ${fullApiKey}`;
+          toggleBtn.textContent = "Hide";
+          toggleBtn.setAttribute("aria-label", "Hide API key");
+        } else {
+          currentDisplay.textContent = `Label: ${currentKeyLabel || "N/A"}, Key: ${maskApiKey(fullApiKey)}`;
+          toggleBtn.textContent = "Show";
+          toggleBtn.setAttribute("aria-label", "Show API key");
+        }
+      }
+
+      let currentKeyLabel = null;
+
       function populateUI(keys, currentKey) {
         const currentDisplay = document.getElementById("currentKey");
         const switchDropdown = document.getElementById("switchLabel");
         const removeDropdown = document.getElementById("removeLabel");
+        const toggleBtn = document.getElementById("toggleKeyBtn");
 
         switchDropdown.innerHTML = "";
         removeDropdown.innerHTML = "";
@@ -170,17 +227,82 @@
         });
 
         const match = keys.find((k) => k.key === currentKey);
-        currentDisplay.textContent = match
-          ? `Label: ${match.label}, Key: ${match.key}`
-          : currentKey || "Not set";
+        
+        if (match) {
+          currentKeyLabel = match.label;
+          fullApiKey = match.key;
+          // Default to masked view
+          isKeyVisible = false;
+          currentDisplay.textContent = `Label: ${match.label}, Key: ${maskApiKey(match.key)}`;
+          toggleBtn.style.display = "inline-block";
+          toggleBtn.textContent = "Show";
+          toggleBtn.setAttribute("aria-label", "Show API key");
+        } else if (currentKey) {
+          currentKeyLabel = null;
+          fullApiKey = currentKey;
+          isKeyVisible = false;
+          currentDisplay.textContent = `Key: ${maskApiKey(currentKey)}`;
+          toggleBtn.style.display = "inline-block";
+          toggleBtn.textContent = "Show";
+          toggleBtn.setAttribute("aria-label", "Show API key");
+        } else {
+          currentKeyLabel = null;
+          fullApiKey = null;
+          currentDisplay.textContent = "Not set";
+          toggleBtn.style.display = "none";
+        }
+      }
+
+      /**
+       * Validates API key format (UUID v4 format)
+       * @param {string} apiKey - The API key to validate
+       * @returns {string|null} Error message if invalid, null if valid
+       */
+      function validateApiKeyFormat(apiKey) {
+        if (!apiKey || typeof apiKey !== "string") {
+          return "API key is required.";
+        }
+
+        const trimmed = apiKey.trim();
+        if (trimmed.length === 0) {
+          return "API key cannot be empty.";
+        }
+
+        // UUID v4 format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        // 8-4-4-4-12 hexadecimal characters
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (!uuidRegex.test(trimmed)) {
+          return "Invalid API key format. Please enter a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).";
+        }
+
+        // Length validation (UUID should be exactly 36 characters including hyphens)
+        if (trimmed.length !== 36) {
+          return "API key must be exactly 36 characters long.";
+        }
+
+        return null; // Valid
       }
 
       function saveKey() {
         const label = document.getElementById("label").value.trim();
         const key = document.getElementById("key").value.trim();
-        if (!label || !key) return alert("Both label and key are required.");
+        
+        if (!label || !key) {
+          return alert("Both label and key are required.");
+        }
+
+        // Client-side validation
+        const validationError = validateApiKeyFormat(key);
+        if (validationError) {
+          return alert(validationError);
+        }
+
         google.script.run
           .withSuccessHandler(refreshUI)
+          .withFailureHandler(function (error) {
+            alert("Failed to save API key: " + (error.message || "Unknown error"));
+          })
           .saveDevApiKey(label, key);
       }
 
