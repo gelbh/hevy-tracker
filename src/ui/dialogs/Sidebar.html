@@ -5,132 +5,270 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hevy Tracker Sidebar</title>
     <base target="_top" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
-    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
   </head>
-  <body class="bg-white">
-    <div class="flex flex-col h-full">
-      <div class="p-4 space-y-4" id="sidebar-content">
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] fade-in"
+    role="complementary"
+    aria-label="Hevy Tracker navigation"
+  >
+    <nav class="flex flex-col h-full" aria-label="Main navigation">
+      <div class="p-4 space-y-5" id="sidebar-content">
         <!-- Loading indicator -->
-        <div id="loading-indicator" class="text-center py-4">
-          <p>Loading sidebar content...</p>
+        <div
+          id="loading-indicator"
+          class="text-center py-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex flex-col items-center gap-3">
+            <div class="spinner spinner-lg" aria-hidden="true"></div>
+            <p class="text-sm text-[hsl(var(--muted-foreground))]">
+              Loading sidebar content...
+            </p>
+          </div>
         </div>
 
         <? if (data.isTemplate) { ?>
         <!-- Template Spreadsheet Menu -->
-        <button
-          type="button"
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-          data-action="showGuideDialog"
-          aria-label="View setup guide"
-        >
-          <span>❓ View Setup Guide</span>
-        </button>
+        <section aria-label="Template spreadsheet actions">
+          <button
+            type="button"
+            class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            data-action="showGuideDialog"
+            aria-label="View setup guide"
+          >
+            <i
+              data-lucide="help-circle"
+              class="icon flex-shrink-0"
+              aria-hidden="true"
+            ></i>
+            <span>View Setup Guide</span>
+          </button>
+        </section>
         <? } else { ?>
         <!-- Regular Spreadsheet Menu -->
-        <button
-          type="button"
-          class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-          data-action="showInitialSetup"
-          aria-label="Set Hevy API key"
-        >
-          <span class="text-blue-600">🔑 Set Hevy API Key</span>
-        </button>
-        <hr class="my-4" />
-        <div class="space-y-2">
-          <h3 class="font-semibold text-gray-700">IMPORT DATA</h3>
-          <div class="space-y-1">
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="runFullImport"
-              aria-label="Import all data"
+        <section aria-label="API key setup">
+          <button
+            type="button"
+            class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            data-action="showInitialSetup"
+            aria-label="Set Hevy API key"
+          >
+            <i
+              data-lucide="key"
+              class="icon flex-shrink-0 text-[hsl(var(--primary))]"
+              aria-hidden="true"
+            ></i>
+            <span class="text-[hsl(var(--primary))] font-medium"
+              >Set Hevy API Key</span
             >
-              <span>📥 Import All</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="importAllWorkouts"
-              aria-label="Import workouts"
+          </button>
+        </section>
+
+        <hr class="my-4 border-[hsl(var(--border))]" aria-hidden="true" />
+
+        <section aria-labelledby="import-section-heading">
+          <div class="flex items-center gap-2 px-2">
+            <i
+              data-lucide="download"
+              class="icon icon-sm text-[hsl(var(--muted-foreground))]"
+              aria-hidden="true"
+            ></i>
+            <h2
+              id="import-section-heading"
+              class="font-semibold text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider m-0"
             >
-              <span>🏋️ Import Workouts</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="importAllExercises"
-              aria-label="Import exercises"
-            >
-              <span>💪 Import Exercises</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="importAllRoutines"
-              aria-label="Import routines"
-            >
-              <span>📋 Import Routines</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="importAllRoutineFolders"
-              aria-label="Import routine folders"
-            >
-              <span>📁 Import Routine Folders</span>
-            </button>
+              IMPORT DATA
+            </h2>
           </div>
-        </div>
-        <hr class="my-4" />
-        <div class="space-y-2">
-          <h3 class="font-semibold text-gray-700">ROUTINE BUILDER</h3>
-          <div class="space-y-1">
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="createRoutineFromSheet"
-              aria-label="Create routine from sheet"
+          <ul class="space-y-1 mt-2" role="list">
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="runFullImport"
+                aria-label="Import all data"
+              >
+                <i
+                  data-lucide="download-cloud"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import All</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="importAllWorkouts"
+                aria-label="Import workouts"
+              >
+                <i
+                  data-lucide="dumbbell"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import Workouts</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="importAllExercises"
+                aria-label="Import exercises"
+              >
+                <i
+                  data-lucide="activity"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import Exercises</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="importAllRoutines"
+                aria-label="Import routines"
+              >
+                <i
+                  data-lucide="list-checks"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import Routines</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="importAllRoutineFolders"
+                aria-label="Import routine folders"
+              >
+                <i
+                  data-lucide="folder"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import Routine Folders</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <hr class="my-4 border-[hsl(var(--border))]" aria-hidden="true" />
+
+        <section aria-labelledby="routine-builder-section-heading">
+          <div class="flex items-center gap-2 px-2">
+            <i
+              data-lucide="file-edit"
+              class="icon icon-sm text-[hsl(var(--muted-foreground))]"
+              aria-hidden="true"
+            ></i>
+            <h2
+              id="routine-builder-section-heading"
+              class="font-semibold text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider m-0"
             >
-              <span>📋 Create Routine from Sheet</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="clearRoutineBuilder"
-              aria-label="Clear routine builder form"
-            >
-              <span>🗑️ Clear Builder Form</span>
-            </button>
+              ROUTINE BUILDER
+            </h2>
           </div>
-        </div>
-        <hr class="my-4" />
-        <div class="space-y-2">
-          <h3 class="font-semibold text-gray-700">BODY WEIGHT</h3>
-          <div class="space-y-1">
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="showTakeoutDialog"
-              aria-label="Import body weight from Google Takeout"
+          <ul class="space-y-1 mt-2" role="list">
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="createRoutineFromSheet"
+                aria-label="Create routine from sheet"
+              >
+                <i
+                  data-lucide="file-plus"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Create Routine from Sheet</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="clearRoutineBuilder"
+                aria-label="Clear routine builder form"
+              >
+                <i
+                  data-lucide="trash-2"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Clear Builder Form</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <hr class="my-4 border-[hsl(var(--border))]" aria-hidden="true" />
+
+        <section aria-labelledby="body-weight-section-heading">
+          <div class="flex items-center gap-2 px-2">
+            <i
+              data-lucide="scale"
+              class="icon icon-sm text-[hsl(var(--muted-foreground))]"
+              aria-hidden="true"
+            ></i>
+            <h2
+              id="body-weight-section-heading"
+              class="font-semibold text-[hsl(var(--muted-foreground))] text-xs uppercase tracking-wider m-0"
             >
-              <span>❤️‍🩹 Import Body Weight from Takeout</span>
-            </button>
-            <button
-              type="button"
-              class="menu-item cursor-pointer hover:bg-gray-100 p-2 rounded w-full text-left"
-              data-action="logWeight"
-              aria-label="Log body weight"
-            >
-              <span>⚖️ Log Body Weight</span>
-            </button>
+              BODY WEIGHT
+            </h2>
           </div>
-        </div>
+          <ul class="space-y-1 mt-2" role="list">
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="showTakeoutDialog"
+                aria-label="Import body weight from Google Takeout"
+              >
+                <i
+                  data-lucide="upload"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Import Body Weight from Takeout</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                class="menu-item flex items-center gap-2.5 cursor-pointer hover:bg-[hsl(var(--accent))] p-2.5 rounded-md w-full text-left transition-all duration-200 hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                data-action="logWeight"
+                aria-label="Log body weight"
+              >
+                <i
+                  data-lucide="plus-circle"
+                  class="icon flex-shrink-0"
+                  aria-hidden="true"
+                ></i>
+                <span>Log Body Weight</span>
+              </button>
+            </li>
+          </ul>
+        </section>
         <? } ?>
       </div>
-    </div>
+    </nav>
 
     <script>
       // Main initialization with error handling
@@ -143,56 +281,111 @@
           sidebarContent.innerHTML = ""; // Clear existing content safely
 
           const errorDiv = document.createElement("div");
-          errorDiv.className = "p-4 bg-red-100 text-red-800 rounded";
+          errorDiv.className = "alert alert-error";
+
+          const errorIcon = document.createElement("i");
+          errorIcon.setAttribute("data-lucide", "alert-circle");
+          errorIcon.className = "alert-icon icon";
+          errorDiv.appendChild(errorIcon);
+
+          const errorContent = document.createElement("div");
+          errorContent.className = "alert-content";
 
           const errorMessage = document.createElement("p");
           errorMessage.textContent =
             "Error loading sidebar content. Please try closing and reopening the add-on.";
-          errorDiv.appendChild(errorMessage);
+          errorContent.appendChild(errorMessage);
 
           const reloadButton = document.createElement("button");
-          reloadButton.className =
-            "mt-2 px-3 py-1 bg-red-800 text-white rounded";
-          reloadButton.textContent = "Reload";
+          reloadButton.className = "btn btn-destructive mt-3";
+          reloadButton.innerHTML =
+            '<i data-lucide="refresh-cw" class="icon icon-sm"></i> Reload';
           reloadButton.addEventListener("click", function () {
             window.location.reload();
           });
-          errorDiv.appendChild(reloadButton);
+          errorContent.appendChild(reloadButton);
 
+          errorDiv.appendChild(errorContent);
           sidebarContent.appendChild(errorDiv);
+
+          // Initialize icons after error display
+          if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+            window.HevyTrackerUtils.initIcons();
+          }
+
           console.error("Sidebar initialization error:", err);
         }
       });
 
       function initSidebar() {
         // Hide loading indicator once content is ready
-        document.getElementById("loading-indicator").style.display = "none";
+        const loadingIndicator = document.getElementById("loading-indicator");
+        if (loadingIndicator) {
+          loadingIndicator.style.display = "none";
+        }
 
         // Initialize menu items with improved click handling
-        document.querySelectorAll(".menu-item").forEach(function (item) {
-          item.addEventListener("click", function () {
-            const action = this.getAttribute("data-action");
-            if (action) {
-              // Show a temporary loading state
-              this.classList.add("bg-gray-100");
-
-              google.script.run
-                .withSuccessHandler(function (response) {
-                  console.log("Action completed:", response);
-                  // Remove loading state
-                  item.classList.remove("bg-gray-100");
-                })
-                .withFailureHandler(function (error) {
-                  console.error("Action failed:", error);
-                  // Remove loading state and add error state
-                  item.classList.remove("bg-gray-100");
-                  item.classList.add("bg-red-100");
-                  setTimeout(() => item.classList.remove("bg-red-100"), 2000);
-                })
-                .runMenuAction(action);
+        const menuItems = document.querySelectorAll(".menu-item");
+        menuItems.forEach((item) => {
+          // Keyboard support for better accessibility
+          item.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              item.click();
             }
           });
+
+          item.addEventListener("click", function () {
+            const action = this.getAttribute("data-action");
+            if (!action) {
+              return;
+            }
+
+            // Show temporary loading state
+            this.classList.add("bg-[hsl(var(--accent))]");
+            const originalTransform = this.style.transform;
+            this.style.transform = "translateX(4px)";
+            this.setAttribute("aria-busy", "true");
+
+            if (
+              typeof google === "undefined" ||
+              !google.script ||
+              !google.script.run
+            ) {
+              console.error("Google Apps Script not available");
+              this.classList.remove("bg-[hsl(var(--accent))]");
+              this.style.transform = originalTransform;
+              this.setAttribute("aria-busy", "false");
+              return;
+            }
+
+            google.script.run
+              .withSuccessHandler((response) => {
+                console.log("Action completed:", response);
+                // Remove loading state
+                item.classList.remove("bg-[hsl(var(--accent))]");
+                item.style.transform = originalTransform;
+                item.setAttribute("aria-busy", "false");
+              })
+              .withFailureHandler((error) => {
+                console.error("Action failed:", error);
+                // Remove loading state and add error state
+                item.classList.remove("bg-[hsl(var(--accent))]");
+                item.style.transform = originalTransform;
+                item.setAttribute("aria-busy", "false");
+                item.classList.add("bg-[hsl(var(--destructive)/0.1)]");
+                setTimeout(() => {
+                  item.classList.remove("bg-[hsl(var(--destructive)/0.1)]");
+                }, 2000);
+              })
+              .runMenuAction(action);
+          });
         });
+
+        // Initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
 
         // Log successful initialization with timestamp (for debugging)
         console.log("Sidebar initialized: " + new Date().toString());

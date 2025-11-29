@@ -4,321 +4,576 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Developer API Key Manager</title>
-    <style>
-      body {
-        font-family: "Segoe UI", Roboto, Arial, sans-serif;
-        padding: 24px;
-        background-color: white;
-        color: #333;
-      }
-      label {
-        display: block;
-        margin: 12px 0 6px;
-        font-weight: bold;
-      }
-      input[type="text"],
-      select {
-        width: 100%;
-        padding: 10px;
-        font-size: 14px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        box-sizing: border-box;
-      }
-      input:focus,
-      select:focus {
-        outline: 2px solid #4285f4;
-        outline-offset: 2px;
-      }
-      .section {
-        margin-bottom: 10px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #ddd;
-      }
-      .inline-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 6px;
-      }
-      .inline-actions > * {
-        margin: 0;
-      }
-      .button {
-        font-size: 14px;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-left: 10px;
-      }
-      .button:focus {
-        outline: 2px solid #1a73e8;
-        outline-offset: 2px;
-      }
-      .button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      .save-btn {
-        background-color: #4285f4;
-        color: white;
-      }
-      .save-btn:hover {
-        background-color: #3b78e7;
-      }
-      .remove-btn {
-        background-color: #d93025;
-        color: white;
-      }
-      .remove-btn:hover {
-        background-color: #c5221f;
-      }
-      .switch-btn {
-        background-color: #34a853;
-        color: white;
-      }
-      .switch-btn:hover {
-        background-color: #2d8f47;
-      }
-      .toggle-btn {
-        background-color: #5f6368;
-        color: white;
-      }
-      .toggle-btn:hover {
-        background-color: #4a4d52;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
   </head>
-  <body>
-    <div>
-      <div class="section">
-        <label for="currentKey">Current API Key</label>
-        <div class="inline-actions">
-          <p id="currentKey" role="status" aria-live="polite" style="flex: 1; margin: 0;">Loading...</p>
-          <button
-            type="button"
-            class="button toggle-btn"
-            id="toggleKeyBtn"
-            onclick="toggleKeyVisibility()"
-            aria-label="Toggle API key visibility"
-            style="display: none;"
-          >
-            Show
-          </button>
-        </div>
-      </div>
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] p-6 fade-in"
+    role="dialog"
+    aria-labelledby="dialog-title"
+  >
+    <main class="space-y-5">
+      <header class="flex items-center gap-3 mb-6">
+        <i
+          data-lucide="key-round"
+          class="icon icon-xl text-[hsl(var(--primary))]"
+          aria-hidden="true"
+        ></i>
+        <h1 id="dialog-title" class="heading-2 m-0">
+          Developer API Key Manager
+        </h1>
+      </header>
 
-      <div class="section">
-        <label for="switchLabel">Switch to API Key</label>
-        <div class="inline-actions">
-          <select id="switchLabel"></select>
-          <button
-            type="button"
-            class="button switch-btn"
-            onclick="switchKey()"
-            aria-label="Switch to selected API key"
-          >
-            Switch
-          </button>
+      <section class="card scale-in" aria-labelledby="current-key-heading">
+        <div class="card-content">
+          <div class="flex items-center gap-2 mb-4">
+            <i
+              data-lucide="key"
+              class="icon text-[hsl(var(--primary))]"
+              aria-hidden="true"
+            ></i>
+            <h2 id="current-key-heading" class="label m-0">Current API Key</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <div
+              id="currentKey"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              class="flex-1 m-0 p-3 bg-[hsl(var(--muted))] rounded-md font-mono text-sm"
+            >
+              Loading...
+            </div>
+            <button
+              type="button"
+              class="btn btn-ghost hidden"
+              id="toggleKeyBtn"
+              aria-label="Toggle API key visibility"
+              aria-expanded="false"
+            >
+              <i
+                data-lucide="eye"
+                class="icon icon-sm"
+                id="toggleIcon"
+                aria-hidden="true"
+              ></i>
+              <span id="toggleText">Show</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="section">
-        <label for="label">New Label and API Key</label>
-        <div class="inline-actions">
-          <input
-            type="text"
-            id="label"
-            placeholder="e.g. main, dev"
-            style="flex: 1"
-          />
-          <input
-            type="text"
-            id="key"
-            placeholder="Paste API key here"
-            style="flex: 2"
-          />
-          <button
-            type="button"
-            class="button save-btn"
-            onclick="saveKey()"
-            aria-label="Save new API key with label"
-          >
-            Save
-          </button>
+      <section
+        class="card scale-in"
+        style="animation-delay: 50ms"
+        aria-labelledby="switch-key-heading"
+      >
+        <div class="card-content">
+          <div class="flex items-center gap-2 mb-4">
+            <i
+              data-lucide="switch-camera"
+              class="icon text-[hsl(var(--primary))]"
+              aria-hidden="true"
+            ></i>
+            <h2 id="switch-key-heading" class="label m-0">Switch to API Key</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <label for="switchLabel" class="sr-only"
+              >Select API key to switch to</label
+            >
+            <select
+              id="switchLabel"
+              class="input flex-1"
+              aria-label="Select API key to switch to"
+            >
+              <option value="">Select a key...</option>
+            </select>
+            <button
+              type="button"
+              id="switchBtn"
+              class="btn btn-primary"
+              aria-label="Switch to selected API key"
+            >
+              <i
+                data-lucide="refresh-cw"
+                class="icon icon-sm"
+                aria-hidden="true"
+              ></i>
+              Switch
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="section">
-        <label for="removeLabel">Remove API Key</label>
-        <div class="inline-actions">
-          <select id="removeLabel"></select>
-          <button
-            type="button"
-            class="button remove-btn"
-            onclick="removeKey()"
-            aria-label="Remove selected API key"
-          >
-            Remove
-          </button>
+      <section
+        class="card scale-in"
+        style="animation-delay: 100ms"
+        aria-labelledby="new-key-heading"
+      >
+        <div class="card-content">
+          <div class="flex items-center gap-2 mb-4">
+            <i
+              data-lucide="plus-circle"
+              class="icon text-[hsl(var(--primary))]"
+              aria-hidden="true"
+            ></i>
+            <h2 id="new-key-heading" class="label m-0">
+              New Label and API Key
+            </h2>
+          </div>
+          <form id="addKeyForm" aria-label="Add new API key form">
+            <div class="space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="input-group flex-1">
+                  <label for="label" class="label text-xs mb-1">Label</label>
+                  <input
+                    type="text"
+                    id="label"
+                    name="label"
+                    class="input"
+                    placeholder="e.g. main, dev"
+                    aria-label="Label for the API key"
+                    required
+                  />
+                </div>
+                <div class="input-group flex-[2]">
+                  <label for="key" class="label text-xs mb-1">API Key</label>
+                  <div class="relative">
+                    <i
+                      data-lucide="key"
+                      class="input-icon icon"
+                      aria-hidden="true"
+                    ></i>
+                    <input
+                      type="text"
+                      id="key"
+                      name="key"
+                      class="input input-with-icon"
+                      placeholder="Paste API key here"
+                      aria-label="API key"
+                      aria-describedby="keyError"
+                      required
+                    />
+                  </div>
+                  <div
+                    id="keyError"
+                    class="helper-text helper-text-error hidden"
+                    role="alert"
+                    aria-live="polite"
+                  ></div>
+                </div>
+                <div class="flex items-end">
+                  <button
+                    type="button"
+                    id="saveBtn"
+                    class="btn btn-primary"
+                    aria-label="Save new API key with label"
+                  >
+                    <i
+                      data-lucide="save"
+                      class="icon icon-sm"
+                      aria-hidden="true"
+                    ></i>
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section
+        class="card scale-in"
+        style="animation-delay: 150ms"
+        aria-labelledby="remove-key-heading"
+      >
+        <div class="card-content">
+          <div class="flex items-center gap-2 mb-4">
+            <i
+              data-lucide="trash-2"
+              class="icon text-[hsl(var(--destructive))]"
+              aria-hidden="true"
+            ></i>
+            <h2 id="remove-key-heading" class="label m-0">Remove API Key</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <label for="removeLabel" class="sr-only"
+              >Select API key to remove</label
+            >
+            <select
+              id="removeLabel"
+              class="input flex-1"
+              aria-label="Select API key to remove"
+            >
+              <option value="">Select a key to remove...</option>
+            </select>
+            <button
+              type="button"
+              id="removeBtn"
+              class="btn btn-destructive"
+              aria-label="Remove selected API key"
+            >
+              <i
+                data-lucide="trash-2"
+                class="icon icon-sm"
+                aria-hidden="true"
+              ></i>
+              Remove
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <script>
-      function refreshUI() {
-        google.script.run
-          .withSuccessHandler(({ keys, current }) => populateUI(keys, current))
-          .getApiKeyDataForUI();
-      }
-
-      // Store full key for toggle functionality
+      // Application state
       let fullApiKey = null;
+      let currentKeyLabel = null;
       let isKeyVisible = false;
 
-      function maskApiKey(key) {
+      // DOM element references
+      let currentDisplay;
+      let toggleBtn;
+      let toggleIcon;
+      let toggleText;
+      let switchDropdown;
+      let removeDropdown;
+      let labelInput;
+      let keyInput;
+      let keyError;
+      let switchBtn;
+      let removeBtn;
+      let saveBtn;
+
+      /**
+       * Masks API key showing only last 4 characters
+       * @param {string} key - API key to mask
+       * @returns {string} Masked API key
+       */
+      const maskApiKey = (key) => {
         if (!key || key.length < 4) {
           return "Not set";
         }
-        // Show only last 4 characters, mask the rest
         const lastFour = key.slice(-4);
-        const masked = "****-****-****-" + lastFour;
-        return masked;
-      }
+        return `****-****-****-${lastFour}`;
+      };
 
-      function toggleKeyVisibility() {
-        const currentDisplay = document.getElementById("currentKey");
-        const toggleBtn = document.getElementById("toggleKeyBtn");
-        
-        if (!fullApiKey) {
+      /**
+       * Updates key visibility toggle state
+       */
+      const updateKeyDisplay = () => {
+        if (!fullApiKey || !currentDisplay) {
           return;
         }
 
-        isKeyVisible = !isKeyVisible;
-        
-        if (isKeyVisible) {
-          currentDisplay.textContent = `Label: ${currentKeyLabel || "N/A"}, Key: ${fullApiKey}`;
-          toggleBtn.textContent = "Hide";
-          toggleBtn.setAttribute("aria-label", "Hide API key");
-        } else {
-          currentDisplay.textContent = `Label: ${currentKeyLabel || "N/A"}, Key: ${maskApiKey(fullApiKey)}`;
-          toggleBtn.textContent = "Show";
-          toggleBtn.setAttribute("aria-label", "Show API key");
+        const labelText = currentKeyLabel ? `Label: ${currentKeyLabel}, ` : "";
+        const keyText = isKeyVisible ? fullApiKey : maskApiKey(fullApiKey);
+
+        currentDisplay.textContent = `${labelText}Key: ${keyText}`;
+
+        if (toggleBtn && toggleIcon && toggleText) {
+          if (isKeyVisible) {
+            toggleIcon.setAttribute("data-lucide", "eye-off");
+            toggleText.textContent = "Hide";
+            toggleBtn.setAttribute("aria-label", "Hide API key");
+            toggleBtn.setAttribute("aria-expanded", "true");
+          } else {
+            toggleIcon.setAttribute("data-lucide", "eye");
+            toggleText.textContent = "Show";
+            toggleBtn.setAttribute("aria-label", "Show API key");
+            toggleBtn.setAttribute("aria-expanded", "false");
+          }
         }
-      }
 
-      let currentKeyLabel = null;
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+      };
 
-      function populateUI(keys, currentKey) {
-        const currentDisplay = document.getElementById("currentKey");
-        const switchDropdown = document.getElementById("switchLabel");
-        const removeDropdown = document.getElementById("removeLabel");
-        const toggleBtn = document.getElementById("toggleKeyBtn");
+      /**
+       * Toggles key visibility
+       */
+      const toggleKeyVisibility = () => {
+        if (!fullApiKey) {
+          return;
+        }
+        isKeyVisible = !isKeyVisible;
+        updateKeyDisplay();
+      };
 
-        switchDropdown.innerHTML = "";
-        removeDropdown.innerHTML = "";
+      /**
+       * Shows error message for key input
+       * @param {string} message - Error message
+       */
+      const showKeyError = (message) => {
+        if (keyError) {
+          keyError.textContent = message;
+          keyError.classList.remove("hidden");
+        }
+        if (keyInput) {
+          keyInput.classList.add("input-error");
+        }
+      };
+
+      /**
+       * Hides error message for key input
+       */
+      const hideKeyError = () => {
+        if (keyError) {
+          keyError.classList.add("hidden");
+          keyError.textContent = "";
+        }
+        if (keyInput) {
+          keyInput.classList.remove("input-error");
+        }
+      };
+
+      /**
+       * Populates UI with API key data
+       * @param {Array} keys - Array of key objects with label and key
+       * @param {string} currentKey - Current API key value
+       */
+      const populateUI = (keys, currentKey) => {
+        // Populate dropdowns
+        switchDropdown.innerHTML = '<option value="">Select a key...</option>';
+        removeDropdown.innerHTML =
+          '<option value="">Select a key to remove...</option>';
 
         keys.forEach(({ label }) => {
-          const opt1 = new Option(label, label);
-          const opt2 = new Option(label, label);
-          switchDropdown.add(opt1);
-          removeDropdown.add(opt2);
+          switchDropdown.add(new Option(label, label));
+          removeDropdown.add(new Option(label, label));
         });
 
+        // Find matching key
         const match = keys.find((k) => k.key === currentKey);
-        
+
         if (match) {
           currentKeyLabel = match.label;
           fullApiKey = match.key;
-          // Default to masked view
           isKeyVisible = false;
-          currentDisplay.textContent = `Label: ${match.label}, Key: ${maskApiKey(match.key)}`;
-          toggleBtn.style.display = "inline-block";
-          toggleBtn.textContent = "Show";
-          toggleBtn.setAttribute("aria-label", "Show API key");
+          if (toggleBtn) {
+            toggleBtn.classList.remove("hidden");
+          }
         } else if (currentKey) {
           currentKeyLabel = null;
           fullApiKey = currentKey;
           isKeyVisible = false;
-          currentDisplay.textContent = `Key: ${maskApiKey(currentKey)}`;
-          toggleBtn.style.display = "inline-block";
-          toggleBtn.textContent = "Show";
-          toggleBtn.setAttribute("aria-label", "Show API key");
+          if (toggleBtn) {
+            toggleBtn.classList.remove("hidden");
+          }
         } else {
           currentKeyLabel = null;
           fullApiKey = null;
-          currentDisplay.textContent = "Not set";
-          toggleBtn.style.display = "none";
+          isKeyVisible = false;
+          if (toggleBtn) {
+            toggleBtn.classList.add("hidden");
+          }
         }
-      }
+
+        updateKeyDisplay();
+
+        // Re-initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+      };
 
       /**
-       * Validates API key format (UUID v4 format)
-       * @param {string} apiKey - The API key to validate
-       * @returns {string|null} Error message if invalid, null if valid
+       * Refreshes UI from server data
        */
-      function validateApiKeyFormat(apiKey) {
-        if (!apiKey || typeof apiKey !== "string") {
-          return "API key is required.";
+      const refreshUI = () => {
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          return;
         }
 
-        const trimmed = apiKey.trim();
-        if (trimmed.length === 0) {
-          return "API key cannot be empty.";
-        }
+        google.script.run
+          .withSuccessHandler(({ keys, current }) => {
+            populateUI(keys, current);
+          })
+          .withFailureHandler((error) => {
+            console.error("Failed to load API key data:", error);
+            if (currentDisplay) {
+              currentDisplay.textContent = "Error loading data";
+            }
+          })
+          .getApiKeyDataForUI();
+      };
 
-        // UUID v4 format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-        // 8-4-4-4-12 hexadecimal characters
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        
-        if (!uuidRegex.test(trimmed)) {
-          return "Invalid API key format. Please enter a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).";
-        }
+      /**
+       * Saves new API key
+       */
+      const saveKey = () => {
+        const label = labelInput ? labelInput.value.trim() : "";
+        const key = keyInput ? keyInput.value.trim() : "";
 
-        // Length validation (UUID should be exactly 36 characters including hyphens)
-        if (trimmed.length !== 36) {
-          return "API key must be exactly 36 characters long.";
-        }
+        hideKeyError();
 
-        return null; // Valid
-      }
-
-      function saveKey() {
-        const label = document.getElementById("label").value.trim();
-        const key = document.getElementById("key").value.trim();
-        
         if (!label || !key) {
-          return alert("Both label and key are required.");
+          showKeyError("Both label and key are required.");
+          return;
         }
 
-        // Client-side validation
-        const validationError = validateApiKeyFormat(key);
+        // Use shared validation utility
+        const validationError =
+          window.HevyTrackerUtils &&
+          window.HevyTrackerUtils.validateApiKeyFormat
+            ? window.HevyTrackerUtils.validateApiKeyFormat(key)
+            : null;
+
         if (validationError) {
-          return alert(validationError);
+          showKeyError(validationError);
+          return;
+        }
+
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          showKeyError("Unable to connect to Google Apps Script.");
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(() => {
+            refreshUI();
+            if (labelInput) labelInput.value = "";
+            if (keyInput) keyInput.value = "";
+            hideKeyError();
+          })
+          .withFailureHandler((error) => {
+            const errorMessage =
+              error && error.message
+                ? `Failed to save API key: ${error.message}`
+                : "Failed to save API key: Unknown error";
+            showKeyError(errorMessage);
+          })
+          .saveDevApiKey(label, key);
+      };
+
+      /**
+       * Switches to selected API key
+       */
+      const switchKey = () => {
+        const label = switchDropdown ? switchDropdown.value : "";
+        if (!label) {
+          return;
+        }
+
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          return;
         }
 
         google.script.run
           .withSuccessHandler(refreshUI)
-          .withFailureHandler(function (error) {
-            alert("Failed to save API key: " + (error.message || "Unknown error"));
+          .withFailureHandler((error) => {
+            console.error("Failed to switch API key:", error);
+            alert(
+              `Failed to switch API key: ${
+                error && error.message ? error.message : "Unknown error"
+              }`
+            );
           })
-          .saveDevApiKey(label, key);
-      }
+          .useApiKey(label);
+      };
 
-      function switchKey() {
-        const label = document.getElementById("switchLabel").value;
-        if (!label) return;
-        google.script.run.withSuccessHandler(refreshUI).useApiKey(label);
-      }
+      /**
+       * Removes selected API key
+       */
+      const removeKey = () => {
+        const label = removeDropdown ? removeDropdown.value : "";
+        if (!label) {
+          alert("Please select a key to remove.");
+          return;
+        }
 
-      function removeKey() {
-        const label = document.getElementById("removeLabel").value;
-        if (!label) return;
-        google.script.run.withSuccessHandler(refreshUI).removeApiKey(label);
-      }
+        if (
+          !confirm(`Are you sure you want to remove the API key "${label}"?`)
+        ) {
+          return;
+        }
 
-      document.addEventListener("DOMContentLoaded", refreshUI);
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          alert("Unable to connect to Google Apps Script.");
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(refreshUI)
+          .withFailureHandler((error) => {
+            console.error("Failed to remove API key:", error);
+            alert(
+              `Failed to remove API key: ${
+                error && error.message ? error.message : "Unknown error"
+              }`
+            );
+          })
+          .removeApiKey(label);
+      };
+
+      // Initialize when DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        // Cache DOM references
+        currentDisplay = document.getElementById("currentKey");
+        toggleBtn = document.getElementById("toggleKeyBtn");
+        toggleIcon = document.getElementById("toggleIcon");
+        toggleText = document.getElementById("toggleText");
+        switchDropdown = document.getElementById("switchLabel");
+        removeDropdown = document.getElementById("removeLabel");
+        labelInput = document.getElementById("label");
+        keyInput = document.getElementById("key");
+        keyError = document.getElementById("keyError");
+        switchBtn = document.getElementById("switchBtn");
+        removeBtn = document.getElementById("removeBtn");
+        saveBtn = document.getElementById("saveBtn");
+
+        // Set up event listeners
+        if (toggleBtn) {
+          toggleBtn.addEventListener("click", toggleKeyVisibility);
+        }
+
+        if (switchBtn) {
+          switchBtn.addEventListener("click", switchKey);
+        }
+
+        if (removeBtn) {
+          removeBtn.addEventListener("click", removeKey);
+        }
+
+        if (saveBtn) {
+          saveBtn.addEventListener("click", saveKey);
+        }
+
+        if (keyInput) {
+          keyInput.addEventListener("input", hideKeyError);
+        }
+
+        // Initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+
+        // Load initial data
+        refreshUI();
+      });
     </script>
   </body>
 </html>

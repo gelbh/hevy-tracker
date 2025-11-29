@@ -5,155 +5,223 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hevy Tracker Setup Instructions</title>
     <base target="_blank" />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        padding-top: 0px;
-        color: #333;
-        line-height: 1.5;
-        max-width: 600px;
-        margin: 0 auto;
-      }
-      h2 {
-        color: #333;
-        margin-bottom: 12px;
-      }
-      .step {
-        background: #fff;
-        border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 15px;
-      }
-      .note {
-        color: #666;
-        font-style: italic;
-        background: #f8f9fa;
-        padding: 9px;
-        border-radius: 6px;
-        margin-top: 5px;
-        text-align: center;
-      }
-      h3 {
-        margin: 0 0 10px 0;
-        color: #4285f4;
-        font-size: 16px;
-      }
-      ul {
-        margin: 8px 0;
-        padding-left: 25px;
-      }
-      li {
-        margin: 5px 0;
-      }
-      .divider {
-        border-top: 1px solid #eee;
-        margin: 15px 0;
-      }
-      strong {
-        color: #202124;
-      }
-      a {
-        color: #4285f4;
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      .important {
-        background: #fef3f2;
-        border: 1px solid #fecdca;
-        border-radius: 6px;
-        padding: 12px;
-        margin: 15px 0;
-        color: #b42318;
-      }
-      .template-button {
-        display: inline-block;
-        background-color: #4285f4;
-        color: white;
-        padding: 10px 20px;
-        text-decoration: none;
-        border-radius: 4px;
-        margin: 10px 0;
-        text-align: center;
-      }
-      .template-button:hover {
-        background-color: #3b78e7;
-        text-decoration: none;
-      }
-      .template-button:focus {
-        outline: 2px solid #4285f4;
-        outline-offset: 2px;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
   </head>
-  <body>
-    <h2>Getting Started</h2>
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] p-6 pt-4 max-w-[600px] mx-auto leading-relaxed fade-in"
+    role="dialog"
+    aria-labelledby="dialog-title"
+  >
+    <main>
+      <header class="flex items-center gap-3 mb-6">
+        <i
+          data-lucide="rocket"
+          class="icon icon-xl text-[hsl(var(--primary))]"
+          aria-hidden="true"
+        ></i>
+        <h1 id="dialog-title" class="heading-2 m-0">Getting Started</h1>
+      </header>
 
-    <div class="step">
-      <h3>1. Copy Template Spreadsheet</h3>
-      <ul>
-        <li>
-          Click the button below to make a copy of the template spreadsheet:
-          <a
-            href="https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy"
-            class="template-button"
-            aria-label="Copy template spreadsheet in a new tab"
-          >
-            Copy Template Spreadsheet
-          </a>
-        </li>
-        <li>Click <strong>Make a copy</strong> in the File menu</li>
-        <li>The new spreadsheet will open automatically</li>
-      </ul>
-    </div>
+      <article class="card card-hover mb-4 scale-in" style="width: 100%">
+        <div class="card-content">
+          <header class="flex items-center gap-3 mb-4">
+            <span class="step-number" aria-label="Step 1">1</span>
+            <div class="flex items-center gap-2">
+              <i data-lucide="copy" class="icon text-[hsl(var(--primary))]" aria-hidden="true"></i>
+              <h2 class="heading-4 m-0 text-[hsl(var(--primary))]">
+                Copy Template Spreadsheet
+              </h2>
+            </div>
+          </header>
+          <ol class="my-2 pl-2 space-y-2.5 list-none" aria-label="Step 1 instructions">
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>
+              Click the button below to make a copy of the template spreadsheet:
+              <a
+                href="https://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy"
+                class="btn btn-primary inline-flex items-center gap-2 mt-3 mb-2"
+                aria-label="Copy template spreadsheet in a new tab"
+              >
+                <i data-lucide="file-spreadsheet" class="icon icon-sm"></i>
+                Copy Template Spreadsheet
+              </a>
+            </span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>
+              Click
+              <strong class="text-[hsl(var(--foreground))] font-semibold"
+                >Make a copy</strong
+              >
+              in the File menu
+            </span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>The new spreadsheet will open automatically</span>
+          </li>
+          </ol>
+        </div>
+      </article>
 
-    <div class="step">
-      <h3>2. Get Your Hevy API Key</h3>
-      <ul>
-        <li>
-          Go to
-          <a href="https://hevy.com/settings?developer"
-            >Hevy Developer Settings</a
-          >
-        </li>
-        <li>Copy your API key from the settings page</li>
-      </ul>
-    </div>
+      <article
+        class="card card-hover mb-4 scale-in"
+        style="animation-delay: 50ms; width: 100%"
+      >
+        <div class="card-content">
+          <header class="flex items-center gap-3 mb-4">
+            <span class="step-number" aria-label="Step 2">2</span>
+            <div class="flex items-center gap-2">
+              <i data-lucide="key" class="icon text-[hsl(var(--primary))]" aria-hidden="true"></i>
+              <h2 class="heading-4 m-0 text-[hsl(var(--primary))]">
+                Get Your Hevy API Key
+              </h2>
+            </div>
+          </header>
+          <ol class="my-2 pl-2 space-y-2.5 list-none" aria-label="Step 2 instructions">
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>
+              Go to
+              <a
+                href="https://hevy.com/settings?developer"
+                class="text-[hsl(var(--primary))] hover:underline font-medium inline-flex items-center gap-1"
+              >
+                <i data-lucide="external-link" class="icon icon-sm"></i>
+                Hevy Developer Settings
+              </a>
+            </span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>Copy your API key from the settings page</span>
+          </li>
+          </ol>
+        </div>
+      </article>
 
-    <div class="step">
-      <h3>3. Set Up the Tracker</h3>
-      <ul>
-        <li>
-          In your new spreadsheet, click
-          <strong>Extensions → Hevy Tracker → Set Hevy API Key</strong>
-        </li>
-        <li>Paste your API key and click Save</li>
-        <li>Initial data import will begin automatically</li>
-      </ul>
-    </div>
+      <article
+        class="card card-hover mb-4 scale-in"
+        style="animation-delay: 100ms; width: 100%"
+      >
+        <div class="card-content">
+          <header class="flex items-center gap-3 mb-4">
+            <span class="step-number" aria-label="Step 3">3</span>
+            <div class="flex items-center gap-2">
+              <i
+                data-lucide="settings"
+                class="icon text-[hsl(var(--primary))]"
+                aria-hidden="true"
+              ></i>
+              <h2 class="heading-4 m-0 text-[hsl(var(--primary))]">
+                Set Up the Tracker
+              </h2>
+            </div>
+          </header>
+          <ol class="my-2 pl-2 space-y-2.5 list-none" aria-label="Step 3 instructions">
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>
+              In your new spreadsheet, click
+              <strong class="text-[hsl(var(--foreground))] font-semibold"
+                >Extensions → Hevy Tracker → Set Hevy API Key</strong
+              >
+            </span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>Paste your API key and click Save</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i
+              data-lucide="check-circle-2"
+              class="icon icon-sm text-[hsl(var(--success))] mt-0.5 flex-shrink-0"
+            ></i>
+            <span>Initial data import will begin automatically</span>
+          </li>
+          </ol>
+        </div>
+      </article>
 
-    <div class="important">
-      <h3>Important Note About Multiple Google Accounts</h3>
-      <p>
-        If you're logged into multiple Google accounts at the same time, you may
-        experience issues with this add-on. For the best experience:
-      </p>
-      <ul>
-        <li>
-          Log out of all Google accounts and log back in with only the account
-          you want to use
-        </li>
-        <li>
-          Or use an incognito/private browsing window with just one account
-        </li>
-      </ul>
-    </div>
+      <aside class="alert alert-warning my-5 slide-down" role="complementary" aria-labelledby="warning-heading">
+        <i data-lucide="alert-triangle" class="alert-icon icon" aria-hidden="true"></i>
+        <div class="alert-content">
+          <h2 id="warning-heading" class="heading-4 mb-2 mt-0">
+            Important Note About Multiple Google Accounts
+          </h2>
+          <p class="mb-2">
+            If you're logged into multiple Google accounts at the same time, you
+            may experience issues with this add-on. For the best experience:
+          </p>
+          <ul class="my-2 pl-5 space-y-1.5">
+            <li class="flex items-start gap-2">
+              <i data-lucide="circle" class="icon icon-sm mt-1 flex-shrink-0" aria-hidden="true"></i>
+              <span>
+                Log out of all Google accounts and log back in with only the
+                account you want to use
+              </span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i data-lucide="circle" class="icon icon-sm mt-1 flex-shrink-0" aria-hidden="true"></i>
+              <span>
+                Or use an incognito/private browsing window with just one account
+              </span>
+            </li>
+          </ul>
+        </div>
+      </aside>
 
-    <div class="note">
-      Note: The initial import may take a few minutes depending on your workout
-      history
-    </div>
+      <aside
+        class="flex items-center gap-2 text-muted italic bg-[hsl(var(--muted))] p-3 rounded-md mt-5 text-center text-sm"
+        role="note"
+        aria-label="Additional information"
+      >
+        <i data-lucide="info" class="icon icon-sm flex-shrink-0" aria-hidden="true"></i>
+        <span>
+          Note: The initial import may take a few minutes depending on your
+          workout history
+        </span>
+      </aside>
+    </main>
+
+    <script>
+      // Initialize icons using shared utility
+      if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", window.HevyTrackerUtils.initIcons);
+        } else {
+          window.HevyTrackerUtils.initIcons();
+        }
+      }
+    </script>
   </body>
 </html>

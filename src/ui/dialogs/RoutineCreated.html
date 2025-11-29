@@ -4,101 +4,133 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Routine Created Successfully</title>
-    <style>
-      .routine-dialog {
-        font-family: Roboto, sans-serif;
-        padding: 24px;
-        text-align: center;
-      }
-
-      .routine-dialog h2 {
-        color: #34a853;
-        margin-bottom: 16px;
-      }
-
-      .routine-dialog p {
-        font-size: 14px;
-        margin: 8px 0;
-      }
-
-      .routine-dialog a {
-        display: inline-block;
-        margin: 12px 0;
-        color: #1a73e8;
-        font-weight: bold;
-        text-decoration: none;
-      }
-
-      .routine-dialog a:hover {
-        text-decoration: underline;
-      }
-
-      .routine-dialog a:focus {
-        outline: 2px solid #1a73e8;
-        outline-offset: 2px;
-      }
-
-      .routine-dialog button {
-        margin: 8px;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        cursor: pointer;
-      }
-
-      .routine-dialog button:focus {
-        outline: 2px solid #1a73e8;
-        outline-offset: 2px;
-      }
-
-      .clear-btn {
-        background-color: #4604fb;
-        color: #fff;
-      }
-
-      .clear-btn:hover {
-        background-color: #3803d1;
-      }
-
-      .close-btn {
-        background-color: #e0e0e0;
-      }
-
-      .close-btn:hover {
-        background-color: #d0d0d0;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
   </head>
-  <body>
-    <div class="routine-dialog">
-      <h2>✅ Routine Created</h2>
-      <p>Your routine has been successfully created!</p>
-      <p>
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] fade-in"
+    role="dialog"
+    aria-labelledby="dialog-title"
+    aria-describedby="dialog-description"
+  >
+    <main class="p-8 text-center max-w-md mx-auto">
+      <header class="flex flex-col items-center gap-4 mb-6 scale-in">
+        <div
+          class="w-20 h-20 rounded-full bg-[hsl(var(--success)/0.1)] flex items-center justify-center"
+          aria-hidden="true"
+        >
+          <i
+            data-lucide="check-circle-2"
+            class="icon icon-xl text-[hsl(var(--success))]"
+          ></i>
+        </div>
+        <h1 id="dialog-title" class="heading-2 m-0 text-[hsl(var(--success))]">
+          Routine Created
+        </h1>
+        <p
+          id="dialog-description"
+          class="text-sm text-[hsl(var(--muted-foreground))]"
+        >
+          Your routine has been successfully created!
+        </p>
+      </header>
+
+      <section class="mb-6" aria-label="Action links">
         <a
           href="https://hevy.com/routines"
           target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-primary inline-flex items-center gap-2"
           aria-label="View routine on Hevy in a new tab"
         >
+          <i
+            data-lucide="external-link"
+            class="icon icon-sm"
+            aria-hidden="true"
+          ></i>
           View Routine on Hevy
         </a>
-      </p>
-      <button
-        type="button"
-        class="clear-btn"
-        onclick="google.script.run.clearRoutineBuilder(); google.script.host.close()"
-        aria-label="Clear routine builder form"
-      >
-        Clear Form
-      </button>
-      <button
-        type="button"
-        class="close-btn"
-        onclick="google.script.host.close()"
-        aria-label="Close dialog"
-      >
-        Close
-      </button>
-    </div>
+      </section>
+
+      <nav class="flex justify-center gap-3 mt-6" aria-label="Dialog actions">
+        <button
+          type="button"
+          id="clearFormBtn"
+          class="btn btn-primary"
+          aria-label="Clear routine builder form"
+        >
+          <i data-lucide="trash-2" class="icon icon-sm" aria-hidden="true"></i>
+          Clear Form
+        </button>
+        <button
+          type="button"
+          id="closeBtn"
+          class="btn btn-secondary"
+          aria-label="Close dialog"
+        >
+          <i data-lucide="x" class="icon icon-sm" aria-hidden="true"></i>
+          Close
+        </button>
+      </nav>
+    </main>
+
+    <script>
+      // Initialize icons using shared utility
+      if (
+        typeof window.HevyTrackerUtils !== "undefined" &&
+        window.HevyTrackerUtils.initIcons
+      ) {
+        window.HevyTrackerUtils.initIcons();
+      }
+
+      // Initialize button handlers
+      document.addEventListener("DOMContentLoaded", function () {
+        const clearFormBtn = document.getElementById("clearFormBtn");
+        const closeBtn = document.getElementById("closeBtn");
+
+        if (clearFormBtn) {
+          clearFormBtn.addEventListener("click", function () {
+            if (
+              typeof google !== "undefined" &&
+              google.script &&
+              google.script.run
+            ) {
+              google.script.run
+                .withSuccessHandler(function () {
+                  if (google.script.host) {
+                    google.script.host.close();
+                  }
+                })
+                .clearRoutineBuilder();
+            }
+          });
+        }
+
+        if (closeBtn) {
+          closeBtn.addEventListener("click", function () {
+            if (
+              typeof google !== "undefined" &&
+              google.script &&
+              google.script.host
+            ) {
+              google.script.host.close();
+            }
+          });
+        }
+
+        // Re-initialize icons after DOM is ready
+        if (
+          typeof window.HevyTrackerUtils !== "undefined" &&
+          window.HevyTrackerUtils.initIcons
+        ) {
+          window.HevyTrackerUtils.initIcons();
+        }
+      });
+    </script>
   </body>
 </html>

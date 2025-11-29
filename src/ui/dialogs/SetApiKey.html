@@ -5,338 +5,371 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hevy API Key Setup</title>
     <base target="_blank" />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        max-width: 400px;
-        margin: 0 auto;
-      }
-      .container {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-      }
-      input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
-      .button-container {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 10px;
-      }
-      button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      .primary {
-        background-color: #4285f4;
-        color: white;
-      }
-      .secondary {
-        background-color: #f1f3f4;
-      }
-      #saveButton:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-      }
-      .spinner {
-        display: none;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #ffffff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-left: 8px;
-        vertical-align: middle;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-      .error-message {
-        display: none;
-        color: #d32f2f;
-        background-color: #ffebee;
-        padding: 10px;
-        border-radius: 4px;
-        margin-top: 10px;
-        font-size: 14px;
-      }
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border-width: 0;
-      }
-      .header {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 10px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #e0e0e0;
-      }
-      .logo {
-        max-width: 120px;
-        height: auto;
-        display: block;
-      }
-      .header-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #202124;
-        margin: 0;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
   </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSoGEB844_CYQW6htIdn_4jDFuks7kmLBU-Rg&s"
-          alt="Hevy Logo"
-          class="logo"
-          width="120"
-          height="auto"
-          onerror="this.onerror=null; this.src='https://hevy.com/favicon.ico';"
-        />
-        <h1 class="header-title">Hevy API Key Setup</h1>
-      </div>
-      <p>
-        Enter your Hevy API key. You can find it in your
-        <a
-          href="https://hevy.com/settings?developer"
-          aria-label="Open Hevy Developer Settings in a new tab"
-          >Hevy Developer Settings</a
-        >.
-      </p>
-      <label for="apiKey" class="sr-only">API Key</label>
-      <input
-        type="text"
-        id="apiKey"
-        name="apiKey"
-        placeholder="Enter API key"
-        aria-label="API Key"
-        aria-required="true"
-        autocomplete="off"
-        oninput="validateInput()"
-      />
-      <div
-        id="errorMessage"
-        class="error-message"
-        role="alert"
-        aria-live="polite"
-      ></div>
-      <div class="button-container">
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] fade-in centered-content"
+    role="dialog"
+    aria-labelledby="dialog-title"
+    aria-modal="true"
+    style="width: 100%; padding: 1.25rem"
+  >
+    <main
+      class="flex flex-col gap-4"
+      style="width: 100%; max-width: 28rem; margin: 0 auto"
+    >
+      <header
+        class="flex flex-col items-center gap-3 pb-4"
+        style="border-bottom: 1px solid hsl(var(--border))"
+      >
+        <div
+          class="p-5 bg-[hsl(var(--muted)/0.5)] rounded-[calc(var(--radius)+4px)] inline-flex items-center justify-center border-none"
+          aria-hidden="true"
+        >
+          <img
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSoGEB844_CYQW6htIdn_4jDFuks7kmLBU-Rg&s"
+            alt=""
+            class="max-w-[100px] h-auto block"
+            width="100"
+            height="auto"
+            style="border: none; outline: none"
+          />
+        </div>
+        <h1 id="dialog-title" class="heading-4 m-0 text-center">
+          Hevy API Key Setup
+        </h1>
+      </header>
+
+      <section aria-labelledby="dialog-title">
+        <p
+          class="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed mb-4"
+        >
+          Enter your Hevy API key. You can find it in your
+          <a
+            href="https://hevy.com/settings?developer"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-[hsl(var(--primary))] hover:underline font-medium"
+            aria-label="Open Hevy Developer Settings in a new tab"
+          >
+            Hevy Developer Settings
+          </a>
+          .
+        </p>
+
+        <form id="apiKeyForm" novalidate aria-label="API key setup form">
+          <div class="input-group">
+            <label for="apiKey" class="label label-required"> API Key </label>
+            <div class="relative">
+              <i
+                data-lucide="key"
+                class="input-icon icon"
+                aria-hidden="true"
+              ></i>
+              <input
+                type="text"
+                id="apiKey"
+                name="apiKey"
+                class="input input-with-icon"
+                placeholder="Enter API key (UUID format)"
+                aria-label="API Key"
+                aria-required="true"
+                aria-invalid="false"
+                aria-describedby="helperText errorMessage"
+                autocomplete="off"
+                required
+              />
+            </div>
+            <p id="helperText" class="helper-text">
+              Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+            </p>
+          </div>
+
+          <div
+            id="errorMessage"
+            class="alert alert-error hidden"
+            role="alert"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <i
+              data-lucide="alert-circle"
+              class="alert-icon icon"
+              aria-hidden="true"
+            ></i>
+            <div class="alert-content"></div>
+          </div>
+        </form>
+      </section>
+
+      <nav class="flex justify-end gap-3 pt-1" aria-label="Dialog actions">
         <button
           type="button"
-          class="secondary"
-          onclick="closeDialog()"
+          id="cancelBtn"
+          class="btn btn-secondary"
           aria-label="Cancel and close dialog"
         >
+          <i data-lucide="x" class="icon icon-sm" aria-hidden="true"></i>
           Cancel
         </button>
         <button
           type="button"
           id="saveButton"
-          class="primary"
-          onclick="saveApiKey()"
+          class="btn btn-primary"
           disabled
           aria-label="Save API key"
           aria-describedby="errorMessage"
         >
-          Save
-          <span id="spinner" class="spinner" aria-hidden="true"></span>
+          <i
+            data-lucide="save"
+            class="icon icon-sm"
+            id="saveIcon"
+            aria-hidden="true"
+          ></i>
+          <span id="saveText">Save</span>
+          <span
+            id="spinner"
+            class="spinner ml-2 hidden"
+            aria-hidden="true"
+            aria-label="Saving"
+          ></span>
         </button>
-      </div>
-    </div>
+      </nav>
+    </main>
 
     <script>
-      // Flag to prevent multiple simultaneous save attempts
+      // Application state
       let isSaving = false;
       let timeoutId = null;
 
-      function validateInput() {
-        const apiKey = document.getElementById("apiKey").value.trim();
-        const saveButton = document.getElementById("saveButton");
-        saveButton.disabled = !apiKey || isSaving;
-      }
+      // DOM element references
+      let apiKeyInput;
+      let saveButton;
+      let cancelBtn;
+      let spinner;
+      let saveIcon;
+      let saveText;
+      let errorMessage;
+      let errorContent;
 
-      function closeDialog() {
-        // Clear any pending timeout
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-        google.script.host.close();
-      }
-
-      function resetUI() {
-        const saveButton = document.getElementById("saveButton");
-        const spinner = document.getElementById("spinner");
-        const apiKeyInput = document.getElementById("apiKey");
-
-        // Re-enable input and button, hide spinner
-        saveButton.disabled = false;
-        apiKeyInput.disabled = false;
-        spinner.style.display = "none";
-        isSaving = false;
-
-        // Clear timeout if set
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-      }
-
-      function extractErrorMessage(error) {
-        // Handle both string errors and error objects
+      /**
+       * Extracts error message from various error formats
+       * @param {string|Error|Object} error - The error object
+       * @returns {string} Human-readable error message
+       */
+      const extractErrorMessage = (error) => {
         if (typeof error === "string") {
           return error;
         }
-
         if (error && error.message) {
           return error.message;
         }
-
         if (error && typeof error.toString === "function") {
           return error.toString();
         }
-
         return "An unknown error occurred. Please try again.";
-      }
+      };
 
       /**
-       * Validates API key format (UUID v4 format)
-       * @param {string} apiKey - The API key to validate
-       * @returns {string|null} Error message if invalid, null if valid
+       * Validates input and updates UI state
        */
-      function validateApiKeyFormat(apiKey) {
-        if (!apiKey || typeof apiKey !== "string") {
-          return "API key is required.";
+      const validateInput = () => {
+        const apiKey = apiKeyInput.value.trim();
+        const hasValue = apiKey.length > 0;
+
+        saveButton.disabled = !hasValue || isSaving;
+
+        // Visual feedback
+        if (hasValue) {
+          apiKeyInput.classList.remove("input-error");
+          apiKeyInput.classList.add("input-success");
+          apiKeyInput.setAttribute("aria-invalid", "false");
+        } else {
+          apiKeyInput.classList.remove("input-success", "input-error");
+          apiKeyInput.setAttribute("aria-invalid", "false");
         }
+      };
 
-        const trimmed = apiKey.trim();
-        if (trimmed.length === 0) {
-          return "API key cannot be empty.";
+      /**
+       * Resets UI to initial state
+       */
+      const resetUI = () => {
+        isSaving = false;
+        saveButton.disabled = false;
+        apiKeyInput.disabled = false;
+        spinner.classList.add("hidden");
+        saveIcon.classList.remove("hidden");
+        saveText.textContent = "Save";
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
         }
+      };
 
-        // UUID v4 format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-        // 8-4-4-4-12 hexadecimal characters
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        
-        if (!uuidRegex.test(trimmed)) {
-          return "Invalid API key format. Please enter a valid UUID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).";
+      /**
+       * Closes the dialog
+       */
+      const closeDialog = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
         }
-
-        // Length validation (UUID should be exactly 36 characters including hyphens)
-        if (trimmed.length !== 36) {
-          return "API key must be exactly 36 characters long.";
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.host
+        ) {
+          google.script.host.close();
         }
+      };
 
-        return null; // Valid
-      }
+      /**
+       * Displays error message in the UI
+       * @param {string} message - Error message to display
+       */
+      const showError = (message) => {
+        errorContent.textContent = message;
+        errorMessage.classList.remove("hidden");
+        apiKeyInput.classList.add("input-error");
+        apiKeyInput.classList.remove("input-success");
+        apiKeyInput.setAttribute("aria-invalid", "true");
+      };
 
-      function saveApiKey() {
-        // Prevent multiple simultaneous save attempts
+      /**
+       * Hides error message
+       */
+      const hideError = () => {
+        errorMessage.classList.add("hidden");
+        errorContent.textContent = "";
+      };
+
+      /**
+       * Saves the API key
+       */
+      const saveApiKey = () => {
         if (isSaving) {
           return;
         }
 
-        const apiKey = document.getElementById("apiKey").value.trim();
-        if (!apiKey) return;
-
-        const saveButton = document.getElementById("saveButton");
-        const spinner = document.getElementById("spinner");
-        const errorMessage = document.getElementById("errorMessage");
-        const apiKeyInput = document.getElementById("apiKey");
-
-        // Client-side validation
-        const validationError = validateApiKeyFormat(apiKey);
-        if (validationError) {
-          errorMessage.textContent = validationError;
-          errorMessage.style.display = "block";
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
           return;
         }
 
-        // Set saving flag
+        // Use shared validation utility
+        const validationError =
+          window.HevyTrackerUtils &&
+          window.HevyTrackerUtils.validateApiKeyFormat
+            ? window.HevyTrackerUtils.validateApiKeyFormat(apiKey)
+            : null;
+
+        if (validationError) {
+          showError(validationError);
+          return;
+        }
+
+        // Set saving state
         isSaving = true;
+        hideError();
 
-        // Hide any previous error messages
-        errorMessage.style.display = "none";
-        errorMessage.textContent = "";
-
-        // Disable input and button, show spinner
+        // Update UI to loading state
         saveButton.disabled = true;
         apiKeyInput.disabled = true;
-        spinner.style.display = "inline-block";
+        spinner.classList.remove("hidden");
+        saveIcon.classList.add("hidden");
+        saveText.textContent = "Saving...";
 
-        // Set client-side timeout (35 seconds to account for 30s server timeout + overhead)
-        timeoutId = setTimeout(function () {
+        // Set timeout for long-running requests (35 seconds)
+        timeoutId = setTimeout(() => {
           if (isSaving) {
-            errorMessage.textContent =
-              "Request is taking longer than expected. Please wait or try again.";
-            errorMessage.style.display = "block";
+            showError(
+              "Request is taking longer than expected. Please wait or try again."
+            );
           }
         }, 35000);
 
-        google.script.run
-          .withSuccessHandler(function (isNewKey) {
-            // Clear timeout
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-              timeoutId = null;
-            }
+        // Save API key via Google Apps Script
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.run
+        ) {
+          google.script.run
+            .withSuccessHandler((isNewKey) => {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+              isSaving = false;
 
-            // Reset saving flag
-            isSaving = false;
+              // Close dialog on success
+              closeDialog();
 
-            // Close dialog only on successful save
-            google.script.host.close();
+              // Start initial import if this is a new key
+              if (isNewKey && google.script.run) {
+                google.script.run
+                  .withSuccessHandler(() => {
+                    // Import started successfully
+                  })
+                  .withFailureHandler((error) => {
+                    console.error("Failed to start initial import:", error);
+                  })
+                  .runInitialImport();
+              }
+            })
+            .withFailureHandler((error) => {
+              resetUI();
+              showError(extractErrorMessage(error));
 
-            // If this is a new API key (not an update), start the initial import
-            // This runs after the dialog closes to avoid blocking
-            if (isNewKey) {
-              google.script.run
-                .withSuccessHandler(function () {
-                  // Import started successfully
-                })
-                .withFailureHandler(function (error) {
-                  // Log error but don't show to user - they can manually trigger import
-                  console.error("Failed to start initial import:", error);
-                })
-                .runInitialImport();
-            }
-          })
-          .withFailureHandler(function (error) {
-            // Reset saving flag and UI
-            resetUI();
+              // Re-initialize icons after DOM update
+              if (
+                window.HevyTrackerUtils &&
+                window.HevyTrackerUtils.initIcons
+              ) {
+                window.HevyTrackerUtils.initIcons();
+              }
+            })
+            .saveUserApiKey(apiKey);
+        }
+      };
 
-            // Extract and display error message
-            const errorMsg = extractErrorMessage(error);
-            errorMessage.textContent = errorMsg;
-            errorMessage.style.display = "block";
-          })
-          .saveUserApiKey(apiKey);
-      }
+      // Initialize when DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        // Cache DOM references
+        apiKeyInput = document.getElementById("apiKey");
+        saveButton = document.getElementById("saveButton");
+        cancelBtn = document.getElementById("cancelBtn");
+        spinner = document.getElementById("spinner");
+        saveIcon = document.getElementById("saveIcon");
+        saveText = document.getElementById("saveText");
+        errorMessage = document.getElementById("errorMessage");
+        errorContent = errorMessage.querySelector(".alert-content");
+
+        // Set up event listeners
+        if (apiKeyInput) {
+          apiKeyInput.addEventListener("input", validateInput);
+        }
+
+        if (saveButton) {
+          saveButton.addEventListener("click", saveApiKey);
+        }
+
+        if (cancelBtn) {
+          cancelBtn.addEventListener("click", closeDialog);
+        }
+
+        // Initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+      });
     </script>
   </body>
 </html>
