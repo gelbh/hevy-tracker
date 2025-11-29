@@ -122,15 +122,15 @@ function showHtmlDialog(filename, options = {}) {
 
 /**
  * Creates HTML output from template or file
+ * Always uses template processing to support <?!= ... ?> syntax for includes
  * @private
  */
 const createHtmlOutput = (filename, templateData) => {
+  const template = HtmlService.createTemplateFromFile(filename);
   if (Object.keys(templateData).length > 0) {
-    const template = HtmlService.createTemplateFromFile(filename);
     Object.assign(template, templateData);
-    return template.evaluate();
   }
-  return HtmlService.createHtmlOutputFromFile(filename);
+  return template.evaluate();
 };
 
 /**
