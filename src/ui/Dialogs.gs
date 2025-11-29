@@ -16,7 +16,6 @@ const showInitialSetup = () => {
       showHtmlDialog("ui/dialogs/SetApiKey", {
         width: DIALOG_DIMENSIONS.API_KEY_WIDTH,
         height: DIALOG_DIMENSIONS.API_KEY_HEIGHT,
-        title: "Hevy Tracker Setup",
       });
     }
   } catch (error) {
@@ -32,7 +31,6 @@ const showGuideDialog = () => {
     showHtmlDialog("ui/dialogs/SetupInstructions", {
       width: DIALOG_DIMENSIONS.SETUP_INSTRUCTIONS_WIDTH,
       height: DIALOG_DIMENSIONS.SETUP_INSTRUCTIONS_HEIGHT,
-      title: "Hevy Tracker Setup Guide",
       templateData: {
         TEMPLATE_SPREADSHEET_ID: TEMPLATE_SPREADSHEET_ID,
       },
@@ -48,7 +46,6 @@ const showGuideDialog = () => {
 const showTakeoutDialog = () => {
   try {
     showHtmlDialog("ui/dialogs/ImportWeight", {
-      title: "Import Google Fit Weight",
       width: DIALOG_DIMENSIONS.IMPORT_WEIGHT_WIDTH,
       height: DIALOG_DIMENSIONS.IMPORT_WEIGHT_HEIGHT,
     });
@@ -90,6 +87,5 @@ const showDevApiManagerDialog = () => {
   showHtmlDialog("ui/dialogs/DevApiManager", {
     width: DIALOG_DIMENSIONS.DEV_API_MANAGER_WIDTH,
     height: DIALOG_DIMENSIONS.DEV_API_MANAGER_HEIGHT,
-    title: "Developer API Key Manager",
   });
 };

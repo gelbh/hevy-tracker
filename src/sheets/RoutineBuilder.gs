@@ -142,7 +142,6 @@ async function createRoutineFromSheet() {
     await showHtmlDialog("ui/dialogs/RoutineCreated", {
       width: DIALOG_DIMENSIONS.ROUTINE_CREATED_WIDTH,
       height: DIALOG_DIMENSIONS.ROUTINE_CREATED_HEIGHT,
-      title: "Routine Builder",
     });
     return response.routine;
   } catch (error) {

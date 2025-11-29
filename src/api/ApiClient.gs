@@ -139,7 +139,6 @@ class ApiClient {
     showHtmlDialog("ui/dialogs/SetApiKey", {
       width: DIALOG_DIMENSIONS.API_KEY_WIDTH,
       height: DIALOG_DIMENSIONS.API_KEY_HEIGHT,
-      title: "Hevy API Key Setup",
     });
   }
 
