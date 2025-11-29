@@ -22,7 +22,7 @@
   "addOns": {
     "common": {
       "name": "Hevy Tracker",
-      "logoUrl": "https://gelbhart.dev/assets/hevy-tracker/hevy-tracker-logo.svg",
+      "logoUrl": "https://gelbhart.dev/images/hevy-tracker/hevy-tracker-logo.svg",
       "useLocaleFromApp": true,
       "layoutProperties": {
         "primaryColor": "#4285f4",
