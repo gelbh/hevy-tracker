@@ -128,10 +128,6 @@ async function updateRoutinesInSheet(sheet, processedRoutines) {
       sheet
         .getRange(startRow, 1, batch.length, batch[0].length)
         .setValues(batch);
-
-      if (i % (batchSize * 5) === 0) {
-        Utilities.sleep(RATE_LIMIT.API_DELAY);
-      }
     }
   } catch (error) {
     throw ErrorHandler.handle(error, {

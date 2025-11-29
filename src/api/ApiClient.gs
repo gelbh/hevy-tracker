@@ -296,8 +296,18 @@ class ApiClient {
 
     try {
       await importFn();
-      completedSteps.push(stepName);
-      ImportProgressTracker.saveProgress(completedSteps);
+      // Reload completed steps from properties to handle concurrent execution
+      // This ensures we have the latest state if other steps completed concurrently
+      const currentProgress = ImportProgressTracker.loadProgress();
+      const updatedSteps = currentProgress?.completedSteps ?? [];
+      if (!updatedSteps.includes(stepName)) {
+        updatedSteps.push(stepName);
+      }
+      // Also update the local array for consistency
+      if (!completedSteps.includes(stepName)) {
+        completedSteps.push(stepName);
+      }
+      ImportProgressTracker.saveProgress(updatedSteps);
       this._showToast(
         `Completed: ${stepName} ✓`,
         "Import Progress",
@@ -722,44 +732,43 @@ class ApiClient {
         return false;
       };
 
-      // Import Exercises
-      await this._executeImportStep(
-        "exercises",
-        () => importAllExercises(checkTimeout),
-        completedSteps,
-        checkTimeout
-      );
-
+      // Import Exercises, Routine Folders, and Routines concurrently
+      // These are independent operations that can run in parallel
       if (!isTemplate) {
-        // Import Routine Folders
-        await this._executeImportStep(
-          "routineFolders",
-          async () => {
-            await importAllRoutineFolders(checkTimeout);
-            Utilities.sleep(RATE_LIMIT.API_DELAY);
-          },
-          completedSteps,
-          checkTimeout
-        );
+        // Run exercises, routine folders, and routines concurrently
+        await Promise.all([
+          this._executeImportStep(
+            "exercises",
+            () => importAllExercises(checkTimeout),
+            completedSteps,
+            checkTimeout
+          ),
+          this._executeImportStep(
+            "routineFolders",
+            () => importAllRoutineFolders(checkTimeout),
+            completedSteps,
+            checkTimeout
+          ),
+          this._executeImportStep(
+            "routines",
+            () => importAllRoutines(checkTimeout),
+            completedSteps,
+            checkTimeout
+          ),
+        ]);
 
-        // Import Routines
-        await this._executeImportStep(
-          "routines",
-          async () => {
-            await importAllRoutines(checkTimeout);
-            Utilities.sleep(RATE_LIMIT.API_DELAY);
-          },
-          completedSteps,
-          checkTimeout
-        );
-
-        // Import Workouts
+        // Import Workouts after exercises (for localized exercise name mapping)
         await this._executeImportStep(
           "workouts",
-          async () => {
-            await importAllWorkouts(checkTimeout);
-            Utilities.sleep(RATE_LIMIT.API_DELAY);
-          },
+          () => importAllWorkouts(checkTimeout),
+          completedSteps,
+          checkTimeout
+        );
+      } else {
+        // Template mode: only import exercises
+        await this._executeImportStep(
+          "exercises",
+          () => importAllExercises(checkTimeout),
           completedSteps,
           checkTimeout
         );

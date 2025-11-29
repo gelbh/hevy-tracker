@@ -104,7 +104,7 @@ const MAX_PAGES = 10000;
  * @type {Object<number>}
  */
 const RATE_LIMIT = {
-  API_DELAY: 50, // Milliseconds between API requests
+  API_DELAY: 25, // Milliseconds between API requests (reduced from 50ms for better performance)
   BATCH_SIZE: 100, // Default batch size for operations
   MAX_RETRIES: 5, // Maximum retry attempts
   BACKOFF_MULTIPLIER: 2, // Exponential backoff multiplier

@@ -808,11 +808,8 @@ async function runAutomaticImport() {
     await importAllExercises();
 
     if (!isTemplate) {
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
       if ((await importAllWorkouts()) > 0) {
-        Utilities.sleep(RATE_LIMIT.API_DELAY);
         await importAllRoutineFolders();
-        Utilities.sleep(RATE_LIMIT.API_DELAY);
         await importAllRoutines();
       }
     }
