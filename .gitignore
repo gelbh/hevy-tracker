@@ -23,9 +23,8 @@ pids
 
 # Local testing
 .act/
-.github/workflows/.env
-local-push.js
 .env
+local-test/
 
 # Test coverage
 coverage/

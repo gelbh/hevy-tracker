@@ -10,3 +10,4 @@
 # Explicitly ignore certain files/folders
 .git/**
 node_modules/**
+local-test/**
