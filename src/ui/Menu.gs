@@ -47,14 +47,20 @@ const createImportSubmenu = (ui) => {
     .addItem("📁 Import Routine Folders", "importAllRoutineFolders");
 
   // Add deferred post-processing option if there are deferred operations
-  const deferredOps = ImportProgressTracker.getDeferredOperations();
-  if (deferredOps.length > 0) {
-    submenu
-      .addSeparator()
-      .addItem(
-        `🔄 Complete Post-Processing (${deferredOps.length})`,
-        "runDeferredPostProcessing"
-      );
+  // Wrap in try-catch to prevent timeout in simple trigger
+  try {
+    const deferredOps = ImportProgressTracker.getDeferredOperations();
+    if (deferredOps && deferredOps.length > 0) {
+      submenu
+        .addSeparator()
+        .addItem(
+          `🔄 Complete Post-Processing (${deferredOps.length})`,
+          "runDeferredPostProcessing"
+        );
+    }
+  } catch (error) {
+    // Non-blocking: log warning but don't prevent menu creation
+    console.warn("Failed to check deferred operations during menu creation:", error);
   }
 
   return submenu;
