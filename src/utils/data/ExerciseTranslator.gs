@@ -1,7 +1,7 @@
 /**
  * Utility for translating exercise names from various languages to English.
  * Used as a fallback when exercise_template_id is not available for matching.
- * @module ExerciseTranslator
+ * @module data/ExerciseTranslator
  */
 
 /**

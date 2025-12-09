@@ -1,7 +1,7 @@
 /**
  * Quota tracking and management utility
  * Tracks usage of Google Apps Script quotas and provides warnings
- * @module QuotaTracker
+ * @module tracking/QuotaTracker
  */
 
 /**

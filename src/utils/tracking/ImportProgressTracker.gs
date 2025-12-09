@@ -1,7 +1,7 @@
 /**
  * Utility class for tracking import progress across multiple execution sessions
  * Allows resuming imports that were interrupted by timeout
- * @module ImportProgressTracker
+ * @module tracking/ImportProgressTracker
  */
 
 /**
@@ -44,7 +44,7 @@ class ImportProgressTracker {
       };
 
       props.setProperty(
-        IMPORT_PROGRESS_PROPERTY_KEY,
+        IMPORT_CONFIG.PROGRESS_PROPERTY_KEY,
         JSON.stringify(progressState)
       );
     } catch (error) {
@@ -63,7 +63,9 @@ class ImportProgressTracker {
         return null;
       }
 
-      const progressJson = props.getProperty(IMPORT_PROGRESS_PROPERTY_KEY);
+      const progressJson = props.getProperty(
+        IMPORT_CONFIG.PROGRESS_PROPERTY_KEY
+      );
       if (!progressJson) {
         return null;
       }
@@ -82,7 +84,7 @@ class ImportProgressTracker {
     try {
       const props = getDocumentProperties();
       if (props) {
-        props.deleteProperty(IMPORT_PROGRESS_PROPERTY_KEY);
+        props.deleteProperty(IMPORT_CONFIG.PROGRESS_PROPERTY_KEY);
       }
     } catch (error) {
       console.warn("Failed to clear import progress:", error);
@@ -132,7 +134,7 @@ class ImportProgressTracker {
    * Checks if an import is currently active (running)
    * An import is considered active if:
    * - Active import flag exists in properties
-   * - Timestamp is less than ACTIVE_IMPORT_TIMEOUT_MS ago (not stale)
+   * - Timestamp is less than IMPORT_CONFIG.ACTIVE_TIMEOUT_MS ago (not stale)
    * @returns {boolean} True if import is currently active
    */
   static isImportActive() {
@@ -142,7 +144,7 @@ class ImportProgressTracker {
         return false;
       }
 
-      const activeJson = props.getProperty(ACTIVE_IMPORT_PROPERTY_KEY);
+      const activeJson = props.getProperty(IMPORT_CONFIG.ACTIVE_PROPERTY_KEY);
       if (!activeJson) {
         return false;
       }
@@ -153,7 +155,7 @@ class ImportProgressTracker {
       const elapsed = now - lastUpdate;
 
       // Consider import stale if older than timeout
-      if (elapsed > ACTIVE_IMPORT_TIMEOUT_MS) {
+      if (elapsed > IMPORT_CONFIG.ACTIVE_TIMEOUT_MS) {
         // Clear stale active import flag
         this.clearImportActive();
         return false;
@@ -184,7 +186,7 @@ class ImportProgressTracker {
       };
 
       props.setProperty(
-        ACTIVE_IMPORT_PROPERTY_KEY,
+        IMPORT_CONFIG.ACTIVE_PROPERTY_KEY,
         JSON.stringify(activeState)
       );
     } catch (error) {
@@ -207,7 +209,7 @@ class ImportProgressTracker {
     try {
       const props = getDocumentProperties();
       if (props) {
-        props.deleteProperty(ACTIVE_IMPORT_PROPERTY_KEY);
+        props.deleteProperty(IMPORT_CONFIG.ACTIVE_PROPERTY_KEY);
       }
     } catch (error) {
       console.warn("Failed to clear active import flag:", error);
@@ -226,7 +228,9 @@ class ImportProgressTracker {
         return null;
       }
 
-      const deferredJson = props.getProperty(DEFERRED_POST_PROCESSING_KEY);
+      const deferredJson = props.getProperty(
+        IMPORT_CONFIG.DEFERRED_POST_PROCESSING_KEY
+      );
       if (!deferredJson) {
         return null;
       }
@@ -254,10 +258,10 @@ class ImportProgressTracker {
       }
 
       if (Object.keys(deferred).length === 0) {
-        props.deleteProperty(DEFERRED_POST_PROCESSING_KEY);
+        props.deleteProperty(IMPORT_CONFIG.DEFERRED_POST_PROCESSING_KEY);
       } else {
         props.setProperty(
-          DEFERRED_POST_PROCESSING_KEY,
+          IMPORT_CONFIG.DEFERRED_POST_PROCESSING_KEY,
           JSON.stringify(deferred)
         );
       }

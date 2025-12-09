@@ -175,6 +175,17 @@ const BATCH_CONFIG = {
 };
 
 /**
+ * Workout import failure handling configuration
+ * @type {Object<number>}
+ */
+const WORKOUT_IMPORT_CONFIG = {
+  FAILURE_THRESHOLD: 0.5, // Maximum percentage of failures before aborting (0.5 = 50%)
+  MIN_SUCCESS_COUNT: 1, // Minimum number of successful requests required
+  RETRY_ATTEMPTS: 2, // Number of additional retry attempts for failed requests
+  BATCH_SIZE: 50, // Batch size for processing workout requests
+};
+
+/**
  * Cache configuration for API response caching
  * @type {Object<number>}
  */
@@ -195,14 +206,6 @@ const IMPORT_CONFIG = {
   ACTIVE_PROPERTY_KEY: "IMPORT_ACTIVE_STATE",
   DEFERRED_POST_PROCESSING_KEY: "DEFERRED_POST_PROCESSING",
 };
-
-// Legacy constants for backward compatibility
-const MAX_IMPORT_EXECUTION_TIME_MS = IMPORT_CONFIG.MAX_EXECUTION_TIME_MS;
-const IMPORT_PROGRESS_PROPERTY_KEY = IMPORT_CONFIG.PROGRESS_PROPERTY_KEY;
-const ACTIVE_IMPORT_TIMEOUT_MS = IMPORT_CONFIG.ACTIVE_TIMEOUT_MS;
-const ACTIVE_IMPORT_HEARTBEAT_MS = IMPORT_CONFIG.HEARTBEAT_MS;
-const ACTIVE_IMPORT_PROPERTY_KEY = IMPORT_CONFIG.ACTIVE_PROPERTY_KEY;
-const DEFERRED_POST_PROCESSING_KEY = IMPORT_CONFIG.DEFERRED_POST_PROCESSING_KEY;
 
 /**
  * UI Configuration

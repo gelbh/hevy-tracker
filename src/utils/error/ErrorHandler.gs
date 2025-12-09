@@ -53,6 +53,10 @@ const ERROR_CONFIG = {
   },
 };
 
+/**
+ * Error handling class for consistent error management
+ * @module error/ErrorHandler
+ */
 class ErrorHandler {
   /**
    * Handles errors consistently across the application with logging and user feedback
@@ -88,6 +92,107 @@ class ErrorHandler {
   }
 
   /**
+   * Sanitizes objects for safe logging by removing sensitive data
+   * @param {*} data - Data to sanitize (any type)
+   * @param {Set} [visited] - Set of visited objects to prevent circular reference issues
+   * @param {number} [depth=0] - Current recursion depth to prevent stack overflow
+   * @returns {*} Sanitized data
+   * @private
+   */
+  static _sanitizeForLogging(data, visited = new Set(), depth = 0) {
+    // Prevent excessive recursion
+    if (depth > 10) {
+      return "[MAX_DEPTH_REACHED]";
+    }
+
+    // Handle primitives and null/undefined
+    if (data === null || data === undefined) {
+      return data;
+    }
+
+    if (
+      typeof data !== "object" ||
+      data instanceof Date ||
+      data instanceof RegExp
+    ) {
+      return data;
+    }
+
+    // Handle circular references
+    if (visited.has(data)) {
+      return "[CIRCULAR_REFERENCE]";
+    }
+
+    visited.add(data);
+
+    try {
+      // Handle arrays
+      if (Array.isArray(data)) {
+        return data.map((item) =>
+          this._sanitizeForLogging(item, visited, depth + 1)
+        );
+      }
+
+      // Handle objects
+      const sanitized = {};
+      for (const key in data) {
+        if (!Object.prototype.hasOwnProperty.call(data, key)) {
+          continue;
+        }
+
+        const lowerKey = key.toLowerCase();
+
+        // Remove properties with sensitive names (case-insensitive)
+        if (
+          lowerKey.includes("api-key") ||
+          lowerKey.includes("apikey") ||
+          lowerKey === "api_key" ||
+          lowerKey === "authorization" ||
+          lowerKey === "auth"
+        ) {
+          sanitized[key] = "[REDACTED]";
+          continue;
+        }
+
+        const value = data[key];
+
+        // Special handling for headers objects
+        if (key === "headers" && typeof value === "object" && value !== null) {
+          const sanitizedHeaders = {};
+          for (const headerKey in value) {
+            if (!Object.prototype.hasOwnProperty.call(value, headerKey)) {
+              continue;
+            }
+            const lowerHeaderKey = headerKey.toLowerCase();
+            if (
+              lowerHeaderKey === "api-key" ||
+              lowerHeaderKey === "apikey" ||
+              lowerHeaderKey === "authorization" ||
+              lowerHeaderKey === "auth"
+            ) {
+              sanitizedHeaders[headerKey] = "[REDACTED]";
+            } else {
+              sanitizedHeaders[headerKey] = this._sanitizeForLogging(
+                value[headerKey],
+                visited,
+                depth + 1
+              );
+            }
+          }
+          sanitized[key] = sanitizedHeaders;
+        } else {
+          // Recursively sanitize nested objects
+          sanitized[key] = this._sanitizeForLogging(value, visited, depth + 1);
+        }
+      }
+
+      return sanitized;
+    } finally {
+      visited.delete(data);
+    }
+  }
+
+  /**
    * Logs error with structured information
    * @param {string} errorId - Unique error identifier
    * @param {Error} enhancedError - Enhanced error object
@@ -96,14 +201,28 @@ class ErrorHandler {
    * @private
    */
   static _logError(errorId, enhancedError, contextObj, originalError) {
+    // Sanitize context and error objects to prevent API key exposure
+    const sanitizedContext = this._sanitizeForLogging(contextObj);
+    const sanitizedError = this._sanitizeForLogging({
+      name: originalError?.name,
+      message: originalError?.message,
+      stack: originalError?.stack,
+      statusCode: originalError?.statusCode,
+      context: originalError?.context,
+      options: originalError?.options,
+      request: originalError?.request,
+      response: originalError?.response,
+    });
+
     console.error(`Error [${errorId}]:`, {
       errorCode: enhancedError.errorCode,
       message: enhancedError.message,
-      context: contextObj,
+      context: sanitizedContext,
       recoverySuggestion: enhancedError.recoverySuggestion,
-      stack: originalError.stack,
+      stack: sanitizedError.stack,
       user: Session.getActiveUser().getEmail(),
       timestamp: enhancedError.timestamp,
+      originalError: sanitizedError,
     });
   }
 
