@@ -89,48 +89,22 @@ A Google Sheets Add-on for importing and analyzing workout data from Hevy App. A
 ## Project Structure
 
 ```text
-config/
-└── jest.config.js              # Jest configuration
-
 src/
-├── api/
-│   └── ApiClient.gs            # API client with circuit breaker
-├── config/
-│   └── Constants.gs            # Global constants and configuration
-├── sheets/
-│   ├── SheetManager.gs         # Centralized sheet management
-│   ├── Exercises.gs            # Exercise import and tracking
-│   ├── Routines.gs             # Routine import
-│   ├── RoutineFolders.gs       # Routine folder import
-│   ├── RoutineBuilder.gs       # Routine creation from sheet
-│   └── Workouts.gs             # Workout import with delta updates
-├── ui/
-│   ├── Menu.gs                 # Custom menu interface
-│   ├── Dialogs.gs              # Dialog handlers
-│   └── dialogs/                # HTML dialog templates
-│       ├── SetApiKey.html      # API key setup dialog
-│       ├── ImportWeight.html   # Weight import dialog
-│       ├── SetupInstructions.html
-│       ├── Sidebar.html        # Add-on sidebar
-│       ├── RoutineCreated.html
-│       └── DevApiManager.html
-└── utils/
-    ├── ErrorHandler.gs         # Centralized error management
-    ├── ExerciseTranslator.gs   # Exercise name translation
-    ├── ImportProgressTracker.gs # Import state tracking
-    ├── QuotaTracker.gs         # Quota usage monitoring
-    └── Utils.gs                # Common utility functions
+├── api/          # API client, caching, rate limiting, circuit breaker
+├── config/       # Global constants
+├── sheets/       # Sheet operations (exercises, workouts, routines)
+├── ui/           # Menu, dialogs, HTML templates
+└── utils/        # Utilities organized by domain
+    ├── error/     # Error handling
+    ├── storage/   # Properties service & spreadsheet cache
+    ├── tracking/  # Import progress & quota tracking
+    ├── auth/      # Authentication & API key management
+    ├── data/      # Data formatting, translation, weight utils
+    ├── sheets/    # Sheet utilities
+    ├── ui/        # UI utilities
+    └── triggers/  # Trigger management
 
-tests/
-├── __mocks__/                  # Google Apps Script API mocks
-├── helpers/
-│   └── testHelpers.js          # Test utility functions
-├── api/                        # API layer tests
-├── integration/                # Integration tests
-├── sheets/                     # Sheet operation tests
-├── ui/                         # UI component tests
-├── utils/                      # Utility function tests
-└── setup.js                    # Global test setup
+tests/            # Test files mirroring src/ structure
 ```
 
 ## Development Workflow
