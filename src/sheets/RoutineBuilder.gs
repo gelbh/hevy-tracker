@@ -181,6 +181,15 @@ function processExercises(exerciseData) {
   try {
     const ss = getActiveSpreadsheet();
     const exercisesSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
+    if (!exercisesSheet) {
+      throw new SheetError(
+        `Sheet "${EXERCISES_SHEET_NAME}" not found`,
+        EXERCISES_SHEET_NAME,
+        {
+          operation: "Processing exercises",
+        }
+      );
+    }
     const exerciseValues = exercisesSheet.getDataRange().getValues();
     const headersRow = exerciseValues.shift();
     const idCol = headersRow.indexOf("ID");
@@ -196,8 +205,13 @@ function processExercises(exerciseData) {
     let currentExercise = null;
     let currentTemplateId = null;
 
-    const weightUnit =
-      ss.getSheetByName("Main").getRange("I5").getValue() || "kg";
+    const mainSheet = ss.getSheetByName("Main");
+    if (!mainSheet) {
+      throw new SheetError('Sheet "Main" not found', "Main", {
+        operation: "Getting weight unit",
+      });
+    }
+    const weightUnit = mainSheet.getRange("I5").getValue() || "kg";
 
     const conversionFactors = {
       lbs: WEIGHT_CONVERSION.LBS_TO_KG,

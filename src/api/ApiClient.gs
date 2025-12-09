@@ -591,8 +591,20 @@ class ApiClient {
    * @private
    */
   _setupAuthorizedWeightImport() {
-    getActiveSpreadsheet()
-      .getSheetByName(WEIGHT_SHEET_NAME)
+    const ss = getActiveSpreadsheet();
+    const weightSheet = ss.getSheetByName(WEIGHT_SHEET_NAME);
+    if (!weightSheet) {
+      throw ErrorHandler.handle(
+        new SheetError(
+          `Sheet "${WEIGHT_SHEET_NAME}" not found`,
+          WEIGHT_SHEET_NAME
+        ),
+        {
+          operation: "Setting up authorized weight import",
+        }
+      );
+    }
+    weightSheet
       .getRange("A2")
       .setFormula(
         'IF(TRUE, ARRAYFORMULA(IMPORTRANGE("1vKDObz3ZHoeEBZsyUCpb85AUX3Sc_4V2OmNSyxPEd68", "Weight History!A2:B") * {1, WEIGHT_CONVERSION_FACTOR(Main!$I$5)}), "")'

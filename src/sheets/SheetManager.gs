@@ -9,6 +9,44 @@ class SheetManager {
    */
   constructor(sheet, sheetName) {
     try {
+      // Validate sheet parameter is provided
+      if (!sheet) {
+        throw new SheetError(
+          `Sheet "${sheetName}" is null or undefined`,
+          sheetName,
+          {
+            operation: "SheetManager constructor",
+          }
+        );
+      }
+
+      // Validate sheet reference is still valid (not stale/deleted)
+      try {
+        const sheetId = sheet.getSheetId();
+        if (sheetId === null || sheetId === undefined) {
+          throw new SheetError(
+            `Sheet "${sheetName}" reference is invalid`,
+            sheetName,
+            {
+              operation: "SheetManager constructor",
+            }
+          );
+        }
+      } catch (error) {
+        // If accessing sheet properties throws, the sheet is stale/deleted
+        if (error instanceof SheetError) {
+          throw error;
+        }
+        throw new SheetError(
+          `Sheet "${sheetName}" reference is stale or has been deleted`,
+          sheetName,
+          {
+            operation: "SheetManager constructor",
+            originalError: error.message,
+          }
+        );
+      }
+
       this.sheet = sheet;
       this.sheetName = sheetName;
       this.theme = SHEET_THEMES[sheetName];

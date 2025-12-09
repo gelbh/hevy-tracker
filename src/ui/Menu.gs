@@ -60,7 +60,10 @@ const createImportSubmenu = (ui) => {
     }
   } catch (error) {
     // Non-blocking: log warning but don't prevent menu creation
-    console.warn("Failed to check deferred operations during menu creation:", error);
+    console.warn(
+      "Failed to check deferred operations during menu creation:",
+      error
+    );
   }
 
   return submenu;
@@ -173,6 +176,27 @@ function onEdit(e) {
     const sheet = getActiveSpreadsheet();
     const mainSheet = sheet.getSheetByName("Main");
     const dataSheet = sheet.getSheetByName("Data");
+
+    // Validate sheets exist before using them
+    if (!mainSheet) {
+      throw ErrorHandler.handle(
+        new SheetError('Sheet "Main" not found', "Main"),
+        {
+          operation: "Handling edit event",
+          cell: cell,
+        }
+      );
+    }
+    if (!dataSheet) {
+      throw ErrorHandler.handle(
+        new SheetError('Sheet "Data" not found', "Data"),
+        {
+          operation: "Handling edit event",
+          cell: cell,
+        }
+      );
+    }
+
     const lastRow = dataSheet.getLastRow();
 
     if (cell === "I5" && e.value) {
