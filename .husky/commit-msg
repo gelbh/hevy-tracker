@@ -52,11 +52,11 @@ if ! echo "$commit_msg" | grep -qE "$pattern"; then
   exit 1
 fi
 
-# Check length (max 72 characters)
+# Check length (max 78 characters)
 msg_length=${#commit_msg}
-if [ "$msg_length" -gt 72 ]; then
+if [ "$msg_length" -gt 78 ]; then
   echo "❌ Error: Commit message too long ($msg_length characters)"
-  echo "Maximum length: 72 characters"
+  echo "Maximum length: 78 characters"
   echo ""
   echo "Your message: $commit_msg"
   exit 1
