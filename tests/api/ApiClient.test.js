@@ -272,39 +272,23 @@ describe("ApiClient - validateApiKey", () => {
     );
   });
 
-  test("should handle timeout errors gracefully", async () => {
-    const apiKey = "test-api-key";
-    // Error message must include "timeout" (case-insensitive check in code)
-    const timeoutError = new Error("timeout error");
+  test.each([
+    ["timeout error", "timeout"],
+    ["DNS error occurred", "DNS error"],
+    ["network error occurred", "network"],
+  ])(
+    "should handle %s errors gracefully",
+    async (errorMessage, errorType) => {
+      const apiKey = "test-api-key";
+      const error = new Error(errorMessage);
 
-    UrlFetchApp.fetch.mockRejectedValue(timeoutError);
+      UrlFetchApp.fetch.mockRejectedValue(error);
 
-    await expect(apiClient.validateApiKey(apiKey)).rejects.toThrow(
-      "Request timed out. Please check your internet connection and try again."
-    );
-  });
-
-  test("should handle DNS errors", async () => {
-    const apiKey = "test-api-key";
-    const dnsError = new Error("DNS error occurred");
-
-    UrlFetchApp.fetch.mockRejectedValue(dnsError);
-
-    await expect(apiClient.validateApiKey(apiKey)).rejects.toThrow(
-      "Request timed out. Please check your internet connection and try again."
-    );
-  });
-
-  test("should handle network errors", async () => {
-    const apiKey = "test-api-key";
-    const networkError = new Error("network error occurred");
-
-    UrlFetchApp.fetch.mockRejectedValue(networkError);
-
-    await expect(apiClient.validateApiKey(apiKey)).rejects.toThrow(
-      "Request timed out. Please check your internet connection and try again."
-    );
-  });
+      await expect(apiClient.validateApiKey(apiKey)).rejects.toThrow(
+        "Request timed out. Please check your internet connection and try again."
+      );
+    }
+  );
 
   test("should use 15-second timeout for validation", async () => {
     const apiKey = "test-api-key";

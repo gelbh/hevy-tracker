@@ -133,7 +133,6 @@ describe("Full Import Integration", () => {
       const workouts = [createMockWorkout()];
       const routines = [createMockRoutine()];
 
-      // Mock the functions to actually call fetchPaginatedData
       importAllExercises.mockImplementation(async () => {
         await mockApiClient.fetchPaginatedData("/exercise_templates", 100, jest.fn(), "exercise_templates");
       });

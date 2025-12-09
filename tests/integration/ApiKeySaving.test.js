@@ -186,7 +186,7 @@ class ApiClient {
   }
 }
 
-// Wrapper function (mirroring Utils.gs)
+// Wrapper function (mirroring ErrorUtils.gs)
 function serializeErrorForHtml(error) {
   if (error && error.name && typeof error.message === "string") {
     const errorName = error.name;
