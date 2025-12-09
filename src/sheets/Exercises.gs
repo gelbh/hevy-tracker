@@ -42,7 +42,7 @@ async function importAllExercises(checkTimeout = null) {
       }
     };
 
-    await apiClient.fetchPaginatedData(
+    await getApiClient().fetchPaginatedData(
       API_ENDPOINTS.EXERCISES,
       PAGE_SIZE.EXERCISES,
       processExercisePage,

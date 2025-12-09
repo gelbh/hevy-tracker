@@ -24,7 +24,7 @@ function saveUserApiKey(apiKey) {
   try {
     // Save is now synchronous - completes immediately
     // Validation happens in background in ApiClient
-    apiClient.saveUserApiKey(apiKey);
+    getApiClient().saveUserApiKey(apiKey);
   } catch (error) {
     // Serialize error for HTML service compatibility
     throw serializeErrorForHtml(error);
@@ -129,7 +129,7 @@ function useApiKey(label) {
     TOAST_DURATION.NORMAL
   );
 
-  apiClient.runFullImport();
+  getApiClient().runFullImport();
 }
 
 /**

@@ -377,10 +377,11 @@ function getRoutineApiKey() {
  */
 async function findRoutineFolder(folderName) {
   const apiKey = getRoutineApiKey();
-  const options = apiClient.createRequestOptions(apiKey);
+  const client = getApiClient();
+  const options = client.createRequestOptions(apiKey);
 
   try {
-    const response = await apiClient.makeRequest(
+    const response = await client.makeRequest(
       API_ENDPOINTS.ROUTINE_FOLDERS,
       options,
       { page: 1, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
@@ -408,13 +409,14 @@ async function findRoutineFolder(folderName) {
  */
 async function createNewRoutineFolder(folderName) {
   const apiKey = getRoutineApiKey();
-  const options = apiClient.createRequestOptions(apiKey, "post", {
+  const client = getApiClient();
+  const options = client.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
   });
 
   try {
     const payload = { routine_folder: { title: folderName } };
-    const response = await apiClient.makeRequest(
+    const response = await client.makeRequest(
       API_ENDPOINTS.ROUTINE_FOLDERS,
       options,
       {},
@@ -478,12 +480,13 @@ function createSet(setType, weight, reps, templateType) {
  */
 async function submitRoutine(routineData) {
   const apiKey = getRoutineApiKey();
-  const options = apiClient.createRequestOptions(apiKey, "post", {
+  const client = getApiClient();
+  const options = client.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
   });
 
   try {
-    const response = await apiClient.makeRequest(
+    const response = await client.makeRequest(
       API_ENDPOINTS.ROUTINES,
       options,
       {},

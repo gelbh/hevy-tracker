@@ -11,7 +11,7 @@ const showInitialSetup = () => {
     const hasApiKey = getDocumentProperties()?.getProperty("HEVY_API_KEY");
 
     if (hasApiKey) {
-      apiClient.manageApiKey();
+      getApiClient().manageApiKey();
     } else {
       showHtmlDialog("ui/dialogs/SetApiKey", {
         width: DIALOG_DIMENSIONS.API_KEY_WIDTH,

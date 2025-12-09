@@ -4,6 +4,14 @@
  */
 
 /**
+ * Wrapper function for menu item to run full import
+ * @returns {Promise<void>}
+ */
+async function runFullImport() {
+  return getApiClient().runFullImport();
+}
+
+/**
  * Triggers when the add-on is installed
  * @param {Object} e - The event object
  */
@@ -39,7 +47,7 @@ const addDeveloperMenuItems = (menu, isTemplate) => {
 const createImportSubmenu = (ui) => {
   const submenu = ui
     .createMenu("📥 Import Data")
-    .addItem("📥 Import All", "apiClient.runFullImport")
+    .addItem("📥 Import All", "runFullImport")
     .addSeparator()
     .addItem("🏋️ Import Workouts", "importAllWorkouts")
     .addItem("💪 Import Exercises", "importAllExercises")
@@ -237,7 +245,7 @@ const MENU_ACTIONS = {
     message: "API key setup initiated",
   },
   runFullImport: {
-    handler: () => apiClient.runFullImport(),
+    handler: () => getApiClient().runFullImport(),
     message: "Import started",
   },
   importAllWorkouts: {

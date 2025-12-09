@@ -56,7 +56,7 @@ async function importAllRoutines(checkTimeout = null) {
       );
     };
 
-    const totalRoutines = await apiClient.fetchPaginatedData(
+    const totalRoutines = await getApiClient().fetchPaginatedData(
       API_ENDPOINTS.ROUTINES,
       PAGE_SIZE.ROUTINES,
       processRoutinePage,

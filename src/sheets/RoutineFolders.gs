@@ -34,7 +34,7 @@ async function importAllRoutineFolders(checkTimeout = null) {
       );
     };
 
-    const totalFolders = await apiClient.fetchPaginatedData(
+    const totalFolders = await getApiClient().fetchPaginatedData(
       API_ENDPOINTS.ROUTINE_FOLDERS,
       PAGE_SIZE.ROUTINE_FOLDERS,
       processFolderPage,

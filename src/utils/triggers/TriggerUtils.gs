@@ -87,7 +87,7 @@ async function runInitialImport() {
     }
 
     // Run full import with skipResumeDialog flag
-    await apiClient.runFullImport(apiKey, true);
+    await getApiClient().runFullImport(apiKey, true);
   } catch (error) {
     console.error("Initial import failed:", error);
     ErrorHandler.handle(error, { operation: "Running initial import" }, false);

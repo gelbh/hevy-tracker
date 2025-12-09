@@ -471,5 +471,17 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
-const apiClient = new ApiClient();
+// Lazy singleton instance - created on first access
+let _apiClientInstance = null;
+
+/**
+ * Gets the singleton ApiClient instance (lazy initialization)
+ * This ensures all dependencies are loaded before ApiClient is instantiated
+ * @returns {ApiClient} The singleton ApiClient instance
+ */
+function getApiClient() {
+  if (!_apiClientInstance) {
+    _apiClientInstance = new ApiClient();
+  }
+  return _apiClientInstance;
+}

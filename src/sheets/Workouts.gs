@@ -115,7 +115,7 @@ async function importAllWorkoutsFull(checkTimeout = null) {
   manager.clearSheet();
 
   const allWorkouts = [];
-  await apiClient.fetchPaginatedData(
+  await getApiClient().fetchPaginatedData(
     API_ENDPOINTS.WORKOUTS,
     PAGE_SIZE.WORKOUTS,
     (workouts) => {
@@ -245,10 +245,11 @@ async function _fetchWorkoutWithRetry(workoutId, apiKey, checkTimeout = null) {
 
   // apiClient.makeRequest already has retry logic (3 attempts with exponential backoff)
   // This function provides an additional layer for handling specific retry scenarios
+  const client = getApiClient();
   try {
-    const resp = await apiClient.makeRequest(
+    const resp = await client.makeRequest(
       `${API_ENDPOINTS.WORKOUTS}/${workoutId}`,
-      apiClient.createRequestOptions(apiKey)
+      client.createRequestOptions(apiKey)
     );
     return resp.workout || resp;
   } catch (error) {
@@ -280,9 +281,9 @@ async function _fetchWorkoutWithRetry(workoutId, apiKey, checkTimeout = null) {
         Utilities.sleep(delay);
 
         try {
-          const resp = await apiClient.makeRequest(
+          const resp = await client.makeRequest(
             `${API_ENDPOINTS.WORKOUTS}/${workoutId}`,
-            apiClient.createRequestOptions(apiKey)
+            client.createRequestOptions(apiKey)
           );
           return resp.workout || resp;
         } catch (retryError) {
@@ -455,7 +456,7 @@ async function importAllWorkoutsDelta(lastUpdate, checkTimeout = null) {
     }
 
     const events = [];
-    await apiClient.fetchPaginatedData(
+    await getApiClient().fetchPaginatedData(
       API_ENDPOINTS.WORKOUTS_EVENTS,
       PAGE_SIZE.WORKOUTS,
       (page) => events.push(...page),
