@@ -163,6 +163,24 @@ function onHomepage(e) {
 }
 
 /**
+ * Template spreadsheet URL for user reference
+ * @type {string}
+ * @private
+ */
+const TEMPLATE_URL = `https://docs.google.com/spreadsheets/d/${TEMPLATE_SPREADSHEET_ID}`;
+
+/**
+ * Shows an alert dialog when required sheets are missing
+ * @param {string} title - Alert title
+ * @param {string} message - Alert message (without template URL)
+ * @private
+ */
+function _showMissingSheetAlert(title, message) {
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(title, `${message}\n\nTemplate: ${TEMPLATE_URL}`, ui.ButtonSet.OK);
+}
+
+/**
  * Handles spreadsheet edit events and triggers appropriate actions
  * @param {GoogleAppsScript.Events.SheetsOnEdit} e - The onEdit event object
  */
@@ -173,63 +191,98 @@ function onEdit(e) {
     }
 
     const range = e.range;
-    const sheetName = range.getSheet()?.getName();
+    const sheetName = getSheetNameFromRange(range);
     const cell = range.getA1Notation();
+
+    if (!sheetName) {
+      _showMissingSheetAlert(
+        "Sheet Not Found",
+        "A required sheet appears to have been deleted. Please create a new copy of the template spreadsheet to restore all required sheets."
+      );
+      return;
+    }
 
     if (sheetName !== "Main" || !["I5", "S16", "T16"].includes(cell)) {
       return;
     }
 
-    // Cache spreadsheet and sheet references to avoid repeated service calls
-    const sheet = getActiveSpreadsheet();
-    const mainSheet = sheet.getSheetByName("Main");
-    const dataSheet = sheet.getSheetByName("Data");
+    const spreadsheet = getActiveSpreadsheet();
+    const mainSheet = spreadsheet.getSheetByName("Main");
+    const dataSheet = spreadsheet.getSheetByName("Data");
 
-    // Validate sheets exist before using them
-    if (!mainSheet) {
-      throw ErrorHandler.handle(
-        new SheetError('Sheet "Main" not found', "Main"),
-        {
-          operation: "Handling edit event",
-          cell: cell,
-        }
+    if (!mainSheet || !dataSheet) {
+      const missingSheets = [];
+      if (!mainSheet) missingSheets.push('"Main"');
+      if (!dataSheet) missingSheets.push('"Data"');
+
+      _showMissingSheetAlert(
+        "Required Sheets Missing",
+        `The following required sheet(s) are missing: ${missingSheets.join(
+          ", "
+        )}.\n\nPlease create a new copy of the template spreadsheet to restore all required sheets.`
       );
-    }
-    if (!dataSheet) {
-      throw ErrorHandler.handle(
-        new SheetError('Sheet "Data" not found', "Data"),
-        {
-          operation: "Handling edit event",
-          cell: cell,
-        }
-      );
+      return;
     }
 
-    const lastRow = dataSheet.getLastRow();
+    let lastRow;
+    try {
+      lastRow = dataSheet.getLastRow();
+    } catch (error) {
+      _showMissingSheetAlert(
+        "Sheet Error",
+        "The 'Data' sheet appears to have been deleted or is no longer accessible. Please create a new copy of the template spreadsheet to restore all required sheets."
+      );
+      return;
+    }
 
     if (cell === "I5" && e.value) {
-      const format = `#,##0 "${e.value}"`;
-      const rangeList = dataSheet.getRangeList([
-        `J4:J${lastRow}`,
-        `E4:E${lastRow}`,
-      ]);
-      rangeList.setNumberFormat(format);
+      try {
+        const format = `#,##0 "${e.value}"`;
+        const rangeList = dataSheet.getRangeList([
+          `J4:J${lastRow}`,
+          `E4:E${lastRow}`,
+        ]);
+        rangeList.setNumberFormat(format);
+      } catch (error) {
+        _showMissingSheetAlert(
+          "Sheet Error",
+          "The 'Data' sheet appears to have been deleted or is no longer accessible. Please create a new copy of the template spreadsheet to restore all required sheets."
+        );
+      }
       return;
     }
 
     if (cell === "S16" || cell === "T16") {
-      const s16 = mainSheet.getRange("S16").getValue();
-      const t16 = mainSheet.getRange("T16").getValue();
-      const monthly = s16 === "Monthly" && t16 === "Calendar";
-      const yearly = s16 === "Yearly" && t16 === "Calendar";
-      const format = monthly ? "mmm 'yy" : yearly ? "yyyy" : "dd/mm/yyyy";
-      dataSheet.getRange(`M4:M${lastRow}`).setNumberFormat(format);
+      try {
+        const s16 = mainSheet.getRange("S16").getValue();
+        const t16 = mainSheet.getRange("T16").getValue();
+        const monthly = s16 === "Monthly" && t16 === "Calendar";
+        const yearly = s16 === "Yearly" && t16 === "Calendar";
+        const format = monthly ? "mmm 'yy" : yearly ? "yyyy" : "dd/mm/yyyy";
+        dataSheet.getRange(`M4:M${lastRow}`).setNumberFormat(format);
+      } catch (error) {
+        _showMissingSheetAlert(
+          "Sheet Error",
+          "A required sheet appears to have been deleted or is no longer accessible. Please create a new copy of the template spreadsheet to restore all required sheets."
+        );
+      }
     }
   } catch (error) {
+    let sheetName = null;
+    let cellNotation = null;
+    try {
+      if (e?.range) {
+        sheetName = getSheetNameFromRange(e.range);
+        cellNotation = e.range.getA1Notation();
+      }
+    } catch (innerError) {
+      // Ignore errors when extracting context for error reporting
+    }
+
     throw ErrorHandler.handle(error, {
       operation: "Handling edit event",
-      sheetName: e?.range?.getSheet()?.getName(),
-      cellNotation: e?.range?.getA1Notation(),
+      sheetName: sheetName,
+      cellNotation: cellNotation,
     });
   }
 }

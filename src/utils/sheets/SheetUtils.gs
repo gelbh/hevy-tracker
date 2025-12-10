@@ -24,12 +24,9 @@ function _validateSheetReference(sheet) {
   }
 
   try {
-    // Attempt to access a property to verify the sheet is still valid
-    // If the sheet was deleted, this will throw an error
     const sheetId = sheet.getSheetId();
     return sheetId !== null && sheetId !== undefined;
   } catch (error) {
-    // Sheet reference is stale or invalid
     return false;
   }
 }
@@ -42,25 +39,51 @@ function _validateSheetReference(sheet) {
  * @private
  */
 function _getSheetByName(sheetName) {
-  // Check if we have a cached sheet
   const cachedSheet = _cachedSheets[sheetName];
 
-  // Validate cached sheet if it exists
   if (cachedSheet && _validateSheetReference(cachedSheet)) {
     return cachedSheet;
   }
 
-  // Cache is empty or stale, fetch fresh reference
   const ss = getActiveSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
 
-  // Only cache if sheet exists
   if (sheet) {
     _cachedSheets[sheetName] = sheet;
   } else {
-    // Remove from cache if it was there but is now missing
     delete _cachedSheets[sheetName];
   }
 
   return sheet;
+}
+
+/**
+ * Safely extracts the sheet name from a range object, handling stale references
+ * Returns null if the sheet reference is stale (sheet was deleted/renamed)
+ * @param {GoogleAppsScript.Spreadsheet.Range} range - The range to get the sheet name from
+ * @returns {string|null} The sheet name, or null if the sheet no longer exists or is stale
+ */
+function getSheetNameFromRange(range) {
+  if (!range) {
+    return null;
+  }
+
+  try {
+    const sheet = range.getSheet();
+    if (!sheet) {
+      return null;
+    }
+
+    // Validate sheet reference by accessing a property
+    // If the sheet was deleted, this will throw an error
+    const sheetId = sheet.getSheetId();
+    if (sheetId === null || sheetId === undefined) {
+      return null;
+    }
+
+    return sheet.getName();
+  } catch (error) {
+    // Sheet reference is stale or deleted
+    return null;
+  }
 }
