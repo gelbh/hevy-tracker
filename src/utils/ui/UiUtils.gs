@@ -76,11 +76,39 @@ const configureHtmlOutput = (html, filename, title) =>
  */
 const showDialog = (htmlOutput, width, height, showAsSidebar, title) => {
   const ui = SpreadsheetApp.getUi();
-  if (showAsSidebar) {
-    htmlOutput.setWidth(width);
-    ui.showSidebar(htmlOutput);
-  } else {
-    htmlOutput.setWidth(width).setHeight(height);
-    ui.showModalDialog(htmlOutput, title);
+  try {
+    if (showAsSidebar) {
+      htmlOutput.setWidth(width);
+      ui.showSidebar(htmlOutput);
+    } else {
+      htmlOutput.setWidth(width).setHeight(height);
+      ui.showModalDialog(htmlOutput, title);
+    }
+  } catch (error) {
+    // Check if this is a UI permission error
+    const errorMessage = error?.message ?? "";
+    if (
+      errorMessage.includes("Ui.showModalDialog") ||
+      errorMessage.includes("Ui.showSidebar") ||
+      errorMessage.includes("script.container.ui") ||
+      (errorMessage.includes("permission") &&
+        errorMessage.includes("Ui"))
+    ) {
+      // Show user-friendly alert explaining re-authorization is needed
+      ui.alert(
+        "Additional Permission Required",
+        "The Hevy Tracker add-on needs additional permissions to display dialogs.\n\n" +
+          "To fix this:\n" +
+          "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
+          "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
+          "3. Or uninstall and reinstall the add-on from the Marketplace\n\n" +
+          "After re-authorization, the dialogs will work correctly.",
+        ui.ButtonSet.OK
+      );
+      // Re-throw the error so it can be logged by ErrorHandler
+      throw error;
+    }
+    // Re-throw other errors
+    throw error;
   }
 };
