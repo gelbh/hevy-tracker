@@ -1,5 +1,5 @@
 /**
- * Tests for Workouts.gs - Workout import and management functions
+ * Tests for workouts/Workouts.gs - Workout import and management functions
  */
 
 const {
@@ -227,7 +227,11 @@ describe("Workouts", () => {
   describe("processWorkoutEvents()", () => {
     test("should process deleted events", () => {
       const events = [
-        createMockWorkoutEvent({ type: "deleted", id: "workout-1", workout: null }),
+        createMockWorkoutEvent({
+          type: "deleted",
+          id: "workout-1",
+          workout: null,
+        }),
         createMockWorkoutEvent({
           type: "deleted",
           id: null,
