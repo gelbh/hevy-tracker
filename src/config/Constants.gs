@@ -104,10 +104,11 @@ const MAX_PAGES = 10000;
  * @type {Object<number>}
  */
 const RATE_LIMIT = {
-  API_DELAY: 25, // Milliseconds between API requests (reduced from 50ms for better performance)
+  API_DELAY: 25, // Milliseconds between API requests when rate limit info unavailable
   BATCH_SIZE: 100, // Default batch size for operations
   MAX_RETRIES: 5, // Maximum retry attempts
   BACKOFF_MULTIPLIER: 2, // Exponential backoff multiplier
+  PARALLEL_PAGE_CONCURRENCY: 4, // Number of pages to fetch in parallel using UrlFetchApp.fetchAll
 };
 
 /**
@@ -182,7 +183,7 @@ const WORKOUT_IMPORT_CONFIG = {
   FAILURE_THRESHOLD: 0.5, // Maximum percentage of failures before aborting (0.5 = 50%)
   MIN_SUCCESS_COUNT: 1, // Minimum number of successful requests required
   RETRY_ATTEMPTS: 2, // Number of additional retry attempts for failed requests
-  BATCH_SIZE: 50, // Batch size for processing workout requests
+  BATCH_SIZE: 100, // Batch size for processing workout requests
 };
 
 /**

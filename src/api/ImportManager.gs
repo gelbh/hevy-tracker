@@ -91,6 +91,132 @@ class ImportManager {
    *   "workouts"
    * );
    */
+  /**
+   * Builds request objects for parallel page fetching
+   * @param {number} startPage - Starting page number
+   * @param {number} concurrency - Number of pages to fetch
+   * @param {string} endpoint - API endpoint
+   * @param {number} pageSize - Page size
+   * @param {string} apiKey - API key
+   * @param {Object} additionalParams - Additional query parameters
+   * @returns {Array<{requests: Array, pageNumbers: Array, nextPage: number}>}
+   * @private
+   */
+  _buildParallelRequests(
+    startPage,
+    concurrency,
+    endpoint,
+    pageSize,
+    apiKey,
+    additionalParams
+  ) {
+    const requests = [];
+    const pageNumbers = [];
+    let currentPage = startPage;
+
+    for (let i = 0; i < concurrency && currentPage <= MAX_PAGES; i++) {
+      const queryParams = {
+        page: currentPage,
+        page_size: pageSize,
+        ...additionalParams,
+      };
+
+      const url = this.apiClient.buildUrl(endpoint, queryParams);
+      const requestOptions = this.apiClient.createRequestOptions(apiKey);
+
+      requests.push({
+        url: url,
+        ...requestOptions,
+      });
+      pageNumbers.push(currentPage);
+      currentPage++;
+    }
+
+    return { requests, pageNumbers, nextPage: currentPage };
+  }
+
+  /**
+   * Processes a single response from parallel fetch
+   * @param {GoogleAppsScript.URL_Fetch.HTTPResponse} response - HTTP response
+   * @param {number} pageNum - Page number
+   * @param {string} dataKey - Key in response containing data
+   * @param {Function} processFn - Function to process data
+   * @param {number} pageSize - Page size
+   * @returns {Promise<{processedCount: number, hasMore: boolean}>}
+   * @private
+   */
+  async _processParallelResponse(
+    response,
+    pageNum,
+    dataKey,
+    processFn,
+    pageSize
+  ) {
+    const statusCode = response.getResponseCode();
+    QuotaTracker.recordUrlFetch(1);
+
+    const headers = response.getHeaders();
+    this.apiClient.rateLimitManager.updateRateLimitInfo(headers);
+
+    if (
+      statusCode < HTTP_STATUS_RANGE.SUCCESS_START ||
+      statusCode > HTTP_STATUS_RANGE.SUCCESS_END
+    ) {
+      return { processedCount: 0, hasMore: false, statusCode };
+    }
+
+    const responseText = response.getContentText();
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch (error) {
+      throw ErrorHandler.handle(
+        new ApiError(
+          "Invalid JSON response from API",
+          statusCode,
+          responseText
+        ),
+        { operation: "Parsing API response", page: pageNum }
+      );
+    }
+
+    const result = await this.processPageData(
+      parsedResponse,
+      dataKey,
+      processFn,
+      pageSize,
+      pageNum
+    );
+
+    return { ...result, statusCode };
+  }
+
+  /**
+   * Applies adaptive rate limiting delay based on remaining requests
+   * @private
+   */
+  _applyAdaptiveRateLimit() {
+    const rateLimitInfo = this.apiClient.rateLimitManager.getRateLimitInfo();
+    if (
+      !rateLimitInfo ||
+      rateLimitInfo.remaining === null ||
+      rateLimitInfo.limit === null
+    ) {
+      return;
+    }
+
+    const remainingPercent = rateLimitInfo.remaining / rateLimitInfo.limit;
+    const LOW_THRESHOLD_PERCENT = 0.2;
+    const LOW_THRESHOLD_COUNT = 50;
+
+    if (
+      remainingPercent < LOW_THRESHOLD_PERCENT ||
+      rateLimitInfo.remaining < LOW_THRESHOLD_COUNT
+    ) {
+      Utilities.sleep(100);
+    }
+  }
+
   async fetchPaginatedData(
     endpoint,
     pageSize,
@@ -105,40 +231,107 @@ class ImportManager {
     let page = 1;
     let totalProcessed = 0;
     let hasMore = true;
+    const concurrency = RATE_LIMIT.PARALLEL_PAGE_CONCURRENCY;
 
     while (hasMore && page <= MAX_PAGES) {
       try {
-        // Check timeout before each page fetch
         if (checkTimeout && checkTimeout()) {
           throw new ImportTimeoutError(
             `Timeout approaching while fetching ${endpoint} (page ${page})`
           );
         }
 
-        const response = await this.fetchPage(
-          endpoint,
-          apiKey,
+        const { requests, pageNumbers, nextPage } = this._buildParallelRequests(
           page,
+          concurrency,
+          endpoint,
           pageSize,
+          apiKey,
           additionalParams
         );
-        const result = await this.processPageData(
-          response,
-          dataKey,
-          processFn,
-          pageSize,
-          page
-        );
 
-        totalProcessed += result.processedCount;
-        hasMore = result.hasMore;
+        if (requests.length === 0) {
+          break;
+        }
+
+        const responses = UrlFetchApp.fetchAll(requests);
+        let batchHasMore = true;
+
+        for (let i = 0; i < responses.length; i++) {
+          const response = responses[i];
+          const pageNum = pageNumbers[i];
+          const statusCode = response.getResponseCode();
+
+          if (statusCode === HTTP_STATUS.NOT_FOUND) {
+            batchHasMore = false;
+            break;
+          }
+
+          if (statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
+            Utilities.sleep(1000);
+            const retryResponse = await this.fetchPage(
+              endpoint,
+              apiKey,
+              pageNum,
+              pageSize,
+              additionalParams
+            );
+            const result = await this.processPageData(
+              retryResponse,
+              dataKey,
+              processFn,
+              pageSize,
+              pageNum
+            );
+            totalProcessed += result.processedCount;
+            if (!result.hasMore) {
+              batchHasMore = false;
+              break;
+            }
+            continue;
+          }
+
+          const result = await this._processParallelResponse(
+            response,
+            pageNum,
+            dataKey,
+            processFn,
+            pageSize
+          );
+
+          if (
+            result.statusCode < HTTP_STATUS_RANGE.SUCCESS_START ||
+            result.statusCode > HTTP_STATUS_RANGE.SUCCESS_END
+          ) {
+            throw ErrorHandler.handle(
+              new ApiError(
+                `API request failed with status ${result.statusCode}`,
+                result.statusCode,
+                response.getContentText()
+              ),
+              {
+                endpoint,
+                page: pageNum,
+                operation: "Fetching paginated data",
+              }
+            );
+          }
+
+          totalProcessed += result.processedCount;
+
+          if (!result.hasMore) {
+            batchHasMore = false;
+            break;
+          }
+        }
+
+        page = nextPage;
+        hasMore = batchHasMore;
 
         if (hasMore) {
-          page++;
-          Utilities.sleep(RATE_LIMIT.API_DELAY);
+          this._applyAdaptiveRateLimit();
         }
       } catch (error) {
-        // Re-throw ImportTimeoutError
         if (error instanceof ImportTimeoutError) {
           throw error;
         }
@@ -156,7 +349,6 @@ class ImportManager {
       }
     }
 
-    // Safety check: If we hit the maximum page limit, something is wrong
     if (page > MAX_PAGES) {
       throw ErrorHandler.handle(
         new Error(

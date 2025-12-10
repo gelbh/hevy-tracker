@@ -69,6 +69,118 @@ async function _fetchWorkoutWithRetry(workoutId, apiKey, checkTimeout = null) {
 }
 
 /**
+ * Builds request objects for parallel workout fetching
+ * @param {Array<string>} workoutIds - Array of workout IDs
+ * @param {string} apiKey - API key
+ * @returns {Array<Object>} Array of request objects
+ * @private
+ */
+function _buildWorkoutRequests(workoutIds, apiKey) {
+  const client = getApiClient();
+  return workoutIds.map((workoutId) => {
+    const url = client.buildUrl(`${API_ENDPOINTS.WORKOUTS}/${workoutId}`, {});
+    const requestOptions = client.createRequestOptions(apiKey);
+    return {
+      url: url,
+      ...requestOptions,
+    };
+  });
+}
+
+/**
+ * Processes a successful workout response
+ * @param {GoogleAppsScript.URL_Fetch.HTTPResponse} response - HTTP response
+ * @param {string} workoutId - Workout ID
+ * @returns {Object|null} Parsed workout object or null on error
+ * @private
+ */
+function _parseWorkoutResponse(response, workoutId) {
+  try {
+    const responseText = response.getContentText();
+    const parsedResponse = JSON.parse(responseText);
+    return parsedResponse.workout || parsedResponse;
+  } catch (error) {
+    console.error(`Failed to parse workout ${workoutId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Retries fetching a workout with exponential backoff
+ * @param {string} workoutId - Workout ID to fetch
+ * @param {string} apiKey - API key
+ * @param {Function} checkTimeout - Timeout check function
+ * @returns {Promise<Object|null>} Workout object or null if failed
+ * @private
+ */
+async function _retryWorkoutFetch(workoutId, apiKey, checkTimeout) {
+  const client = getApiClient();
+  const maxAttempts = WORKOUT_IMPORT_CONFIG.RETRY_ATTEMPTS;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (checkTimeout && checkTimeout()) {
+      return null;
+    }
+
+    const delay =
+      Math.min(
+        API_CLIENT_CONFIG.BASE_DELAY_MS * Math.pow(2, attempt),
+        API_CLIENT_CONFIG.MAX_DELAY_MS
+      ) *
+      (0.5 + Math.random() * 0.5);
+    Utilities.sleep(delay);
+
+    try {
+      const retryResponse = await client.makeRequest(
+        `${API_ENDPOINTS.WORKOUTS}/${workoutId}`,
+        client.createRequestOptions(apiKey)
+      );
+      return retryResponse.workout || retryResponse;
+    } catch (retryError) {
+      if (attempt === maxAttempts - 1) {
+        console.error(
+          `Failed to fetch workout ${workoutId} after retries:`,
+          retryError
+        );
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Applies adaptive rate limiting delay between batches
+ * @param {Object} client - API client instance
+ * @param {boolean} hasMoreBatches - Whether more batches remain
+ * @private
+ */
+function _applyBatchRateLimit(client, hasMoreBatches) {
+  if (!hasMoreBatches) {
+    return;
+  }
+
+  const rateLimitInfo = client.rateLimitManager.getRateLimitInfo();
+  if (
+    rateLimitInfo &&
+    rateLimitInfo.remaining !== null &&
+    rateLimitInfo.limit !== null
+  ) {
+    const remainingPercent = rateLimitInfo.remaining / rateLimitInfo.limit;
+    const LOW_THRESHOLD_PERCENT = 0.2;
+    const LOW_THRESHOLD_COUNT = 50;
+
+    if (
+      remainingPercent < LOW_THRESHOLD_PERCENT ||
+      rateLimitInfo.remaining < LOW_THRESHOLD_COUNT
+    ) {
+      Utilities.sleep(100);
+    }
+  } else {
+    Utilities.sleep(RATE_LIMIT.API_DELAY);
+  }
+}
+
+/**
  * Fetches workouts in batches with retry logic and validation
  * @param {Array<string>} workoutIds - Array of workout IDs to fetch
  * @param {string} apiKey - API key for authentication
@@ -86,6 +198,7 @@ async function _fetchWorkoutsInBatches(
   const failedIds = [];
   const batchSize = WORKOUT_IMPORT_CONFIG.BATCH_SIZE;
   const totalCount = workoutIds.length;
+  const client = getApiClient();
 
   for (let i = 0; i < workoutIds.length; i += batchSize) {
     if (checkTimeout && checkTimeout()) {
@@ -98,35 +211,56 @@ async function _fetchWorkoutsInBatches(
       i,
       Math.min(i + batchSize, workoutIds.length)
     );
-    const batchResults = await Promise.allSettled(
-      batch.map(async (id) => {
-        try {
-          return await _fetchWorkoutWithRetry(id, apiKey, checkTimeout);
-        } catch (error) {
-          const wrappedError = new Error(`Failed to fetch workout ${id}`);
-          wrappedError.originalError = error;
-          wrappedError.workoutId = id;
-          throw wrappedError;
-        }
-      })
-    );
 
-    for (let j = 0; j < batchResults.length; j++) {
-      const result = batchResults[j];
+    const requests = _buildWorkoutRequests(batch, apiKey);
+    const responses = UrlFetchApp.fetchAll(requests);
+
+    for (let j = 0; j < responses.length; j++) {
+      const response = responses[j];
       const workoutId = batch[j];
+      const statusCode = response.getResponseCode();
 
-      if (result.status === "fulfilled") {
-        fullWorkouts.push(result.value);
+      QuotaTracker.recordUrlFetch(1);
+
+      const headers = response.getHeaders();
+      client.rateLimitManager.updateRateLimitInfo(headers);
+
+      if (
+        statusCode >= HTTP_STATUS_RANGE.SUCCESS_START &&
+        statusCode <= HTTP_STATUS_RANGE.SUCCESS_END
+      ) {
+        const workout = _parseWorkoutResponse(response, workoutId);
+        if (workout) {
+          fullWorkouts.push(workout);
+        } else {
+          failedIds.push(workoutId);
+        }
+      } else if (
+        statusCode >= HTTP_STATUS_RANGE.SERVER_ERROR_START &&
+        statusCode <= HTTP_STATUS_RANGE.SERVER_ERROR_END &&
+        WORKOUT_IMPORT_CONFIG.RETRY_ATTEMPTS > 0
+      ) {
+        const workout = await _retryWorkoutFetch(
+          workoutId,
+          apiKey,
+          checkTimeout
+        );
+        if (workout) {
+          fullWorkouts.push(workout);
+        } else {
+          failedIds.push(workoutId);
+        }
       } else {
         failedIds.push(workoutId);
-        const error = result.reason?.originalError || result.reason;
-        console.error(`Failed to fetch workout ${workoutId}:`, error);
+        const errorText = response.getContentText();
+        console.error(
+          `Failed to fetch workout ${workoutId} (status ${statusCode}):`,
+          errorText
+        );
       }
     }
 
-    if (i + batchSize < workoutIds.length) {
-      Utilities.sleep(RATE_LIMIT.API_DELAY);
-    }
+    _applyBatchRateLimit(client, i + batchSize < workoutIds.length);
   }
 
   const successCount = fullWorkouts.length;

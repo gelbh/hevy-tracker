@@ -93,9 +93,53 @@ async function importAllWorkouts(checkTimeout = null) {
 }
 
 /**
+ * Extracts localized exercise names from workouts
+ * @param {Array<Object>} workouts - Array of workout objects
+ * @param {Map<string, string>} idToLocalizedName - Map to populate
+ * @private
+ */
+function _extractLocalizedExerciseNames(workouts, idToLocalizedName) {
+  workouts.forEach((workout) => {
+    if (!workout.exercises || !Array.isArray(workout.exercises)) {
+      return;
+    }
+
+    workout.exercises.forEach((exercise) => {
+      const exerciseTemplateId = exercise.exercise_template_id;
+      const localizedTitle = exercise.title;
+      if (
+        exerciseTemplateId &&
+        localizedTitle &&
+        exerciseTemplateId !== "N/A"
+      ) {
+        idToLocalizedName.set(exerciseTemplateId, localizedTitle);
+      }
+    });
+  });
+}
+
+/**
+ * Writes rows to sheet starting at specified row
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Sheet to write to
+ * @param {Array<Array>} rows - Rows to write
+ * @param {number} startRow - Starting row number
+ * @returns {number} Number of rows written
+ * @private
+ */
+function _writeRowsToSheet(sheet, rows, startRow) {
+  if (rows.length === 0) {
+    return 0;
+  }
+
+  const numCols = rows[0].length;
+  sheet.getRange(startRow, 1, rows.length, numCols).setValues(rows);
+  return rows.length;
+}
+
+/**
  * Performs a full import of all workouts.
  * Clears existing data rows (keeping headers), fetches all pages,
- * and writes rows in a single batch.
+ * and writes rows incrementally as pages arrive.
  * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  * @returns {Promise<number>} Number of workout records imported
  */
@@ -106,44 +150,52 @@ async function importAllWorkoutsFull(checkTimeout = null) {
 
   manager.clearSheet();
 
-  const allWorkouts = [];
+  let currentRow = 2;
+  let totalRowsWritten = 0;
+  const idToLocalizedName = new Map();
+  const WRITE_BATCH_SIZE = 150;
+  let pendingRows = [];
+
   await getApiClient().fetchPaginatedData(
     API_ENDPOINTS.WORKOUTS,
     PAGE_SIZE.WORKOUTS,
-    (workouts) => {
-      if (workouts) allWorkouts.push(...workouts);
+    async (workouts) => {
+      if (!workouts || workouts.length === 0) {
+        return;
+      }
+
+      const pageRows = processWorkoutsData(workouts);
+      pendingRows.push(...pageRows);
+      _extractLocalizedExerciseNames(workouts, idToLocalizedName);
+
+      if (pendingRows.length >= WRITE_BATCH_SIZE) {
+        const rowsToWrite = pendingRows.slice(0, WRITE_BATCH_SIZE);
+        const remainingRows = pendingRows.slice(WRITE_BATCH_SIZE);
+
+        const written = _writeRowsToSheet(
+          manager.sheet,
+          rowsToWrite,
+          currentRow
+        );
+        currentRow += written;
+        totalRowsWritten += written;
+        pendingRows = remainingRows;
+      }
     },
     "workouts",
     {},
     checkTimeout
   );
 
-  const rows = processWorkoutsData(allWorkouts);
-  if (rows.length) {
-    manager.sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  if (pendingRows.length > 0) {
+    const written = _writeRowsToSheet(manager.sheet, pendingRows, currentRow);
+    totalRowsWritten += written;
   }
-
-  const idToLocalizedName = new Map();
-  allWorkouts.forEach((workout) => {
-    if (workout.exercises && Array.isArray(workout.exercises)) {
-      workout.exercises.forEach((exercise) => {
-        const exerciseTemplateId = exercise.exercise_template_id;
-        const localizedTitle = exercise.title;
-        if (
-          exerciseTemplateId &&
-          localizedTitle &&
-          exerciseTemplateId !== "N/A"
-        ) {
-          idToLocalizedName.set(exerciseTemplateId, localizedTitle);
-        }
-      });
-    }
-  });
 
   props?.setProperty("LAST_WORKOUT_UPDATE", new Date().toISOString());
   const ss = getActiveSpreadsheet();
   ss.toast(
-    `Imported ${rows.length} workout records.`,
+    `Imported ${totalRowsWritten} workout records.`,
     "Full Import Complete",
     TOAST_DURATION.NORMAL
   );
@@ -160,7 +212,7 @@ async function importAllWorkoutsFull(checkTimeout = null) {
     }
   }
 
-  return rows.length;
+  return totalRowsWritten;
 }
 
 /**
