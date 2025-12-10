@@ -349,34 +349,15 @@ async function getOrCreateRoutineFolder(folderName) {
 }
 
 /**
- * Gets API key for routine operations
- * @returns {string} API key
- * @throws {ConfigurationError} If properties or API key not found
- * @private
- */
-function getRoutineApiKey() {
-  const properties = getDocumentProperties();
-  if (!properties) {
-    throw new ConfigurationError(
-      "Unable to access document properties. Please ensure you have proper permissions."
-    );
-  }
-
-  const apiKey = properties.getProperty("HEVY_API_KEY");
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-
-  return apiKey;
-}
-
-/**
  * Finds a routine folder by name
  * @param {string} folderName - Name of the folder to find
  * @returns {Promise<number|null>} Folder ID or null if not found
  */
 async function findRoutineFolder(folderName) {
-  const apiKey = getRoutineApiKey();
+  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
   const client = getApiClient();
   const options = client.createRequestOptions(apiKey);
 
@@ -408,7 +389,10 @@ async function findRoutineFolder(folderName) {
  * @private
  */
 async function createNewRoutineFolder(folderName) {
-  const apiKey = getRoutineApiKey();
+  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
   const client = getApiClient();
   const options = client.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
@@ -479,7 +463,10 @@ function createSet(setType, weight, reps, templateType) {
  * @private
  */
 async function submitRoutine(routineData) {
-  const apiKey = getRoutineApiKey();
+  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+  if (!apiKey) {
+    throw new ConfigurationError("API key not found");
+  }
   const client = getApiClient();
   const options = client.createRequestOptions(apiKey, "post", {
     "Content-Type": "application/json",
