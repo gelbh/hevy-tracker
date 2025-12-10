@@ -29,6 +29,13 @@
         </h1>
       </header>
 
+      <div
+        id="notification"
+        class="hidden fixed top-4 right-4 z-50 max-w-md"
+        role="alert"
+        aria-live="polite"
+      ></div>
+
       <aside
         class="alert alert-info scale-in"
         role="note"
@@ -120,9 +127,10 @@
               <i
                 data-lucide="refresh-cw"
                 class="icon icon-sm"
+                id="switchBtnIcon"
                 aria-hidden="true"
               ></i>
-              Switch
+              <span id="switchBtnText">Switch</span>
             </button>
           </div>
         </div>
@@ -195,9 +203,10 @@
                     <i
                       data-lucide="save"
                       class="icon icon-sm"
+                      id="saveBtnIcon"
                       aria-hidden="true"
                     ></i>
-                    Save
+                    <span id="saveBtnText">Save</span>
                   </button>
                 </div>
               </div>
@@ -240,9 +249,10 @@
               <i
                 data-lucide="trash-2"
                 class="icon icon-sm"
+                id="removeBtnIcon"
                 aria-hidden="true"
               ></i>
-              Remove
+              <span id="removeBtnText">Remove</span>
             </button>
           </div>
         </div>
@@ -268,6 +278,16 @@
       let switchBtn;
       let removeBtn;
       let saveBtn;
+      let notification;
+      let switchBtnIcon;
+      let switchBtnText;
+      let saveBtnIcon;
+      let saveBtnText;
+      let removeBtnIcon;
+      let removeBtnText;
+
+      // Loading state tracking
+      let isLoading = false;
 
       /**
        * Masks API key showing only last 4 characters
@@ -353,6 +373,65 @@
       };
 
       /**
+       * Shows a notification message
+       * @param {string} message - Message to display
+       * @param {string} type - Type: 'success' or 'error'
+       */
+      const showNotification = (message, type = "success") => {
+        if (!notification) return;
+
+        const isSuccess = type === "success";
+        const bgColor = isSuccess
+          ? "bg-[hsl(var(--success))]"
+          : "bg-[hsl(var(--destructive))]";
+        const icon = isSuccess ? "check-circle-2" : "alert-circle";
+        const iconColor = isSuccess ? "text-white" : "text-white";
+
+        notification.className = `${bgColor} text-white p-4 rounded-lg shadow-lg flex items-center gap-3`;
+        notification.innerHTML = `
+          <i data-lucide="${icon}" class="icon ${iconColor}" aria-hidden="true"></i>
+          <span>${message}</span>
+        `;
+        notification.classList.remove("hidden");
+
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+          if (notification) {
+            notification.classList.add("hidden");
+          }
+        }, 3000);
+      };
+
+      /**
+       * Sets loading state on a button
+       * @param {HTMLElement} button - Button element
+       * @param {HTMLElement} icon - Icon element
+       * @param {HTMLElement} text - Text span element
+       * @param {boolean} loading - Whether to show loading state
+       */
+      const setButtonLoading = (button, icon, text, loading) => {
+        if (!button || !icon || !text) return;
+
+        if (loading) {
+          button.disabled = true;
+          button.classList.add("opacity-50", "cursor-not-allowed");
+          icon.setAttribute("data-lucide", "loader-2");
+          icon.classList.add("animate-spin");
+          if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+            window.HevyTrackerUtils.initIcons();
+          }
+        } else {
+          button.disabled = false;
+          button.classList.remove("opacity-50", "cursor-not-allowed");
+          icon.classList.remove("animate-spin");
+        }
+      };
+
+      /**
        * Populates UI with API key data
        * @param {Array} keys - Array of key objects with label and key
        * @param {string} currentKey - Current API key value
@@ -431,6 +510,8 @@
        * Saves new API key
        */
       const saveKey = () => {
+        if (isLoading) return;
+
         const label = labelInput ? labelInput.value.trim() : "";
         const key = keyInput ? keyInput.value.trim() : "";
 
@@ -462,19 +543,31 @@
           return;
         }
 
+        isLoading = true;
+        setButtonLoading(saveBtn, saveBtnIcon, saveBtnText, true);
+
         google.script.run
           .withSuccessHandler(() => {
+            isLoading = false;
+            setButtonLoading(saveBtn, saveBtnIcon, saveBtnText, false);
             refreshUI();
             if (labelInput) labelInput.value = "";
             if (keyInput) keyInput.value = "";
             hideKeyError();
+            showNotification(
+              `API key "${label}" saved successfully!`,
+              "success"
+            );
           })
           .withFailureHandler((error) => {
+            isLoading = false;
+            setButtonLoading(saveBtn, saveBtnIcon, saveBtnText, false);
             const errorMessage =
               error && error.message
                 ? `Failed to save API key: ${error.message}`
                 : "Failed to save API key: Unknown error";
             showKeyError(errorMessage);
+            showNotification(errorMessage, "error");
           })
           .saveDevApiKey(label, key);
       };
@@ -483,6 +576,8 @@
        * Switches to selected API key
        */
       const switchKey = () => {
+        if (isLoading) return;
+
         const label = switchDropdown ? switchDropdown.value : "";
         if (!label) {
           return;
@@ -496,15 +591,31 @@
           return;
         }
 
+        isLoading = true;
+        setButtonLoading(switchBtn, switchBtnIcon, switchBtnText, true);
+        if (switchDropdown) switchDropdown.disabled = true;
+
         google.script.run
-          .withSuccessHandler(refreshUI)
-          .withFailureHandler((error) => {
-            console.error("Failed to switch API key:", error);
-            alert(
-              `Failed to switch API key: ${
-                error && error.message ? error.message : "Unknown error"
-              }`
+          .withSuccessHandler(() => {
+            isLoading = false;
+            setButtonLoading(switchBtn, switchBtnIcon, switchBtnText, false);
+            if (switchDropdown) switchDropdown.disabled = false;
+            refreshUI();
+            showNotification(
+              `Switched to API key "${label}". Data import started...`,
+              "success"
             );
+          })
+          .withFailureHandler((error) => {
+            isLoading = false;
+            setButtonLoading(switchBtn, switchBtnIcon, switchBtnText, false);
+            if (switchDropdown) switchDropdown.disabled = false;
+            console.error("Failed to switch API key:", error);
+            const errorMessage =
+              error && error.message
+                ? `Failed to switch API key: ${error.message}`
+                : "Failed to switch API key: Unknown error";
+            showNotification(errorMessage, "error");
           })
           .useApiKey(label);
       };
@@ -513,9 +624,11 @@
        * Removes selected API key
        */
       const removeKey = () => {
+        if (isLoading) return;
+
         const label = removeDropdown ? removeDropdown.value : "";
         if (!label) {
-          alert("Please select a key to remove.");
+          showNotification("Please select a key to remove.", "error");
           return;
         }
 
@@ -530,19 +643,35 @@
           !google.script ||
           !google.script.run
         ) {
-          alert("Unable to connect to Google Apps Script.");
+          showNotification("Unable to connect to Google Apps Script.", "error");
           return;
         }
 
+        isLoading = true;
+        setButtonLoading(removeBtn, removeBtnIcon, removeBtnText, true);
+        if (removeDropdown) removeDropdown.disabled = true;
+
         google.script.run
-          .withSuccessHandler(refreshUI)
-          .withFailureHandler((error) => {
-            console.error("Failed to remove API key:", error);
-            alert(
-              `Failed to remove API key: ${
-                error && error.message ? error.message : "Unknown error"
-              }`
+          .withSuccessHandler(() => {
+            isLoading = false;
+            setButtonLoading(removeBtn, removeBtnIcon, removeBtnText, false);
+            if (removeDropdown) removeDropdown.disabled = false;
+            refreshUI();
+            showNotification(
+              `API key "${label}" removed successfully.`,
+              "success"
             );
+          })
+          .withFailureHandler((error) => {
+            isLoading = false;
+            setButtonLoading(removeBtn, removeBtnIcon, removeBtnText, false);
+            if (removeDropdown) removeDropdown.disabled = false;
+            console.error("Failed to remove API key:", error);
+            const errorMessage =
+              error && error.message
+                ? `Failed to remove API key: ${error.message}`
+                : "Failed to remove API key: Unknown error";
+            showNotification(errorMessage, "error");
           })
           .removeApiKey(label);
       };
@@ -562,6 +691,13 @@
         switchBtn = document.getElementById("switchBtn");
         removeBtn = document.getElementById("removeBtn");
         saveBtn = document.getElementById("saveBtn");
+        notification = document.getElementById("notification");
+        switchBtnIcon = document.getElementById("switchBtnIcon");
+        switchBtnText = document.getElementById("switchBtnText");
+        saveBtnIcon = document.getElementById("saveBtnIcon");
+        saveBtnText = document.getElementById("saveBtnText");
+        removeBtnIcon = document.getElementById("removeBtnIcon");
+        removeBtnText = document.getElementById("removeBtnText");
 
         // Set up event listeners
         if (toggleBtn) {

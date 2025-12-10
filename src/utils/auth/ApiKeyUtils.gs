@@ -46,9 +46,6 @@ function saveDevApiKey(label, key) {
     );
   }
 
-  // Perform one-time migration from script properties to user properties
-  migrateDevApiKeysToUserProperties();
-
   // Validate label
   if (!label || typeof label !== "string" || label.trim().length === 0) {
     throw new ValidationError("Label must be a non-empty string");
@@ -123,13 +120,29 @@ function useApiKey(label) {
   documentProperties.setProperty("HEVY_API_KEY", storedKey);
   documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
 
+  // Clear all data sheets before importing with new key
+  // This ensures previous data is removed and replaced with data from the new key
+  try {
+    SheetManager.getOrCreate(WORKOUTS_SHEET_NAME).clearSheet();
+    SheetManager.getOrCreate(EXERCISES_SHEET_NAME).clearSheet();
+    SheetManager.getOrCreate(ROUTINES_SHEET_NAME).clearSheet();
+    SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME).clearSheet();
+  } catch (error) {
+    console.warn("Error clearing data sheets:", error);
+    // Continue with import even if clearing fails
+  }
+
+  // Clear import progress to force a fresh import
+  ImportProgressTracker.clearProgress();
+
   getActiveSpreadsheet().toast(
-    `Switched to API key: ${label}`,
+    `Switched to API key: ${label}. Clearing previous data and starting fresh import...`,
     "Developer Mode",
     TOAST_DURATION.NORMAL
   );
 
-  getApiClient().runFullImport();
+  // Force full import with skipResumeDialog=true to ensure fresh import
+  getApiClient().runFullImport(null, true);
 }
 
 /**
@@ -183,9 +196,6 @@ function getApiKeyDataForUI() {
     );
   }
 
-  // Perform one-time migration from script properties to user properties
-  migrateDevApiKeysToUserProperties();
-
   const props = userProperties.getProperties();
   const keys = Object.entries(props)
     .filter(([key]) => key.startsWith(DEV_API_KEY_PREFIX))
@@ -196,67 +206,4 @@ function getApiKeyDataForUI() {
   const current =
     PropertiesService.getDocumentProperties().getProperty("HEVY_API_KEY");
   return { keys, current };
-}
-
-/**
- * Migrates developer API keys from script properties to user properties
- * This is a one-time migration to move from shared storage to per-user storage
- * @private
- */
-function migrateDevApiKeysToUserProperties() {
-  // Check if migration has already been completed
-  const userProperties = getUserProperties();
-  if (!userProperties) {
-    return; // Can't migrate if user properties are unavailable
-  }
-
-  const migrationFlag = userProperties.getProperty("DEV_API_KEYS_MIGRATED");
-  if (migrationFlag === "true") {
-    return; // Migration already completed
-  }
-
-  try {
-    // Get all keys from script properties
-    const scriptProperties = PropertiesService.getScriptProperties();
-    const scriptProps = scriptProperties.getProperties();
-    const devKeys = Object.entries(scriptProps).filter(([key]) =>
-      key.startsWith(DEV_API_KEY_PREFIX)
-    );
-
-    // If no keys to migrate, just set the flag and return
-    if (devKeys.length === 0) {
-      userProperties.setProperty("DEV_API_KEYS_MIGRATED", "true");
-      return;
-    }
-
-    // Copy each key to user properties
-    let migratedCount = 0;
-    for (const [key, value] of devKeys) {
-      // Only migrate if key doesn't already exist in user properties
-      // (to avoid overwriting user's existing keys)
-      if (!userProperties.getProperty(key)) {
-        userProperties.setProperty(key, value);
-        migratedCount++;
-      }
-    }
-
-    // Delete migrated keys from script properties
-    // Only delete after successful migration to user properties
-    for (const [key] of devKeys) {
-      scriptProperties.deleteProperty(key);
-    }
-
-    // Set migration flag to prevent re-running
-    userProperties.setProperty("DEV_API_KEYS_MIGRATED", "true");
-
-    if (migratedCount > 0) {
-      console.log(
-        `Migrated ${migratedCount} developer API key(s) from script properties to user properties`
-      );
-    }
-  } catch (error) {
-    // Log error but don't throw - migration failure shouldn't break the app
-    console.error("Error during developer API key migration:", error);
-    // Don't set migration flag on error, so it can be retried
-  }
 }
