@@ -93,6 +93,10 @@ src/
 ├── api/          # API client, caching, rate limiting, circuit breaker
 ├── config/       # Global constants
 ├── sheets/       # Sheet operations (exercises, workouts, routines)
+│   ├── core/     # Core infrastructure (SheetManager)
+│   ├── import/   # Data import modules (Workouts, Exercises, Routines, RoutineFolders)
+│   ├── processing/ # Data processing utilities (ExerciseCounts, ExerciseLocalization)
+│   └── actions/  # User-initiated actions (RoutineBuilder)
 ├── ui/           # Menu, dialogs, HTML templates
 └── utils/        # Utilities organized by domain
     ├── error/     # Error handling
@@ -155,7 +159,6 @@ npm run test:coverage
 
 This project uses Husky for Git hooks:
 
-- **commit-msg**: Validates commit message format
 - **pre-push**: Runs tests before allowing push
 
 To bypass hooks (not recommended): `git push --no-verify`
