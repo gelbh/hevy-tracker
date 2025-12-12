@@ -66,7 +66,17 @@ async function importAllWorkouts(checkTimeout = null) {
     : await importAllWorkoutsFull(checkTimeout);
 
   if (changes > 0) {
-    const exerciseSheet = SheetManager.getOrCreate(EXERCISES_SHEET_NAME).sheet;
+    const exerciseManager = SheetManager.getOrCreate(EXERCISES_SHEET_NAME);
+    const exerciseSheet = exerciseManager.sheet;
+
+    // Validate headers before accessing sheet data
+    if (!exerciseManager.validateHeaders()) {
+      const headers = exerciseSheet
+        .getRange(1, 1, 1, exerciseSheet.getLastColumn())
+        .getValues()[0];
+      const requiredHeaders = ["ID", "Title", "Count"];
+      validateExerciseSheetHeaders(headers, requiredHeaders);
+    }
 
     try {
       await updateExerciseCounts(exerciseSheet, checkTimeout);

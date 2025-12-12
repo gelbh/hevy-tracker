@@ -289,16 +289,22 @@ function validateExerciseSheetHeaders(headers, requiredHeaders) {
 
   if (missingHeaders.length > 0) {
     const expectedHeaders = SHEET_HEADERS[EXERCISES_SHEET_NAME].join(", ");
+    const templateUrl = `https://docs.google.com/spreadsheets/d/${TEMPLATE_SPREADSHEET_ID}`;
     throw new ConfigurationError(
       `Missing required column headers in Exercises sheet: ${missingHeaders.join(
         ", "
       )}. ` +
         `Expected headers: ${expectedHeaders}. ` +
-        `Please restore the sheet from the template or recreate it with the correct structure.`,
+        `\n\nYour spreadsheet appears to be an outdated version. Missing columns indicate that your spreadsheet structure doesn't match the current template. ` +
+        `\n\nTo fix this, please make a new copy of the template spreadsheet: ` +
+        `${templateUrl} ` +
+        `\n\nAfter copying the template, you can re-import your data using the add-on's import functions.`,
       {
         missingHeaders: missingHeaders,
         expectedHeaders: SHEET_HEADERS[EXERCISES_SHEET_NAME],
         sheetName: EXERCISES_SHEET_NAME,
+        templateSpreadsheetId: TEMPLATE_SPREADSHEET_ID,
+        templateUrl: templateUrl,
       }
     );
   }

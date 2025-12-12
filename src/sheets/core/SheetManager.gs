@@ -165,7 +165,6 @@ class SheetManager {
   /**
    * Validates existing headers against expected headers
    * @returns {boolean} True if headers are valid
-   * @private
    */
   validateHeaders() {
     try {
