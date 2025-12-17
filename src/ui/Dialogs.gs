@@ -19,6 +19,30 @@ const showInitialSetup = () => {
       });
     }
   } catch (error) {
+    // Check if this is a Drive permission error from HTML dialog
+    const isDrivePermissionError =
+      error instanceof DrivePermissionError ||
+      error?.isDrivePermissionError === true ||
+      (error?.message?.toLowerCase().includes("unable to access file") &&
+        error?.message?.toLowerCase().includes("drive"));
+
+    if (isDrivePermissionError) {
+      // Show user-friendly alert with instructions
+      const ui = SpreadsheetApp.getUi();
+      ui.alert(
+        "Drive Permission Required",
+        "The Hevy Tracker add-on needs Drive file access permissions to display setup dialogs.\n\n" +
+          "To fix this:\n" +
+          "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
+          "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
+          "3. Ensure you have edit access to this spreadsheet\n" +
+          "4. If the issue persists, try uninstalling and reinstalling the add-on\n\n" +
+          "After re-authorization, you can set your API key using the menu.",
+        ui.ButtonSet.OK
+      );
+    }
+
+    // Still throw the error so it gets logged by ErrorHandler
     throw ErrorHandler.handle(error, { operation: "Showing initial setup" });
   }
 };

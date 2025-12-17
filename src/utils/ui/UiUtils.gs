@@ -51,14 +51,43 @@ function showHtmlDialog(filename, options = {}) {
 /**
  * Creates HTML output from template or file
  * Always uses template processing to support <?!= ... ?> syntax for includes
+ * @param {string} filename - Name of the HTML template file
+ * @param {Object} templateData - Data to pass to the template
+ * @returns {GoogleAppsScript.HTML.HtmlOutput} Evaluated HTML output
+ * @throws {Error} If template file cannot be accessed or created
  * @private
  */
 const createHtmlOutput = (filename, templateData) => {
-  const template = HtmlService.createTemplateFromFile(filename);
-  if (Object.keys(templateData).length > 0) {
-    Object.assign(template, templateData);
+  try {
+    const template = HtmlService.createTemplateFromFile(filename);
+    if (Object.keys(templateData).length > 0) {
+      Object.assign(template, templateData);
+    }
+    return template.evaluate();
+  } catch (error) {
+    // Check if this is a Drive file access permission error
+    const errorMessage = error?.message?.toLowerCase() ?? "";
+    if (
+      errorMessage.includes("unable to access file") ||
+      errorMessage.includes("permission") ||
+      errorMessage.includes("access denied") ||
+      errorMessage.includes("file not found") ||
+      errorMessage.includes("drive")
+    ) {
+      // Enhance error with context about Drive permissions
+      const enhancedError = new Error(
+        `Unable to access HTML template file "${filename}". ` +
+          "This may be due to Drive permission restrictions. " +
+          "Please ensure the add-on has been authorized with Drive file access permissions."
+      );
+      enhancedError.originalError = error;
+      enhancedError.filename = filename;
+      enhancedError.isDrivePermissionError = true;
+      throw enhancedError;
+    }
+    // Re-throw other errors as-is
+    throw error;
   }
-  return template.evaluate();
 };
 
 /**
@@ -91,8 +120,7 @@ const showDialog = (htmlOutput, width, height, showAsSidebar, title) => {
       errorMessage.includes("Ui.showModalDialog") ||
       errorMessage.includes("Ui.showSidebar") ||
       errorMessage.includes("script.container.ui") ||
-      (errorMessage.includes("permission") &&
-        errorMessage.includes("Ui"))
+      (errorMessage.includes("permission") && errorMessage.includes("Ui"))
     ) {
       // Show user-friendly alert explaining re-authorization is needed
       ui.alert(

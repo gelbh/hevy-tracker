@@ -9,7 +9,7 @@ const ERROR_CONFIG = {
    */
   MESSAGES: {
     DRIVE_PERMISSION:
-      "Unable to access file. Please ensure you have permission and try again.",
+      "Unable to access required files. The add-on needs Drive file access permissions to function properly.",
     INVALID_API_KEY:
       "Invalid API key. Please check your Hevy Developer Settings and reset your API key.",
     API_KEY_VALIDATION: "API key validation failed. Please reset your API key.",
@@ -39,7 +39,11 @@ const ERROR_CONFIG = {
    */
   RECOVERY_SUGGESTIONS: {
     E_DRIVE_PERMISSION:
-      "Check file permissions and ensure you have edit access.",
+      "To fix this:\n" +
+      "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
+      "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
+      "3. Ensure you have edit access to this spreadsheet\n" +
+      "4. If the issue persists, try uninstalling and reinstalling the add-on",
     E_INVALID_API_KEY:
       "Go to Extensions > Hevy Tracker > Set API Key to update your API key.",
     E_API_ERROR: "The API request failed. Please try again in a few moments.",
@@ -412,11 +416,20 @@ class ErrorHandler {
    * @private
    */
   static isPermissionError(error) {
+    // Check for explicit Drive permission error flag
+    if (error?.isDrivePermissionError === true) {
+      return true;
+    }
+
     const message = error?.message?.toLowerCase() ?? "";
     const permissionKeywords = [
       "access denied",
       "insufficient permissions",
       "permission",
+      "unable to access file",
+      "file not found",
+      "drive",
+      "restriction",
     ];
     return permissionKeywords.some((keyword) => message.includes(keyword));
   }
