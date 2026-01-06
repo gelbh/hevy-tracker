@@ -130,16 +130,26 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
   };
   const conversionFactor = conversionFactors[weightUnit] || 1;
 
+  // Normalize exercise-level data
+  const restSeconds =
+    exercise.rest_seconds != null ? exercise.rest_seconds : "";
+  const notes =
+    exercise.notes && String(exercise.notes).trim() !== ""
+      ? String(exercise.notes).trim()
+      : "";
+  const supersetId = exercise.superset_id != null ? exercise.superset_id : "";
+  const displayTemplateId = templateId || "N/A";
+
   if (!exercise.sets || exercise.sets.length === 0) {
     rows.push([
       displayName,
-      exercise.rest_seconds || "",
+      restSeconds,
       "",
       "",
       "",
-      exercise.notes || "",
-      exercise.superset_id || "",
-      templateId || "N/A",
+      notes,
+      supersetId,
+      displayTemplateId,
     ]);
     return rows;
   }
@@ -166,17 +176,18 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
       weight = duration;
     }
 
+    // Only include exercise-level data (name, rest, notes, superset_id, templateId) in the first set row
     const isFirstSet = index === 0;
 
     rows.push([
       isFirstSet ? displayName : "",
-      isFirstSet ? exercise.rest_seconds || "" : "",
+      isFirstSet ? restSeconds : "",
       set.type || "normal",
       weight !== null && weight !== undefined ? weight : "",
       reps !== null && reps !== undefined ? reps : "",
-      isFirstSet ? exercise.notes || "" : "",
-      isFirstSet ? exercise.superset_id || "" : "",
-      isFirstSet ? templateId || "N/A" : "",
+      isFirstSet ? notes : "",
+      isFirstSet ? supersetId : "",
+      isFirstSet ? displayTemplateId : "",
     ]);
   });
 

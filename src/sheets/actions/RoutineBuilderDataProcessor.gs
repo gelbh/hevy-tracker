@@ -212,18 +212,27 @@ function createSet(setType, weight, reps, repRange, templateType) {
 
   const set = {
     type: setType || "normal",
-    weight_kg: isDurationType ? null : weight,
-    distance_meters: null,
-    duration_seconds: isDurationType ? weight : null,
-    reps: null,
-    rep_range: null,
   };
 
+  // Handle weight/duration based on exercise type
+  if (isDurationType) {
+    if (weight != null) {
+      set.duration_seconds = weight;
+    }
+  } else {
+    if (weight != null) {
+      set.weight_kg = weight;
+    }
+  }
+
+  // Handle reps/rep_range/distance based on exercise type
   if (isDistanceType) {
-    set.distance_meters = reps;
+    if (reps != null) {
+      set.distance_meters = reps;
+    }
   } else if (isValidRepRange(repRange)) {
     set.rep_range = { start: repRange.start, end: repRange.end };
-  } else {
+  } else if (reps != null) {
     set.reps = reps;
   }
 
