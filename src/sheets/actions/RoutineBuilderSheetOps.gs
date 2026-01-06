@@ -234,6 +234,17 @@ async function populateRoutineBuilderSheet(routine) {
   }
 
   try {
+    // Validate routine object structure
+    if (!routine || typeof routine !== "object") {
+      throw new SheetError(
+        "Invalid routine object provided",
+        ROUTINE_BUILDER_SHEET_NAME,
+        {
+          operation: "Populating routine builder",
+        }
+      );
+    }
+
     sheet
       .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
       .clearContent();
@@ -245,7 +256,8 @@ async function populateRoutineBuilderSheet(routine) {
     sheet.getRange(ROUTINE_BUILDER_CELLS.TITLE).setValue(routineTitle);
 
     let folderName = "(No Folder)";
-    if (routine.folder_id) {
+    // folder_id can be null, which is valid (routine without folder)
+    if (routine.folder_id != null) {
       const foundFolderName = await getFolderNameFromIdWithApiFallback(
         routine.folder_id
       );
@@ -258,10 +270,17 @@ async function populateRoutineBuilderSheet(routine) {
     const routineNotes = routine.notes ?? "";
     sheet.getRange(ROUTINE_BUILDER_CELLS.NOTES).setValue(routineNotes);
 
+    // Ensure routine.id is set (should be set by loadRoutineIntoBuilder, but add defensive check)
     const routineId = routine.id ?? "";
+    if (!routineId) {
+      console.warn(
+        "populateRoutineBuilderSheet: routine.id is missing from routine object"
+      );
+    }
     sheet.getRange(ROUTINE_BUILDER_CELLS.ROUTINE_ID).setValue(routineId);
 
-    const folderId = routine.folder_id ?? "";
+    // folder_id can be null or empty string (routine without folder)
+    const folderId = routine.folder_id != null ? routine.folder_id : "";
     sheet.getRange(ROUTINE_BUILDER_CELLS.FOLDER_ID).setValue(folderId);
 
     const ss = getActiveSpreadsheet();

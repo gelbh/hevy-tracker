@@ -589,6 +589,17 @@ async function loadRoutineIntoBuilder(routineId) {
       throw new ApiError("Routine not found", 404);
     }
 
+    // Ensure routine.id is set (use routineId parameter as fallback)
+    if (!routine.id && routineId) {
+      routine.id = routineId;
+    }
+
+    // Ensure routine.folder_id is preserved (should be in API response)
+    // folder_id can be null, which is valid, so we just ensure it exists as a property
+    if (routine.folder_id === undefined) {
+      routine.folder_id = null;
+    }
+
     await populateRoutineBuilderSheet(routine);
   } catch (error) {
     throw ErrorHandler.handle(error, {
