@@ -146,7 +146,7 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
 
   exercise.sets.forEach((set) => {
     let weight = set.weight_kg;
-    let reps = set.reps;
+    let reps = getRepsValue(set);
     let distance = set.distance_meters;
     let duration = set.duration_seconds;
 

@@ -42,7 +42,7 @@ function createWorkoutRows(workout) {
       ex.exercise_template_id || "",
       normalizeSetType(set.type),
       normalizeWeight(set.weight_kg),
-      normalizeNumber(set.reps ?? set.distance_meters),
+      normalizeNumber(getRepsValue(set) ?? set.distance_meters),
       normalizeNumber(set.duration_seconds),
       normalizeNumber(set.rpe),
     ])

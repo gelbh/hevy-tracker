@@ -61,7 +61,7 @@ function processExercises(exerciseData) {
 
       rest = parseNumber(rest, "rest");
       weight = parseNumber(weight, "weight");
-      reps = parseNumber(reps, "reps");
+      const parsedReps = parseRepRange(reps);
       supersetId = parseNumber(supersetId, "superset ID");
 
       if (weight !== null) {
@@ -83,7 +83,13 @@ function processExercises(exerciseData) {
 
       if (currentExercise) {
         currentExercise.sets.push(
-          createSet(setType, weight, reps, templateTypeMap[templateId])
+          createSet(
+            setType,
+            weight,
+            parsedReps.reps,
+            parsedReps.rep_range,
+            templateTypeMap[templateId]
+          )
         );
       }
     });
@@ -124,21 +130,43 @@ function createNewExercise(templateId, rest, supersetId, notes) {
  * @param {string} setType - Set type (e.g., "normal")
  * @param {number|null} weight - Weight in kg
  * @param {number|null} reps - Number of reps
+ * @param {Object|null} repRange - Rep range object with start and end
  * @param {string|null} templateType - Exercise template type
  * @returns {RoutineSet} New set object
  */
-function createSet(setType, weight, reps, templateType) {
-  return {
+function createSet(setType, weight, reps, repRange, templateType) {
+  const set = {
     type: setType || "normal",
     weight_kg: templateType?.toLowerCase().includes("duration") ? null : weight,
-    reps: templateType?.toLowerCase().includes("distance") ? null : reps,
-    distance_meters: templateType?.toLowerCase().includes("distance")
-      ? reps
-      : null,
+    distance_meters: null,
     duration_seconds: templateType?.toLowerCase().includes("duration")
       ? weight
       : null,
   };
+
+  // Handle reps/rep_range based on exercise type
+  if (templateType?.toLowerCase().includes("distance")) {
+    // For distance exercises, reps field is used for distance
+    set.distance_meters = reps;
+    set.reps = null;
+    set.rep_range = null;
+  } else {
+    // For regular exercises, use rep_range if provided, otherwise reps
+    if (
+      repRange &&
+      typeof repRange === "object" &&
+      repRange.start != null &&
+      repRange.end != null
+    ) {
+      set.rep_range = { start: repRange.start, end: repRange.end };
+      set.reps = null;
+    } else {
+      set.reps = reps;
+      set.rep_range = null;
+    }
+  }
+
+  return set;
 }
 
 /**

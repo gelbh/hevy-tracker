@@ -200,7 +200,7 @@ function processRoutineExercise(exercise, routine) {
       exercise.title,
       normalizeSetType(set.type),
       normalizeWeight(set.weight_kg),
-      normalizeNumber(set.reps ?? set.distance_meters),
+      normalizeNumber(getRepsValue(set) ?? set.distance_meters),
       normalizeNumber(set.duration_seconds),
     ]);
   } catch (error) {
