@@ -207,17 +207,17 @@ function populateRoutineBuilderSheet(routine) {
   }
 
   try {
-    sheet.getRange("C2:H4").clearContent();
+    sheet.getRange("D2:H4").clearContent();
     sheet.getRange("B8:H").clearContent();
 
-    sheet.getRange("C2").setValue(routine.title || "");
+    sheet.getRange("D2").setValue(routine.title || "");
 
     const folderName = routine.folder_id
       ? getFolderNameFromId(routine.folder_id) || "(No Folder)"
       : "(No Folder)";
-    sheet.getRange("C3").setValue(folderName);
+    sheet.getRange("D3").setValue(folderName);
 
-    sheet.getRange("C4").setValue(routine.notes || "");
+    sheet.getRange("D4").setValue(routine.notes || "");
 
     sheet.getRange("H1").setValue(routine.id || "");
 

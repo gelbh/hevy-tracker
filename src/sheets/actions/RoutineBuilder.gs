@@ -47,12 +47,12 @@ async function createRoutineFromSheet() {
   const sheet = getRoutineBuilderSheet();
   if (!sheet) return null;
 
-  const titleCell = sheet.getRange("C2");
+  const titleCell = sheet.getRange("D2");
   const title = String(titleCell.getValue()).trim();
   if (!title) {
     SpreadsheetApp.getUi().alert(
       "Routine title is required",
-      "Please enter a name for your routine in cell C2 before saving.",
+      "Please enter a name for your routine in cell D2 before saving.",
       SpreadsheetApp.getUi().ButtonSet.OK
     );
     return;
@@ -81,8 +81,8 @@ async function createRoutineFromSheet() {
       shouldUpdate = response === ui.Button.YES;
     }
 
-    const folderValue = sheet.getRange("C3").getValue();
-    const notes = sheet.getRange("C4").getValue();
+    const folderValue = sheet.getRange("D3").getValue();
+    const notes = sheet.getRange("D4").getValue();
 
     const folderId = folderValue?.trim()
       ? await getOrCreateRoutineFolder(folderValue.trim())
@@ -173,7 +173,7 @@ function clearRoutineBuilder() {
     const sheet = getRoutineBuilderSheet();
     if (!sheet) return;
 
-    sheet.getRange("C2:H4").clearContent();
+    sheet.getRange("D2:H4").clearContent();
     sheet.getRange("B8:H").clearContent();
 
     const ss = getActiveSpreadsheet();
