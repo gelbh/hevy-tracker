@@ -89,7 +89,7 @@ async function createRoutineFromSheet() {
       : null;
 
     const exerciseData = sheet
-      .getRange("A8:H" + sheet.getLastRow())
+      .getRange("B8:I" + sheet.getLastRow())
       .getValues()
       .filter((row) => row[0] && row[2]);
 
@@ -174,7 +174,7 @@ function clearRoutineBuilder() {
     if (!sheet) return;
 
     sheet.getRange("C2:H4").clearContent();
-    sheet.getRange("A8:G").clearContent();
+    sheet.getRange("B8:H").clearContent();
 
     const ss = getActiveSpreadsheet();
     ss.toast("Form cleared!", "Success", TOAST_DURATION.SHORT);

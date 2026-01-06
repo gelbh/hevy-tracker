@@ -208,7 +208,7 @@ function populateRoutineBuilderSheet(routine) {
 
   try {
     sheet.getRange("C2:H4").clearContent();
-    sheet.getRange("A8:G").clearContent();
+    sheet.getRange("B8:H").clearContent();
 
     sheet.getRange("C2").setValue(routine.title || "");
 
@@ -253,12 +253,13 @@ function populateRoutineBuilderSheet(routine) {
     }
 
     const EXERCISE_DATA_START_ROW = 8;
+    const EXERCISE_DATA_START_COL = 2;
     const EXERCISE_DATA_COLUMNS = 8;
     if (allRows.length > 0) {
       sheet
         .getRange(
           EXERCISE_DATA_START_ROW,
-          1,
+          EXERCISE_DATA_START_COL,
           allRows.length,
           EXERCISE_DATA_COLUMNS
         )
