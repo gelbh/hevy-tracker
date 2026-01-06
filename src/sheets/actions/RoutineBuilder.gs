@@ -224,6 +224,8 @@ async function createRoutineFromSheet() {
       ? await getOrCreateRoutineFolder(folderValue.trim())
       : null;
 
+    const normalizedNotes = notes?.trim() || null;
+
     if (!loadedRoutineId) {
       const duplicateRoutine = await findDuplicateRoutine(title, folderId);
       if (duplicateRoutine) {
@@ -259,7 +261,7 @@ async function createRoutineFromSheet() {
       routine: {
         title,
         folder_id: folderId,
-        notes: notes ?? null,
+        notes: normalizedNotes,
         exercises,
       },
     };

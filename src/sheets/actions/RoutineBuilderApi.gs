@@ -60,10 +60,12 @@ async function submitRoutine(routineData) {
  * @returns {Promise<Object>} Parsed response from the API
  */
 async function updateRoutineFromSheet(routineId, routineData) {
+  const normalizedNotes = routineData.routine?.notes?.trim() || null;
+
   const updatePayload = {
     routine: {
       title: routineData.routine?.title,
-      notes: routineData.routine?.notes ?? null,
+      notes: normalizedNotes,
       exercises: routineData.routine?.exercises ?? [],
     },
   };
