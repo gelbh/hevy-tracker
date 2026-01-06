@@ -62,6 +62,8 @@ const EXERCISES_SHEET_NAME = "Exercises";
 const ROUTINES_SHEET_NAME = "Routines";
 const ROUTINE_FOLDERS_SHEET_NAME = "Routine Folders";
 const WEIGHT_SHEET_NAME = "Weight History";
+const ROUTINE_BUILDER_SHEET_NAME = "Routine Builder";
+const MAIN_SHEET_NAME = "Main";
 
 /**
  * API Configuration
@@ -387,4 +389,43 @@ const SHEET_THEMES = {
   [ROUTINES_SHEET_NAME]: RED_THEME,
   [ROUTINE_FOLDERS_SHEET_NAME]: TEAL_THEME,
   [WEIGHT_SHEET_NAME]: PURPLE_THEME,
+};
+
+/**
+ * Routine Builder Configuration
+ */
+
+/**
+ * Routine Builder sheet cell references
+ * @type {Object<string>}
+ */
+const ROUTINE_BUILDER_CELLS = {
+  TITLE: "D2",
+  FOLDER: "D3",
+  NOTES: "D4",
+  ROUTINE_ID: "H2",
+  FOLDER_ID: "H3",
+  EXERCISE_DATA_START: "B8",
+  EXERCISE_DATA_START_ROW: 8,
+  EXERCISE_DATA_START_COL: 2,
+  EXERCISE_DATA_COLUMNS: 8,
+  HEADER_ROW_END: 4,
+};
+
+/**
+ * Main sheet cell references
+ * @type {Object<string>}
+ */
+const MAIN_SHEET_CELLS = {
+  WEIGHT_UNIT: "I5",
+};
+
+/**
+ * Routine Builder API configuration
+ * @type {Object<number>}
+ */
+const ROUTINE_BUILDER_CONFIG = {
+  MAX_FOLDER_SEARCH_PAGES: 10,
+  DECIMAL_PLACES: 2,
+  DEFAULT_WEIGHT_UNIT: "kg",
 };
