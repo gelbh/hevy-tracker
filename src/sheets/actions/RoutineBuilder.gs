@@ -34,33 +34,6 @@
  */
 
 /**
- * Error message for missing Routine Builder sheet
- * @type {string}
- * @private
- */
-const MISSING_SHEET_MESSAGE =
-  "This spreadsheet is missing the required 'Routine Builder' sheet.\n\n" +
-  "Please make a copy of the official Hevy Tracker template before using the add-on.\n\n" +
-  "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy";
-
-/**
- * Gets the Routine Builder sheet or shows error
- * @returns {GoogleAppsScript.Spreadsheet.Sheet|null} The sheet or null if not found
- * @private
- */
-const getRoutineBuilderSheet = () => {
-  const sheet = getActiveSpreadsheet().getSheetByName("Routine Builder");
-  if (!sheet) {
-    SpreadsheetApp.getUi().alert(
-      "Missing 'Routine Builder' Sheet",
-      MISSING_SHEET_MESSAGE,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-  }
-  return sheet;
-};
-
-/**
  * Creates a routine from the sheet data and submits it to Hevy API
  * Reads exercise data from the Routine Builder sheet, validates it,
  * and creates a new routine in the user's Hevy account.
@@ -86,6 +59,28 @@ async function createRoutineFromSheet() {
   }
 
   try {
+    const loadedRoutineId = sheet.getRange("H1").getValue();
+    let shouldUpdate = false;
+
+    if (loadedRoutineId) {
+      const ui = SpreadsheetApp.getUi();
+      const response = ui.alert(
+        "Update Existing Routine?",
+        `This routine was loaded from your Hevy account.\n\n` +
+          `Would you like to:\n` +
+          `• Update the existing routine (Yes)\n` +
+          `• Create a new routine (No)\n` +
+          `• Cancel (Cancel)`,
+        ui.ButtonSet.YES_NO_CANCEL
+      );
+
+      if (response === ui.Button.CANCEL) {
+        return null;
+      }
+
+      shouldUpdate = response === ui.Button.YES;
+    }
+
     const folderValue = sheet.getRange("C3").getValue();
     const notes = sheet.getRange("C4").getValue();
 
@@ -134,16 +129,34 @@ async function createRoutineFromSheet() {
       },
     };
 
-    const response = await submitRoutine(routineData);
+    let response;
+    if (shouldUpdate && loadedRoutineId) {
+      response = await updateRoutineFromSheet(loadedRoutineId, routineData);
+      const ss = getActiveSpreadsheet();
+      ss.toast(
+        "Routine updated successfully!",
+        "Success",
+        TOAST_DURATION.NORMAL
+      );
+    } else {
+      response = await submitRoutine(routineData);
+      const ss = getActiveSpreadsheet();
+      ss.toast(
+        "Routine created successfully!",
+        "Success",
+        TOAST_DURATION.NORMAL
+      );
 
-    const ss = getActiveSpreadsheet();
-    ss.toast("Routine created successfully!", "Success", TOAST_DURATION.NORMAL);
+      await showHtmlDialog("ui/dialogs/RoutineCreated", {
+        width: DIALOG_DIMENSIONS.ROUTINE_CREATED_WIDTH,
+        height: DIALOG_DIMENSIONS.ROUTINE_CREATED_HEIGHT,
+      });
+    }
 
-    await showHtmlDialog("ui/dialogs/RoutineCreated", {
-      width: DIALOG_DIMENSIONS.ROUTINE_CREATED_WIDTH,
-      height: DIALOG_DIMENSIONS.ROUTINE_CREATED_HEIGHT,
-    });
-    return response.routine;
+    // Clear the loaded routine ID after successful save
+    sheet.getRange("H1").clearContent();
+
+    return response.routine || response;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Creating routine from sheet",
@@ -174,316 +187,177 @@ function clearRoutineBuilder() {
 }
 
 /**
- * Processes exercise data from sheet into API format
- * @private
+ * Gets a list of routines for the selection dialog
+ * First tries to read from Routines sheet, falls back to API if needed
+ * @returns {Promise<Array<Object>>} Array of routine objects with id, title, folder_id, folder_name, updated_at
  */
-function processExercises(exerciseData) {
+async function getRoutinesList() {
   try {
     const ss = getActiveSpreadsheet();
-    const exercisesSheet = ss.getSheetByName(EXERCISES_SHEET_NAME);
-    if (!exercisesSheet) {
-      throw new SheetError(
-        `Sheet "${EXERCISES_SHEET_NAME}" not found`,
-        EXERCISES_SHEET_NAME,
-        {
-          operation: "Processing exercises",
+    const routinesSheet = ss.getSheetByName(ROUTINES_SHEET_NAME);
+
+    // Build folder name map from Routine Folders sheet
+    const folderNameMap = new Map();
+    const foldersSheet = ss.getSheetByName(ROUTINE_FOLDERS_SHEET_NAME);
+    if (foldersSheet) {
+      const folderData = foldersSheet.getDataRange().getValues();
+      if (folderData.length > 1) {
+        const headers = folderData[0];
+        const idIndex = headers.indexOf("ID");
+        const titleIndex = headers.indexOf("Title");
+
+        if (idIndex !== -1 && titleIndex !== -1) {
+          for (let i = 1; i < folderData.length; i++) {
+            const row = folderData[i];
+            const folderId = row[idIndex];
+            const folderTitle = row[titleIndex];
+            if (folderId && folderTitle) {
+              folderNameMap.set(String(folderId), String(folderTitle));
+            }
+          }
         }
-      );
+      }
     }
-    const exerciseValues = exercisesSheet.getDataRange().getValues();
-    const headersRow = exerciseValues.shift();
-    const idCol = headersRow.indexOf("ID");
-    const typeCol = headersRow.indexOf("Type");
-    const templateTypeMap = {};
-    exerciseValues.forEach((row) => {
-      const id = String(row[idCol]).trim();
-      const type = row[typeCol];
-      if (id) templateTypeMap[id] = type;
-    });
 
-    const exercises = [];
-    let currentExercise = null;
-    let currentTemplateId = null;
+    // Try to get routines from sheet first
+    if (routinesSheet) {
+      const routineData = routinesSheet.getDataRange().getValues();
+      if (routineData.length > 1) {
+        const headers = routineData[0];
+        const idIndex = headers.indexOf("ID");
+        const titleIndex = headers.indexOf("Title");
+        const folderIdIndex = headers.indexOf("Folder ID");
+        const updatedAtIndex = headers.indexOf("Updated At");
 
-    const mainSheet = ss.getSheetByName("Main");
-    if (!mainSheet) {
-      throw new SheetError('Sheet "Main" not found', "Main", {
-        operation: "Getting weight unit",
-      });
+        if (
+          idIndex !== -1 &&
+          titleIndex !== -1 &&
+          folderIdIndex !== -1 &&
+          updatedAtIndex !== -1
+        ) {
+          const routinesMap = new Map();
+
+          // Process rows - each routine may have multiple rows (one per exercise)
+          for (let i = 1; i < routineData.length; i++) {
+            const row = routineData[i];
+            const routineId = String(row[idIndex] || "").trim();
+            if (!routineId || routineId === "N/A") continue;
+
+            // Only add if we haven't seen this routine ID yet
+            if (!routinesMap.has(routineId)) {
+              const title = String(row[titleIndex] || "").trim();
+              const folderId = row[folderIdIndex];
+              const updatedAt = row[updatedAtIndex];
+
+              const folderName = folderId
+                ? folderNameMap.get(String(folderId)) || null
+                : null;
+
+              routinesMap.set(routineId, {
+                id: routineId,
+                title: title || "Untitled Routine",
+                folder_id: folderId || null,
+                folder_name: folderName,
+                updated_at: updatedAt || null,
+              });
+            }
+          }
+
+          const routines = Array.from(routinesMap.values());
+          if (routines.length > 0) {
+            // Sort by updated_at descending (most recent first)
+            routines.sort((a, b) => {
+              if (!a.updated_at && !b.updated_at) return 0;
+              if (!a.updated_at) return 1;
+              if (!b.updated_at) return -1;
+              return new Date(b.updated_at) - new Date(a.updated_at);
+            });
+            return routines;
+          }
+        }
+      }
     }
-    const weightUnit = mainSheet.getRange("I5").getValue() || "kg";
 
-    const conversionFactors = {
-      lbs: WEIGHT_CONVERSION.LBS_TO_KG,
-      stone: WEIGHT_CONVERSION.STONE_TO_KG,
-      kg: 1,
+    // Fall back to API if sheet is empty or doesn't exist
+    const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+    if (!apiKey) {
+      throw new ConfigurationError("API key not found");
+    }
+
+    const client = getApiClient();
+    const options = client.createRequestOptions(apiKey);
+
+    const routines = [];
+    const processRoutinePage = async (routineList) => {
+      for (const routine of routineList) {
+        const folderName = routine.folder_id
+          ? folderNameMap.get(String(routine.folder_id)) || null
+          : null;
+
+        routines.push({
+          id: routine.id,
+          title: routine.title || "Untitled Routine",
+          folder_id: routine.folder_id || null,
+          folder_name: folderName,
+          updated_at: routine.updated_at || null,
+        });
+      }
     };
-    const conversionFactor = conversionFactors[weightUnit] || 1;
 
-    exerciseData.forEach((row) => {
-      let [name, rest, setType, weight, reps, notes, supersetId, templateId] =
-        row;
-      templateId = templateId ? String(templateId).trim() : null;
-      if (!templateId) {
-        throw new ValidationError(`Missing template ID for exercise: ${name}`);
-      }
-
-      rest = parseNumber(rest, "rest");
-      weight = parseNumber(weight, "weight");
-      reps = parseNumber(reps, "reps");
-      supersetId = parseNumber(supersetId, "superset ID");
-
-      if (weight !== null) {
-        weight = weight * conversionFactor;
-      }
-
-      if (templateId !== currentTemplateId) {
-        if (currentExercise) {
-          exercises.push(currentExercise);
-        }
-        currentExercise = createNewExercise(
-          templateId,
-          rest,
-          supersetId,
-          notes
-        );
-        currentTemplateId = templateId;
-      }
-
-      if (currentExercise) {
-        currentExercise.sets.push(
-          createSet(setType, weight, reps, templateTypeMap[templateId])
-        );
-      }
-    });
-
-    if (currentExercise) {
-      exercises.push(currentExercise);
-    }
-
-    return exercises;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Processing exercises",
-      exerciseCount: exerciseData.length,
-    });
-  }
-}
-
-/**
- * Validates the routine data before submission to ensure all required fields are present
- * @param {string} title - Routine title to validate
- * @param {Array<RoutineExercise>} exercises - Array of exercises to validate
- * @throws {ValidationError} If validation fails with detailed error messages
- * @private
- */
-function validateRoutineData(title, exercises) {
-  const errors = [];
-
-  if (!title) {
-    errors.push("Routine title is required");
-  }
-
-  if (!exercises || exercises.length === 0) {
-    errors.push("At least one exercise is required");
-  } else {
-    exercises.forEach((exercise, index) => {
-      if (!exercise.exercise_template_id) {
-        errors.push(
-          `Exercise at position ${index + 1} is missing a template ID`
-        );
-      }
-
-      if (!exercise.sets || exercise.sets.length === 0) {
-        errors.push(
-          `Exercise at position ${index + 1} requires at least one set`
-        );
-      }
-
-      exercise.sets?.forEach((set, setIndex) => {
-        if (!set.type) {
-          errors.push(
-            `Set ${setIndex + 1} of exercise ${index + 1} is missing a type`
-          );
-        }
-      });
-    });
-  }
-
-  if (errors.length > 0) {
-    throw new ValidationError(`Validation failed:\n${errors.join("\n")}`);
-  }
-}
-
-/**
- * Gets or creates a routine folder by name
- * First attempts to find an existing folder, then creates one if not found
- * @param {string} folderName - Name of the folder to get or create
- * @returns {Promise<number|null>} Folder ID if found/created, null if folderName is empty or "(No Folder)"
- * @throws {ApiError} If folder creation fails
- * @private
- */
-async function getOrCreateRoutineFolder(folderName) {
-  try {
-    if (folderName == "(No Folder)" || !folderName) {
-      return null;
-    }
-
-    const existingFolder = await findRoutineFolder(folderName);
-    if (existingFolder) {
-      return existingFolder;
-    }
-
-    const newFolderId = await createNewRoutineFolder(folderName);
-    if (!newFolderId) {
-      throw new ApiError("Failed to get ID for created folder");
-    }
-
-    return newFolderId;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Managing routine folder",
-      folderName: folderName,
-    });
-  }
-}
-
-/**
- * Finds a routine folder by name
- * @param {string} folderName - Name of the folder to find
- * @returns {Promise<number|null>} Folder ID or null if not found
- */
-async function findRoutineFolder(folderName) {
-  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-  const client = getApiClient();
-  const options = client.createRequestOptions(apiKey);
-
-  try {
-    const response = await client.makeRequest(
-      API_ENDPOINTS.ROUTINE_FOLDERS,
-      options,
-      { page: 1, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
-    );
-
-    const folders = response.routine_folders || [];
-    const matchingFolder = folders.find(
-      (folder) => folder.title.toLowerCase() === folderName.toLowerCase()
-    );
-
-    return matchingFolder ? matchingFolder.id : null;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Finding routine folder",
-      folderName: folderName,
-    });
-  }
-}
-
-/**
- * Creates a new routine folder
- * @param {string} folderName - Name for the new folder
- * @returns {Promise<number>} ID of the newly created folder
- * @private
- */
-async function createNewRoutineFolder(folderName) {
-  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-  const client = getApiClient();
-  const options = client.createRequestOptions(apiKey, "post", {
-    "Content-Type": "application/json",
-  });
-
-  try {
-    const payload = { routine_folder: { title: folderName } };
-    const response = await client.makeRequest(
-      API_ENDPOINTS.ROUTINE_FOLDERS,
-      options,
-      {},
-      payload
-    );
-
-    const folderId = response.routine_folder?.id;
-    if (!folderId) {
-      throw new ApiError(
-        "Invalid folder creation response structure",
-        0,
-        JSON.stringify(response)
-      );
-    }
-    return folderId;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Creating routine folder",
-      folderName: folderName,
-    });
-  }
-}
-
-/**
- * Creates a new exercise object
- * @private
- */
-function createNewExercise(templateId, rest, supersetId, notes) {
-  return {
-    exercise_template_id: templateId,
-    superset_id: supersetId || null,
-    notes: notes?.toString().trim() || null,
-    rest_seconds: rest,
-    sets: [],
-  };
-}
-
-/**
- * Creates a set object from processed values
- * @private
- */
-function createSet(setType, weight, reps, templateType) {
-  return {
-    type: setType || "normal",
-    weight_kg: templateType?.toLowerCase().includes("duration") ? null : weight,
-    reps: templateType?.toLowerCase().includes("distance") ? null : reps,
-    distance_meters: templateType?.toLowerCase().includes("distance")
-      ? reps
-      : null,
-    duration_seconds: templateType?.toLowerCase().includes("duration")
-      ? weight
-      : null,
-  };
-}
-
-/**
- * Submits routine to the API
- * @param {Object} routineData - The routine payload to send
- * @returns {Promise<Object>} Parsed response from the API
- * @private
- */
-async function submitRoutine(routineData) {
-  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
-  if (!apiKey) {
-    throw new ConfigurationError("API key not found");
-  }
-  const client = getApiClient();
-  const options = client.createRequestOptions(apiKey, "post", {
-    "Content-Type": "application/json",
-  });
-
-  try {
-    const response = await client.makeRequest(
+    await client.fetchPaginatedData(
       API_ENDPOINTS.ROUTINES,
-      options,
-      {},
-      routineData
+      PAGE_SIZE.ROUTINES,
+      processRoutinePage,
+      "routines",
+      {}
     );
-    return response;
+
+    // Sort by updated_at descending
+    routines.sort((a, b) => {
+      if (!a.updated_at && !b.updated_at) return 0;
+      if (!a.updated_at) return 1;
+      if (!b.updated_at) return -1;
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
+
+    return routines;
   } catch (error) {
     throw ErrorHandler.handle(error, {
-      operation: "Submitting routine to API",
-      routineTitle: routineData.routine.title,
+      operation: "Getting routines list",
+    });
+  }
+}
+
+/**
+ * Loads a routine into the Routine Builder sheet for editing
+ * @param {string} routineId - Routine ID to load
+ * @returns {Promise<void>}
+ */
+async function loadRoutineIntoBuilder(routineId) {
+  try {
+    const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+    if (!apiKey) {
+      throw new ConfigurationError("API key not found");
+    }
+
+    const client = getApiClient();
+    const options = client.createRequestOptions(apiKey);
+
+    const response = await client.makeRequest(
+      `${API_ENDPOINTS.ROUTINES}/${routineId}`,
+      options
+    );
+
+    const routine = response.routine || response;
+    if (!routine) {
+      throw new ApiError("Routine not found", 404);
+    }
+
+    populateRoutineBuilderSheet(routine);
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Loading routine into builder",
+      routineId: routineId,
     });
   }
 }

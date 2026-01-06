@@ -34,6 +34,9 @@
     "sheets/processing/ExerciseLocalization.gs",
     "sheets/import/Routines.gs",
     "sheets/import/RoutineFolders.gs",
+    "sheets/actions/RoutineBuilderSheetOps.gs",
+    "sheets/actions/RoutineBuilderDataProcessor.gs",
+    "sheets/actions/RoutineBuilderApi.gs",
     "sheets/actions/RoutineBuilder.gs",
     "ui/Dialogs.gs",
     "ui/Menu.gs"
