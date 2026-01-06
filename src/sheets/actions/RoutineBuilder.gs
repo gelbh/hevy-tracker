@@ -40,7 +40,7 @@
  * @private
  */
 function normalizeString(str) {
-  return String(str || "")
+  return String(str ?? "")
     .trim()
     .toLowerCase();
 }
@@ -59,9 +59,9 @@ async function findDuplicateRoutine(title, folderId) {
     return (
       routines.find((routine) => {
         const routineTitle = normalizeString(routine.title);
-        const routineFolderId = routine.folder_id || null;
+        const routineFolderId = routine.folder_id ?? null;
         return routineTitle === normalizedTitle && routineFolderId === folderId;
-      }) || null
+      }) ?? null
     );
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -106,7 +106,7 @@ function promptUpdateExistingRoutine(loadedRoutineId) {
  */
 function promptDuplicateRoutine(duplicateRoutine, title, sheet) {
   const ui = SpreadsheetApp.getUi();
-  const folderName = duplicateRoutine.folder_name || "(No Folder)";
+  const folderName = duplicateRoutine.folder_name ?? "(No Folder)";
   const response = ui.alert(
     "Routine Already Exists",
     `A routine with the name "${title}" already exists in the folder "${folderName}".\n\n` +
@@ -120,7 +120,9 @@ function promptDuplicateRoutine(duplicateRoutine, title, sheet) {
   if (response === ui.Button.CANCEL) return null;
 
   if (response === ui.Button.YES) {
-    sheet.getRange("H2").setValue(duplicateRoutine.id);
+    sheet
+      .getRange(ROUTINE_BUILDER_CELLS.ROUTINE_ID)
+      .setValue(duplicateRoutine.id);
     return { shouldUpdate: true, routineId: duplicateRoutine.id };
   }
 
@@ -143,15 +145,12 @@ function validateExerciseData(exerciseData) {
     return false;
   }
 
-  // Only validate template IDs for rows with exercise names (first row of each exercise)
-  // Subsequent set rows have empty exercise names and template IDs, which is expected
   const missingExercises = exerciseData.filter((row) => {
-    const exerciseName = String(row[0] || "").trim();
-    // Only check rows that have an exercise name (first row of each exercise)
+    const exerciseName = String(row[0] ?? "").trim();
     if (!exerciseName) {
-      return false; // Skip subsequent set rows
+      return false;
     }
-    const id = String(row[7] || "")
+    const id = String(row[7] ?? "")
       .trim()
       .toUpperCase();
     return !id || id === "N/A";
@@ -159,26 +158,21 @@ function validateExerciseData(exerciseData) {
 
   if (missingExercises.length > 0) {
     const names = missingExercises
-      .map((r) => String(r[0] || "").trim())
-      .filter((name) => name) // Filter out any empty names
+      .map((r) => String(r[0] ?? "").trim())
+      .filter((name) => name)
       .join(", ");
 
-    if (!names) {
-      // Fallback if all names are empty (shouldn't happen, but handle gracefully)
-      SpreadsheetApp.getUi().alert(
-        "Missing Exercise IDs",
-        "Some exercises are missing template IDs.\n" +
-          "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-    } else {
-      SpreadsheetApp.getUi().alert(
-        "Missing Exercise IDs",
-        `The following exercises are not in your Hevy account: ${names}.\n` +
-          "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-    }
+    const message = names
+      ? `The following exercises are not in your Hevy account: ${names}.\n` +
+        "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again."
+      : "Some exercises are missing template IDs.\n" +
+        "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.";
+
+    SpreadsheetApp.getUi().alert(
+      "Missing Exercise IDs",
+      message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
     return false;
   }
 
@@ -199,18 +193,22 @@ async function createRoutineFromSheet() {
   const sheet = getRoutineBuilderSheet();
   if (!sheet) return null;
 
-  const title = String(sheet.getRange("D2").getValue()).trim();
+  const title = String(
+    sheet.getRange(ROUTINE_BUILDER_CELLS.TITLE).getValue()
+  ).trim();
   if (!title) {
     SpreadsheetApp.getUi().alert(
       "Routine title is required",
-      "Please enter a name for your routine in cell D2 before saving.",
+      `Please enter a name for your routine in cell ${ROUTINE_BUILDER_CELLS.TITLE} before saving.`,
       SpreadsheetApp.getUi().ButtonSet.OK
     );
     return null;
   }
 
   try {
-    let loadedRoutineId = sheet.getRange("H2").getValue();
+    let loadedRoutineId = sheet
+      .getRange(ROUTINE_BUILDER_CELLS.ROUTINE_ID)
+      .getValue();
     let shouldUpdate = false;
 
     if (loadedRoutineId) {
@@ -219,8 +217,8 @@ async function createRoutineFromSheet() {
       shouldUpdate = updateDecision;
     }
 
-    const folderValue = sheet.getRange("D3").getValue();
-    const notes = sheet.getRange("D4").getValue();
+    const folderValue = sheet.getRange(ROUTINE_BUILDER_CELLS.FOLDER).getValue();
+    const notes = sheet.getRange(ROUTINE_BUILDER_CELLS.NOTES).getValue();
 
     const folderId = folderValue?.trim()
       ? await getOrCreateRoutineFolder(folderValue.trim())
@@ -244,7 +242,9 @@ async function createRoutineFromSheet() {
     }
 
     const exerciseData = sheet
-      .getRange(`B8:I${sheet.getLastRow()}`)
+      .getRange(
+        `${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:I${sheet.getLastRow()}`
+      )
       .getValues()
       .filter((row) => row[2] || row[0] || row[7]);
 
@@ -259,7 +259,7 @@ async function createRoutineFromSheet() {
       routine: {
         title,
         folder_id: folderId,
-        notes: notes || null,
+        notes: notes ?? null,
         exercises,
       },
     };
@@ -288,13 +288,13 @@ async function createRoutineFromSheet() {
       });
     }
 
-    sheet.getRange("H2").clearContent();
-    sheet.getRange("H3").clearContent();
-    return response.routine || response;
+    sheet.getRange(ROUTINE_BUILDER_CELLS.ROUTINE_ID).clearContent();
+    sheet.getRange(ROUTINE_BUILDER_CELLS.FOLDER_ID).clearContent();
+    return response.routine ?? response;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Creating routine from sheet",
-      sheetName: "Routine Builder",
+      sheetName: ROUTINE_BUILDER_SHEET_NAME,
     });
   }
 }
@@ -307,15 +307,19 @@ function clearRoutineBuilder() {
     const sheet = getRoutineBuilderSheet();
     if (!sheet) return;
 
-    sheet.getRange("D2:H4").clearContent();
-    sheet.getRange("B8:H").clearContent();
+    sheet
+      .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
+      .clearContent();
+    sheet
+      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:H`)
+      .clearContent();
 
     const ss = getActiveSpreadsheet();
     ss.toast("Form cleared!", "Success", TOAST_DURATION.SHORT);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Clearing routine builder",
-      sheetName: "Routine Builder",
+      sheetName: ROUTINE_BUILDER_SHEET_NAME,
     });
   }
 }
@@ -338,7 +342,7 @@ function buildFolderNameMap(ss) {
     .getRange(1, 1, 1, foldersSheet.getLastColumn())
     .getValues()[0];
   const idIndex = headers.indexOf("ID");
-  const titleIndex = headers.indexOf("Title");
+  const titleIndex = headers.indexOf("Name");
 
   if (idIndex === -1 || titleIndex === -1) return folderNameMap;
 
@@ -349,8 +353,8 @@ function buildFolderNameMap(ss) {
     .getValues();
 
   for (let i = 0; i < numRows; i++) {
-    const folderId = idData[i][0];
-    const folderTitle = titleData[i][0];
+    const folderId = idData[i]?.[0];
+    const folderTitle = titleData[i]?.[0];
     if (folderId && folderTitle) {
       folderNameMap.set(String(folderId), String(folderTitle));
     }
@@ -405,24 +409,24 @@ function readRoutinesFromSheet(routinesSheet, folderNameMap) {
   const routinesMap = new Map();
 
   for (let i = 0; i < numRows; i++) {
-    const routineId = String(idData[i][0] || "").trim();
+    const routineId = String(idData[i]?.[0] ?? "").trim();
     if (!routineId || routineId === "N/A") continue;
 
     if (!routinesMap.has(routineId)) {
-      const title = String(titleData[i][0] || "").trim();
-      const folderId = folderIdData[i][0];
-      const updatedAt = updatedAtData[i][0];
+      const title = String(titleData[i]?.[0] ?? "").trim();
+      const folderId = folderIdData[i]?.[0];
+      const updatedAt = updatedAtData[i]?.[0];
 
       const folderName = folderId
-        ? folderNameMap.get(String(folderId)) || null
+        ? folderNameMap.get(String(folderId)) ?? null
         : null;
 
       routinesMap.set(routineId, {
         id: routineId,
         title: title || "Untitled Routine",
-        folder_id: folderId || null,
+        folder_id: folderId ?? null,
         folder_name: folderName,
-        updated_at: updatedAt || null,
+        updated_at: updatedAt ?? null,
       });
     }
   }
@@ -478,8 +482,8 @@ async function fetchRoutinesFromApi(client, folderNameMap) {
         {}
       );
 
-      const routineList = response.routines || [];
-      if (!routineList || routineList.length === 0) {
+      const routineList = response.routines ?? [];
+      if (!routineList.length) {
         hasMore = false;
         break;
       }
@@ -488,15 +492,15 @@ async function fetchRoutinesFromApi(client, folderNameMap) {
         if (routines.length >= ROUTINE_DROPDOWN_LIMIT) break;
 
         const folderName = routine.folder_id
-          ? folderNameMap.get(String(routine.folder_id)) || null
+          ? folderNameMap.get(String(routine.folder_id)) ?? null
           : null;
 
         routines.push({
           id: routine.id,
-          title: routine.title || "Untitled Routine",
-          folder_id: routine.folder_id || null,
+          title: routine.title ?? "Untitled Routine",
+          folder_id: routine.folder_id ?? null,
           folder_name: folderName,
-          updated_at: routine.updated_at || null,
+          updated_at: routine.updated_at ?? null,
         });
       }
 
@@ -541,7 +545,7 @@ async function getRoutinesList() {
 
     if (routinesSheet) {
       const routines = readRoutinesFromSheet(routinesSheet, folderNameMap);
-      if (routines && routines.length > 0) {
+      if (routines?.length) {
         const sortedRoutines = sortRoutinesByUpdatedAt(routines);
         cacheManager.storeInCache(cacheKey, sortedRoutines);
         return sortedRoutines;
@@ -578,7 +582,7 @@ async function loadRoutineIntoBuilder(routineId) {
       options
     );
 
-    const routine = response.routine || response;
+    const routine = response.routine ?? response;
     if (!routine) {
       throw new ApiError("Routine not found", 404);
     }

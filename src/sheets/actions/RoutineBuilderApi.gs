@@ -10,11 +10,35 @@
  * @private
  */
 function getApiClientAndKey() {
-  const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+  const client = getApiClient();
+  const apiKey = client.apiKeyManager.getApiKeyFromProperties();
   if (!apiKey) {
     throw new ConfigurationError("API key not found");
   }
-  return { client: getApiClient(), apiKey };
+  return { client, apiKey };
+}
+
+/**
+ * Makes an API request with standard error handling
+ * @param {string} endpoint - API endpoint
+ * @param {string} method - HTTP method
+ * @param {Object} payload - Request payload
+ * @param {Object} context - Error context
+ * @returns {Promise<Object>} API response
+ * @private
+ */
+async function makeRoutineApiRequest(endpoint, method, payload, context) {
+  const { client, apiKey } = getApiClientAndKey();
+  const options = client.createRequestOptions(apiKey, method, {
+    "Content-Type": "application/json",
+  });
+
+  try {
+    const response = await client.makeRequest(endpoint, options, {}, payload);
+    return response;
+  } catch (error) {
+    throw ErrorHandler.handle(error, context);
+  }
 }
 
 /**
@@ -23,25 +47,10 @@ function getApiClientAndKey() {
  * @returns {Promise<Object>} Parsed response from the API
  */
 async function submitRoutine(routineData) {
-  const { client, apiKey } = getApiClientAndKey();
-  const options = client.createRequestOptions(apiKey, "post", {
-    "Content-Type": "application/json",
+  return makeRoutineApiRequest(API_ENDPOINTS.ROUTINES, "post", routineData, {
+    operation: "Submitting routine to API",
+    routineTitle: routineData.routine?.title,
   });
-
-  try {
-    const response = await client.makeRequest(
-      API_ENDPOINTS.ROUTINES,
-      options,
-      {},
-      routineData
-    );
-    return response;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
-      operation: "Submitting routine to API",
-      routineTitle: routineData.routine.title,
-    });
-  }
 }
 
 /**
@@ -51,26 +60,24 @@ async function submitRoutine(routineData) {
  * @returns {Promise<Object>} Parsed response from the API
  */
 async function updateRoutineFromSheet(routineId, routineData) {
-  const { client, apiKey } = getApiClientAndKey();
-  const options = client.createRequestOptions(apiKey, "put", {
-    "Content-Type": "application/json",
-  });
+  const updatePayload = {
+    routine: {
+      title: routineData.routine?.title,
+      notes: routineData.routine?.notes ?? null,
+      exercises: routineData.routine?.exercises ?? [],
+    },
+  };
 
-  try {
-    const response = await client.makeRequest(
-      `${API_ENDPOINTS.ROUTINES}/${routineId}`,
-      options,
-      {},
-      routineData
-    );
-    return response;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
+  return makeRoutineApiRequest(
+    `${API_ENDPOINTS.ROUTINES}/${routineId}`,
+    "put",
+    updatePayload,
+    {
       operation: "Updating routine from sheet",
-      routineId: routineId,
-      routineTitle: routineData.routine.title,
-    });
-  }
+      routineId,
+      routineTitle: routineData.routine?.title,
+    }
+  );
 }
 
 /**
@@ -89,16 +96,17 @@ async function findRoutineFolder(folderName) {
       { page: 1, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
     );
 
-    const folders = response.routine_folders || [];
+    const folders = response.routine_folders ?? [];
+    const normalizedFolderName = folderName.toLowerCase();
     const matchingFolder = folders.find(
-      (folder) => folder.title.toLowerCase() === folderName.toLowerCase()
+      (folder) => folder.title?.toLowerCase() === normalizedFolderName
     );
 
-    return matchingFolder ? matchingFolder.id : null;
+    return matchingFolder?.id ?? null;
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Finding routine folder",
-      folderName: folderName,
+      folderName,
     });
   }
 }
@@ -117,25 +125,23 @@ async function findRoutineFolderById(folderId) {
   try {
     let page = 1;
     let hasMore = true;
-    const maxPages = 10; // Reasonable limit to prevent infinite loops
+    const maxPages = ROUTINE_BUILDER_CONFIG.MAX_FOLDER_SEARCH_PAGES;
 
     while (hasMore && page <= maxPages) {
       const response = await client.makeRequest(
         API_ENDPOINTS.ROUTINE_FOLDERS,
         options,
-        { page: page, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
+        { page, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
       );
 
-      const folders = response.routine_folders || [];
-      if (!folders || folders.length === 0) {
-        hasMore = false;
+      const folders = response.routine_folders ?? [];
+      if (!folders.length) {
         break;
       }
 
       const matchingFolder = folders.find((folder) => folder.id == folderId);
-
       if (matchingFolder) {
-        return matchingFolder.title || null;
+        return matchingFolder.title ?? null;
       }
 
       hasMore = folders.length === PAGE_SIZE.ROUTINE_FOLDERS;
@@ -146,7 +152,7 @@ async function findRoutineFolderById(folderId) {
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Finding routine folder by ID",
-      folderId: folderId,
+      folderId,
     });
   }
 }
@@ -157,35 +163,26 @@ async function findRoutineFolderById(folderId) {
  * @returns {Promise<number>} ID of the newly created folder
  */
 async function createNewRoutineFolder(folderName) {
-  const { client, apiKey } = getApiClientAndKey();
-  const options = client.createRequestOptions(apiKey, "post", {
-    "Content-Type": "application/json",
-  });
-
-  try {
-    const payload = { routine_folder: { title: folderName } };
-    const response = await client.makeRequest(
-      API_ENDPOINTS.ROUTINE_FOLDERS,
-      options,
-      {},
-      payload
-    );
-
-    const folderId = response.routine_folder?.id;
-    if (!folderId) {
-      throw new ApiError(
-        "Invalid folder creation response structure",
-        0,
-        JSON.stringify(response)
-      );
-    }
-    return folderId;
-  } catch (error) {
-    throw ErrorHandler.handle(error, {
+  const payload = { routine_folder: { title: folderName } };
+  const response = await makeRoutineApiRequest(
+    API_ENDPOINTS.ROUTINE_FOLDERS,
+    "post",
+    payload,
+    {
       operation: "Creating routine folder",
-      folderName: folderName,
-    });
+      folderName,
+    }
+  );
+
+  const folderId = response.routine_folder?.id;
+  if (!folderId) {
+    throw new ApiError(
+      "Invalid folder creation response structure",
+      0,
+      JSON.stringify(response)
+    );
   }
+  return folderId;
 }
 
 /**
@@ -195,11 +192,11 @@ async function createNewRoutineFolder(folderName) {
  * @returns {Promise<number|null>} Folder ID if found/created, null if folderName is empty or "(No Folder)"
  */
 async function getOrCreateRoutineFolder(folderName) {
-  try {
-    if (folderName == "(No Folder)" || !folderName) {
-      return null;
-    }
+  if (folderName === "(No Folder)" || !folderName) {
+    return null;
+  }
 
+  try {
     const existingFolder = await findRoutineFolder(folderName);
     if (existingFolder) {
       return existingFolder;
@@ -214,7 +211,7 @@ async function getOrCreateRoutineFolder(folderName) {
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Managing routine folder",
-      folderName: folderName,
+      folderName,
     });
   }
 }

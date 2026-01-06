@@ -3,10 +3,6 @@
  * @module actions/RoutineBuilderDataProcessor
  */
 
-const MAIN_SHEET_NAME = "Main";
-const WEIGHT_UNIT_CELL = "I5";
-const DEFAULT_WEIGHT_UNIT = "kg";
-
 /**
  * Processes exercise data from sheet into API format
  * @param {Array<Array>} exerciseData - Raw exercise data from sheet
@@ -123,14 +119,15 @@ function getWeightConversionFactor() {
   }
 
   const weightUnit =
-    mainSheet.getRange(WEIGHT_UNIT_CELL).getValue() || DEFAULT_WEIGHT_UNIT;
+    mainSheet.getRange(MAIN_SHEET_CELLS.WEIGHT_UNIT).getValue() ??
+    ROUTINE_BUILDER_CONFIG.DEFAULT_WEIGHT_UNIT;
   const conversionFactors = {
     lbs: WEIGHT_CONVERSION.LBS_TO_KG,
     stone: WEIGHT_CONVERSION.STONE_TO_KG,
     kg: 1,
   };
 
-  return conversionFactors[weightUnit] || 1;
+  return conversionFactors[weightUnit] ?? 1;
 }
 
 /**
@@ -175,7 +172,7 @@ function parseAndConvertWeight(weight, conversionFactor) {
 function normalizeNotes(notes) {
   if (!notes) return null;
   const trimmed = String(notes).trim();
-  return trimmed !== "" ? trimmed : null;
+  return trimmed || null;
 }
 
 /**
@@ -189,8 +186,8 @@ function normalizeNotes(notes) {
 function createNewExercise(templateId, rest, supersetId, notes) {
   return {
     exercise_template_id: templateId,
-    superset_id: supersetId || null,
-    notes: notes || null,
+    superset_id: supersetId ?? null,
+    notes: notes ?? null,
     rest_seconds: rest,
     sets: [],
   };
@@ -206,30 +203,22 @@ function createNewExercise(templateId, rest, supersetId, notes) {
  * @returns {RoutineSet} New set object
  */
 function createSet(setType, weight, reps, repRange, templateType) {
-  const normalizedType = String(templateType || "").toLowerCase();
+  const normalizedType = String(templateType ?? "").toLowerCase();
   const isDurationType = normalizedType.includes("duration");
   const isDistanceType = normalizedType.includes("distance");
 
   const set = {
-    type: setType || "normal",
+    type: setType ?? "normal",
   };
 
-  // Handle weight/duration based on exercise type
-  if (isDurationType) {
-    if (weight != null) {
-      set.duration_seconds = weight;
-    }
-  } else {
-    if (weight != null) {
-      set.weight_kg = weight;
-    }
+  if (isDurationType && weight != null) {
+    set.duration_seconds = weight;
+  } else if (weight != null) {
+    set.weight_kg = weight;
   }
 
-  // Handle reps/rep_range/distance based on exercise type
-  if (isDistanceType) {
-    if (reps != null) {
-      set.distance_meters = reps;
-    }
+  if (isDistanceType && reps != null) {
+    set.distance_meters = reps;
   } else if (isValidRepRange(repRange)) {
     set.rep_range = { start: repRange.start, end: repRange.end };
   } else if (reps != null) {
@@ -246,7 +235,7 @@ function createSet(setType, weight, reps, repRange, templateType) {
  */
 function isValidRepRange(repRange) {
   return (
-    repRange &&
+    repRange != null &&
     typeof repRange === "object" &&
     repRange.start != null &&
     repRange.end != null
@@ -266,7 +255,7 @@ function validateRoutineData(title, exercises) {
     errors.push("Routine title is required");
   }
 
-  if (!exercises || exercises.length === 0) {
+  if (!exercises?.length) {
     errors.push("At least one exercise is required");
   } else {
     exercises.forEach((exercise, index) => {
@@ -278,7 +267,7 @@ function validateRoutineData(title, exercises) {
         );
       }
 
-      if (!exercise.sets || exercise.sets.length === 0) {
+      if (!exercise.sets?.length) {
         errors.push(
           `Exercise at position ${exerciseNum} requires at least one set`
         );

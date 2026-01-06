@@ -19,7 +19,9 @@ const MISSING_SHEET_MESSAGE =
  * @returns {GoogleAppsScript.Spreadsheet.Sheet|null} The sheet or null if not found
  */
 function getRoutineBuilderSheet() {
-  const sheet = getActiveSpreadsheet().getSheetByName("Routine Builder");
+  const sheet = getActiveSpreadsheet().getSheetByName(
+    ROUTINE_BUILDER_SHEET_NAME
+  );
   if (!sheet) {
     SpreadsheetApp.getUi().alert(
       "Missing 'Routine Builder' Sheet",
@@ -48,14 +50,14 @@ function getFolderNameFromId(folderId) {
 
     const headers = folderData[0];
     const idIndex = headers.indexOf("ID");
-    const titleIndex = headers.indexOf("Title");
+    const titleIndex = headers.indexOf("Name");
 
     if (idIndex === -1 || titleIndex === -1) return null;
 
     for (let i = 1; i < folderData.length; i++) {
       const row = folderData[i];
       if (row[idIndex] == folderId) {
-        return String(row[titleIndex] || "").trim() || null;
+        return String(row[titleIndex] ?? "").trim() || null;
       }
     }
     return null;
@@ -116,11 +118,11 @@ function getExerciseNameFromTemplateId(templateId) {
     const templateIdUpper = String(templateId).trim().toUpperCase();
     for (let i = 1; i < exerciseData.length; i++) {
       const row = exerciseData[i];
-      const rowId = String(row[idIndex] || "")
+      const rowId = String(row[idIndex] ?? "")
         .trim()
         .toUpperCase();
       if (rowId === templateIdUpper) {
-        return String(row[titleIndex] || "").trim() || null;
+        return String(row[titleIndex] ?? "").trim() || null;
       }
     }
     return null;
@@ -138,10 +140,10 @@ function getExerciseNameFromTemplateId(templateId) {
  */
 function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
   const rows = [];
-  const templateId = exercise.exercise_template_id || "";
+  const templateId = exercise.exercise_template_id ?? "";
   const exerciseName =
-    getExerciseNameFromTemplateId(templateId) ||
-    exercise.title ||
+    getExerciseNameFromTemplateId(templateId) ??
+    exercise.title ??
     "Unknown Exercise";
 
   const displayName =
@@ -154,19 +156,14 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
     stone: 1 / WEIGHT_CONVERSION.STONE_TO_KG,
     kg: 1,
   };
-  const conversionFactor = conversionFactors[weightUnit] || 1;
+  const conversionFactor = conversionFactors[weightUnit] ?? 1;
 
-  // Normalize exercise-level data
-  const restSeconds =
-    exercise.rest_seconds != null ? exercise.rest_seconds : "";
-  const notes =
-    exercise.notes && String(exercise.notes).trim() !== ""
-      ? String(exercise.notes).trim()
-      : "";
-  const supersetId = exercise.superset_id != null ? exercise.superset_id : "";
+  const restSeconds = exercise.rest_seconds ?? "";
+  const notes = exercise.notes?.trim() || "";
+  const supersetId = exercise.superset_id ?? "";
   const displayTemplateId = templateId || "N/A";
 
-  if (!exercise.sets || exercise.sets.length === 0) {
+  if (!exercise.sets?.length) {
     rows.push([
       displayName,
       restSeconds,
@@ -183,34 +180,33 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
   exercise.sets.forEach((set, index) => {
     let weight = set.weight_kg;
     let reps = getRepsValue(set);
-    let distance = set.distance_meters;
-    let duration = set.duration_seconds;
+    const distance = set.distance_meters;
+    const duration = set.duration_seconds;
 
-    if (weight !== null && weight !== undefined) {
+    if (weight != null) {
       weight = weight * conversionFactor;
-      const DECIMAL_PLACES = 2;
+      const decimalPlaces = ROUTINE_BUILDER_CONFIG.DECIMAL_PLACES;
       weight =
-        Math.round(weight * Math.pow(10, DECIMAL_PLACES)) /
-        Math.pow(10, DECIMAL_PLACES);
+        Math.round(weight * Math.pow(10, decimalPlaces)) /
+        Math.pow(10, decimalPlaces);
     }
 
-    if (distance !== null && distance !== undefined) {
+    if (distance != null) {
       reps = distance;
     }
 
-    if (duration !== null && duration !== undefined) {
+    if (duration != null) {
       weight = duration;
     }
 
-    // Only include exercise-level data (name, rest, notes, superset_id, templateId) in the first set row
     const isFirstSet = index === 0;
 
     rows.push([
       isFirstSet ? displayName : "",
       isFirstSet ? restSeconds : "",
-      set.type || "normal",
-      weight !== null && weight !== undefined ? weight : "",
-      reps !== null && reps !== undefined ? reps : "",
+      set.type ?? "normal",
+      weight ?? "",
+      reps ?? "",
       isFirstSet ? notes : "",
       isFirstSet ? supersetId : "",
       isFirstSet ? displayTemplateId : "",
@@ -228,20 +224,26 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
 async function populateRoutineBuilderSheet(routine) {
   const sheet = getRoutineBuilderSheet();
   if (!sheet) {
-    throw new SheetError("Routine Builder sheet not found", "Routine Builder", {
-      operation: "Populating routine builder",
-    });
+    throw new SheetError(
+      "Routine Builder sheet not found",
+      ROUTINE_BUILDER_SHEET_NAME,
+      {
+        operation: "Populating routine builder",
+      }
+    );
   }
 
   try {
-    sheet.getRange("D2:H4").clearContent();
-    sheet.getRange("B8:H").clearContent();
+    sheet
+      .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
+      .clearContent();
+    sheet
+      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:H`)
+      .clearContent();
 
-    // Set routine title in D2
-    const routineTitle = routine.title || "";
-    sheet.getRange("D2").setValue(routineTitle);
+    const routineTitle = routine.title ?? "";
+    sheet.getRange(ROUTINE_BUILDER_CELLS.TITLE).setValue(routineTitle);
 
-    // Set folder name in D3
     let folderName = "(No Folder)";
     if (routine.folder_id) {
       const foundFolderName = await getFolderNameFromIdWithApiFallback(
@@ -251,38 +253,35 @@ async function populateRoutineBuilderSheet(routine) {
         folderName = foundFolderName;
       }
     }
-    sheet.getRange("D3").setValue(folderName);
+    sheet.getRange(ROUTINE_BUILDER_CELLS.FOLDER).setValue(folderName);
 
-    // Set notes in D4
-    const routineNotes = routine.notes || "";
-    sheet.getRange("D4").setValue(routineNotes);
+    const routineNotes = routine.notes ?? "";
+    sheet.getRange(ROUTINE_BUILDER_CELLS.NOTES).setValue(routineNotes);
 
-    // Store routine ID in H2 for update tracking
-    const routineId = routine.id || "";
-    sheet.getRange("H2").setValue(routineId);
+    const routineId = routine.id ?? "";
+    sheet.getRange(ROUTINE_BUILDER_CELLS.ROUTINE_ID).setValue(routineId);
 
-    // Store folder ID in H3 for update tracking
-    const folderId = routine.folder_id || "";
-    sheet.getRange("H3").setValue(folderId);
+    const folderId = routine.folder_id ?? "";
+    sheet.getRange(ROUTINE_BUILDER_CELLS.FOLDER_ID).setValue(folderId);
 
     const ss = getActiveSpreadsheet();
-    const mainSheet = ss.getSheetByName("Main");
-    const weightUnit = mainSheet
-      ? mainSheet.getRange("I5").getValue() || "kg"
-      : "kg";
+    const mainSheet = ss.getSheetByName(MAIN_SHEET_NAME);
+    const weightUnit =
+      mainSheet?.getRange(MAIN_SHEET_CELLS.WEIGHT_UNIT).getValue() ??
+      ROUTINE_BUILDER_CONFIG.DEFAULT_WEIGHT_UNIT;
 
     const allRows = [];
     const missingExercises = [];
 
-    if (routine.exercises && routine.exercises.length > 0) {
+    if (routine.exercises?.length) {
       routine.exercises.forEach((exercise) => {
-        const templateId = exercise.exercise_template_id || "";
+        const templateId = exercise.exercise_template_id ?? "";
         const exerciseName = getExerciseNameFromTemplateId(templateId);
 
         if (!templateId || templateId === "N/A") {
-          missingExercises.push(exercise.title || "Unknown Exercise");
+          missingExercises.push(exercise.title ?? "Unknown Exercise");
         } else if (!exerciseName) {
-          missingExercises.push(exercise.title || templateId);
+          missingExercises.push(exercise.title ?? templateId);
         }
 
         const rows = convertRoutineExerciseToSheetRows(exercise, weightUnit);
@@ -296,16 +295,13 @@ async function populateRoutineBuilderSheet(routine) {
       );
     }
 
-    const EXERCISE_DATA_START_ROW = 8;
-    const EXERCISE_DATA_START_COL = 2;
-    const EXERCISE_DATA_COLUMNS = 8;
     if (allRows.length > 0) {
       sheet
         .getRange(
-          EXERCISE_DATA_START_ROW,
-          EXERCISE_DATA_START_COL,
+          ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START_ROW,
+          ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START_COL,
           allRows.length,
-          EXERCISE_DATA_COLUMNS
+          ROUTINE_BUILDER_CELLS.EXERCISE_DATA_COLUMNS
         )
         .setValues(allRows);
     }
@@ -320,7 +316,7 @@ async function populateRoutineBuilderSheet(routine) {
         "Warning",
         TOAST_DURATION.LONG
       );
-    } else if (routine.exercises && routine.exercises.length > 0) {
+    } else if (routine.exercises?.length) {
       ss.toast(
         `Routine "${routine.title}" loaded successfully!`,
         "Success",
