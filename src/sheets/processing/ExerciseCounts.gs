@@ -225,6 +225,7 @@ function incrementTitleCount(
 
 /**
  * Updates exercise sheet with calculated counts
+ *
  * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
  * @param {Array} exerciseData - Exercise data array
  * @param {Map} exerciseCountsById - Map of ID to count

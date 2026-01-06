@@ -166,6 +166,7 @@ function buildExerciseNameMaps(exerciseSheet, idToLocalizedName) {
 
 /**
  * Updates Exercises sheet with localized names
+ *
  * @param {GoogleAppsScript.Spreadsheet.Sheet} exerciseSheet - The exercise sheet
  * @param {Array} exerciseData - Exercise data
  * @param {Map} idToLocalizedName - Map of ID to localized name
