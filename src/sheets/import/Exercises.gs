@@ -18,6 +18,10 @@
  * Only adds new exercises while preserving existing ones.
  * New exercises are added at the end of the sheet and all exercises are sorted by count.
  * Exercise counts are always recalculated even if no new exercises are imported.
+ *
+ * NOTE: This function preserves existing IMG column values for all exercises.
+ * New exercises will have empty IMG values, but existing exercises keep their images.
+ *
  * @param {Function} [checkTimeout] - Optional function that returns true if timeout is approaching
  */
 async function importAllExercises(checkTimeout = null) {
@@ -37,7 +41,11 @@ async function importAllExercises(checkTimeout = null) {
       );
 
       if (newExercises.length > 0) {
-        const processedData = processExercisesData(newExercises);
+        // Pass imgMap to preserve existing IMG values for exercises that might be updated
+        const processedData = processExercisesData(
+          newExercises,
+          existingData.imgMap
+        );
         processedExercises.push(...processedData);
       }
     };
@@ -117,6 +125,9 @@ async function handlePostProcessing(sheet, checkTimeout, updateMessage) {
  *  • if an API exercise with the same title exists, set the ID to its API ID
  *  • otherwise set the ID to "N/A"
  *
+ * NOTE: This function only updates the ID column (column 1). It does NOT modify
+ * the IMG column or any other columns, preserving existing exercise images.
+ *
  * @private
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The Exercises sheet
  * @param {{id:string,title:string}[]} apiExercises Array of all exercises from the API
@@ -148,16 +159,19 @@ function syncCustomExerciseIds(sheet, apiExercises) {
 /**
  * Gets existing exercises from the sheet along with their details
  * @private
+ * @returns {Object} Object with byId, byTitle Maps and imgMap (ID -> IMG value)
  */
 function getExistingExercises(sheet) {
   try {
     const existingDataById = new Map();
     const existingDataByTitle = new Map();
+    const imgMap = new Map();
 
     if (sheet.getLastRow() <= 1) {
       return {
         byId: existingDataById,
         byTitle: existingDataByTitle,
+        imgMap: imgMap,
       };
     }
 
@@ -167,26 +181,40 @@ function getExistingExercises(sheet) {
       id: headers.indexOf("ID"),
       title: headers.indexOf("Title"),
       rank: headers.indexOf("Rank"),
+      img: headers.indexOf("IMG"),
     };
 
     data.forEach((row) => {
       const id = String(row[indices.id] || "").trim();
       const title = String(row[indices.title] || "").trim();
       const hasRank = row[indices.rank] !== "";
+      const imgValue =
+        indices.img >= 0 ? String(row[indices.img] || "").trim() : "";
 
       const exerciseData = { id, title, hasRank };
 
       if (id && id !== "N/A") {
         existingDataById.set(id, exerciseData);
+        // Preserve IMG value for existing exercises by ID
+        if (imgValue) {
+          imgMap.set(id, imgValue);
+        }
       }
       if (title) {
         existingDataByTitle.set(title.toLowerCase(), exerciseData);
+        // Also preserve IMG by title for exercises without ID
+        if (!id || id === "N/A") {
+          if (imgValue) {
+            imgMap.set(title.toLowerCase(), imgValue);
+          }
+        }
       }
     });
 
     return {
       byId: existingDataById,
       byTitle: existingDataByTitle,
+      imgMap: imgMap,
     };
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -198,24 +226,39 @@ function getExistingExercises(sheet) {
 
 /**
  * Processes exercise data into a format suitable for the sheet
+ * Preserves existing IMG values for exercises that already exist in the sheet
  * @param {Object[]} exercises - Array of exercise objects from API
+ * @param {Map<string, string>} [imgMap] - Optional map of exercise ID/title to IMG value for preserving existing images
  * @return {Array[]} Processed data ready for sheet insertion
  */
-function processExercisesData(exercises) {
+function processExercisesData(exercises, imgMap = null) {
   try {
     const isTemplate =
       getActiveSpreadsheet().getId() === TEMPLATE_SPREADSHEET_ID;
-    return exercises.map((exercise) => [
-      isTemplate ? "" : exercise.id,
-      exercise.title,
-      "", // IMG
-      exercise.type || "",
-      toTitleCaseFromSnake(exercise.primary_muscle_group),
-      arrayToTitleCase(exercise.secondary_muscle_groups),
-      exercise.is_custom ? "TRUE" : "FALSE",
-      0, // Count
-      "", // Rank
-    ]);
+    return exercises.map((exercise) => {
+      // Determine IMG value: preserve existing if available, otherwise empty string for new exercises
+      let imgValue = "";
+      if (imgMap) {
+        // Try to get IMG by ID first, then by title
+        if (exercise.id && imgMap.has(exercise.id)) {
+          imgValue = imgMap.get(exercise.id);
+        } else if (exercise.title && imgMap.has(exercise.title.toLowerCase())) {
+          imgValue = imgMap.get(exercise.title.toLowerCase());
+        }
+      }
+
+      return [
+        isTemplate ? "" : exercise.id,
+        exercise.title,
+        imgValue, // Preserve existing IMG or empty for new exercises
+        exercise.type || "",
+        toTitleCaseFromSnake(exercise.primary_muscle_group),
+        arrayToTitleCase(exercise.secondary_muscle_groups),
+        exercise.is_custom ? "TRUE" : "FALSE",
+        0, // Count
+        "", // Rank
+      ];
+    });
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Processing exercise data",
@@ -254,6 +297,7 @@ function shouldSkipExercise(exercise, existingData) {
 
 /**
  * Appends new exercises at the end of the sheet.
+ * Preserves IMG values for exercises that already exist (via processExercisesData).
  * @private
  */
 async function insertNewExercises(sheet, processedExercises) {
