@@ -66,6 +66,32 @@ function getFolderNameFromId(folderId) {
 }
 
 /**
+ * Gets folder name from folder ID with API fallback
+ * First tries to get the folder name from the local sheet (fast path),
+ * then falls back to API if not found locally
+ * @param {number|null} folderId - Folder ID
+ * @returns {Promise<string|null>} Folder name or null if not found
+ */
+async function getFolderNameFromIdWithApiFallback(folderId) {
+  if (!folderId) return null;
+
+  // First try local sheet (fast path)
+  const localFolderName = getFolderNameFromId(folderId);
+  if (localFolderName) {
+    return localFolderName;
+  }
+
+  // If not found locally, try API
+  try {
+    const folderName = await findRoutineFolderById(folderId);
+    return folderName;
+  } catch (error) {
+    console.warn("Error getting folder name from API:", error);
+    return null;
+  }
+}
+
+/**
  * Gets exercise name from template ID
  * @param {string} templateId - Exercise template ID
  * @returns {string|null} Exercise name or null if not found
@@ -197,8 +223,9 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
 /**
  * Populates the Routine Builder sheet with routine data
  * @param {Object} routine - Routine object from API
+ * @returns {Promise<void>}
  */
-function populateRoutineBuilderSheet(routine) {
+async function populateRoutineBuilderSheet(routine) {
   const sheet = getRoutineBuilderSheet();
   if (!sheet) {
     throw new SheetError("Routine Builder sheet not found", "Routine Builder", {
@@ -217,7 +244,9 @@ function populateRoutineBuilderSheet(routine) {
     // Set folder name in D3
     let folderName = "(No Folder)";
     if (routine.folder_id) {
-      const foundFolderName = getFolderNameFromId(routine.folder_id);
+      const foundFolderName = await getFolderNameFromIdWithApiFallback(
+        routine.folder_id
+      );
       if (foundFolderName) {
         folderName = foundFolderName;
       }
@@ -228,9 +257,13 @@ function populateRoutineBuilderSheet(routine) {
     const routineNotes = routine.notes || "";
     sheet.getRange("D4").setValue(routineNotes);
 
-    // Store routine ID in H1 for update tracking
+    // Store routine ID in H2 for update tracking
     const routineId = routine.id || "";
-    sheet.getRange("H1").setValue(routineId);
+    sheet.getRange("H2").setValue(routineId);
+
+    // Store folder ID in H3 for update tracking
+    const folderId = routine.folder_id || "";
+    sheet.getRange("H3").setValue(folderId);
 
     const ss = getActiveSpreadsheet();
     const mainSheet = ss.getSheetByName("Main");

@@ -120,7 +120,7 @@ function promptDuplicateRoutine(duplicateRoutine, title, sheet) {
   if (response === ui.Button.CANCEL) return null;
 
   if (response === ui.Button.YES) {
-    sheet.getRange("H1").setValue(duplicateRoutine.id);
+    sheet.getRange("H2").setValue(duplicateRoutine.id);
     return { shouldUpdate: true, routineId: duplicateRoutine.id };
   }
 
@@ -143,19 +143,42 @@ function validateExerciseData(exerciseData) {
     return false;
   }
 
+  // Only validate template IDs for rows with exercise names (first row of each exercise)
+  // Subsequent set rows have empty exercise names and template IDs, which is expected
   const missingExercises = exerciseData.filter((row) => {
-    const id = String(row[7]).trim().toUpperCase();
+    const exerciseName = String(row[0] || "").trim();
+    // Only check rows that have an exercise name (first row of each exercise)
+    if (!exerciseName) {
+      return false; // Skip subsequent set rows
+    }
+    const id = String(row[7] || "")
+      .trim()
+      .toUpperCase();
     return !id || id === "N/A";
   });
 
   if (missingExercises.length > 0) {
-    const names = missingExercises.map((r) => r[0]).join(", ");
-    SpreadsheetApp.getUi().alert(
-      "Missing Exercise IDs",
-      `The following exercises are not in your Hevy account: ${names}.\n` +
-        "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    const names = missingExercises
+      .map((r) => String(r[0] || "").trim())
+      .filter((name) => name) // Filter out any empty names
+      .join(", ");
+
+    if (!names) {
+      // Fallback if all names are empty (shouldn't happen, but handle gracefully)
+      SpreadsheetApp.getUi().alert(
+        "Missing Exercise IDs",
+        "Some exercises are missing template IDs.\n" +
+          "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+    } else {
+      SpreadsheetApp.getUi().alert(
+        "Missing Exercise IDs",
+        `The following exercises are not in your Hevy account: ${names}.\n` +
+          "Please add them as custom exercises on Hevy, re-run 'Import Exercises' to sync IDs, and try again.",
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+    }
     return false;
   }
 
@@ -187,7 +210,7 @@ async function createRoutineFromSheet() {
   }
 
   try {
-    let loadedRoutineId = sheet.getRange("H1").getValue();
+    let loadedRoutineId = sheet.getRange("H2").getValue();
     let shouldUpdate = false;
 
     if (loadedRoutineId) {
@@ -265,7 +288,8 @@ async function createRoutineFromSheet() {
       });
     }
 
-    sheet.getRange("H1").clearContent();
+    sheet.getRange("H2").clearContent();
+    sheet.getRange("H3").clearContent();
     return response.routine || response;
   } catch (error) {
     throw ErrorHandler.handle(error, {
@@ -559,7 +583,7 @@ async function loadRoutineIntoBuilder(routineId) {
       throw new ApiError("Routine not found", 404);
     }
 
-    populateRoutineBuilderSheet(routine);
+    await populateRoutineBuilderSheet(routine);
   } catch (error) {
     throw ErrorHandler.handle(error, {
       operation: "Loading routine into builder",

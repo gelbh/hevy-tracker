@@ -104,6 +104,54 @@ async function findRoutineFolder(folderName) {
 }
 
 /**
+ * Finds a routine folder by ID and returns its name
+ * @param {number} folderId - ID of the folder to find
+ * @returns {Promise<string|null>} Folder name or null if not found
+ */
+async function findRoutineFolderById(folderId) {
+  if (!folderId) return null;
+
+  const { client, apiKey } = getApiClientAndKey();
+  const options = client.createRequestOptions(apiKey);
+
+  try {
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 10; // Reasonable limit to prevent infinite loops
+
+    while (hasMore && page <= maxPages) {
+      const response = await client.makeRequest(
+        API_ENDPOINTS.ROUTINE_FOLDERS,
+        options,
+        { page: page, page_size: PAGE_SIZE.ROUTINE_FOLDERS }
+      );
+
+      const folders = response.routine_folders || [];
+      if (!folders || folders.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      const matchingFolder = folders.find((folder) => folder.id == folderId);
+
+      if (matchingFolder) {
+        return matchingFolder.title || null;
+      }
+
+      hasMore = folders.length === PAGE_SIZE.ROUTINE_FOLDERS;
+      page++;
+    }
+
+    return null;
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Finding routine folder by ID",
+      folderId: folderId,
+    });
+  }
+}
+
+/**
  * Creates a new routine folder
  * @param {string} folderName - Name for the new folder
  * @returns {Promise<number>} ID of the newly created folder
