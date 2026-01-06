@@ -249,7 +249,7 @@ async function populateRoutineBuilderSheet(routine) {
       .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
       .clearContent();
     sheet
-      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:H`)
+      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:I`)
       .clearContent();
 
     const routineTitle = routine.title ?? "";
