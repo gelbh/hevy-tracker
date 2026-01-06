@@ -183,34 +183,12 @@
           google.script &&
           google.script.run
         ) {
-          google.script.run
-            .withSuccessHandler(() => {
-              closeDialog();
-            })
-            .withFailureHandler((error) => {
-              isContinuing = false;
-              continueBtn.disabled = false;
-              spinner.classList.add("hidden");
-              continueIcon.classList.remove("hidden");
-              continueText.textContent = "Continue Import";
+          // Start the import in the background (don't wait for response)
+          // Errors will be handled by ImportManager and shown via toasts
+          google.script.run.continueImport();
 
-              const errorMessage =
-                error && error.message
-                  ? error.message
-                  : "Failed to continue import. Please try again.";
-
-              // Show error (could use an alert or status message)
-              alert(errorMessage);
-
-              // Re-initialize icons after DOM update
-              if (
-                window.HevyTrackerUtils &&
-                window.HevyTrackerUtils.initIcons
-              ) {
-                window.HevyTrackerUtils.initIcons();
-              }
-            })
-            .continueImport();
+          // Close dialog immediately - import continues in background
+          closeDialog();
         }
       };
 
