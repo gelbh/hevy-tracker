@@ -144,7 +144,7 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
     return rows;
   }
 
-  exercise.sets.forEach((set) => {
+  exercise.sets.forEach((set, index) => {
     let weight = set.weight_kg;
     let reps = getRepsValue(set);
     let distance = set.distance_meters;
@@ -166,15 +166,17 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
       weight = duration;
     }
 
+    const isFirstSet = index === 0;
+
     rows.push([
-      displayName,
-      exercise.rest_seconds || "",
+      isFirstSet ? displayName : "",
+      isFirstSet ? exercise.rest_seconds || "" : "",
       set.type || "normal",
       weight !== null && weight !== undefined ? weight : "",
       reps !== null && reps !== undefined ? reps : "",
-      exercise.notes || "",
-      exercise.superset_id || "",
-      templateId || "N/A",
+      isFirstSet ? exercise.notes || "" : "",
+      isFirstSet ? exercise.superset_id || "" : "",
+      isFirstSet ? templateId || "N/A" : "",
     ]);
   });
 
