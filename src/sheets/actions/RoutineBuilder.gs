@@ -313,7 +313,7 @@ function clearRoutineBuilder() {
       .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
       .clearContent();
     sheet
-      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:I`)
+      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:H`)
       .clearContent();
 
     const ss = getActiveSpreadsheet();

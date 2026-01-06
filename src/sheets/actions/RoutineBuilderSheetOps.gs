@@ -161,19 +161,9 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
   const restSeconds = exercise.rest_seconds ?? "";
   const notes = exercise.notes?.trim() || "";
   const supersetId = exercise.superset_id ?? "";
-  const displayTemplateId = templateId || "N/A";
 
   if (!exercise.sets?.length) {
-    rows.push([
-      displayName,
-      restSeconds,
-      "",
-      "",
-      "",
-      notes,
-      supersetId,
-      displayTemplateId,
-    ]);
+    rows.push([displayName, restSeconds, "", "", "", notes, supersetId]);
     return rows;
   }
 
@@ -209,7 +199,6 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
       reps ?? "",
       isFirstSet ? notes : "",
       isFirstSet ? supersetId : "",
-      isFirstSet ? displayTemplateId : "",
     ]);
   });
 
@@ -249,7 +238,7 @@ async function populateRoutineBuilderSheet(routine) {
       .getRange(`${ROUTINE_BUILDER_CELLS.TITLE}:${ROUTINE_BUILDER_CELLS.NOTES}`)
       .clearContent();
     sheet
-      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:I`)
+      .getRange(`${ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START}:H`)
       .clearContent();
 
     const routineTitle = routine.title ?? "";
@@ -320,7 +309,7 @@ async function populateRoutineBuilderSheet(routine) {
           ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START_ROW,
           ROUTINE_BUILDER_CELLS.EXERCISE_DATA_START_COL,
           allRows.length,
-          ROUTINE_BUILDER_CELLS.EXERCISE_DATA_COLUMNS
+          7
         )
         .setValues(allRows);
     }
