@@ -34,6 +34,39 @@
  */
 
 /**
+ * Finds an existing routine with the same title and folder_id
+ * @param {string} title - Routine title to search for
+ * @param {number|null} folderId - Folder ID to match (null for no folder)
+ * @returns {Promise<Object|null>} Matching routine object or null if not found
+ */
+async function findDuplicateRoutine(title, folderId) {
+  try {
+    const routines = await getRoutinesList();
+    const normalizedTitle = String(title).trim().toLowerCase();
+
+    for (const routine of routines) {
+      const routineTitle = String(routine.title || "")
+        .trim()
+        .toLowerCase();
+      const routineFolderId = routine.folder_id || null;
+
+      // Match if titles are the same (case-insensitive) and folder IDs match
+      if (routineTitle === normalizedTitle && routineFolderId === folderId) {
+        return routine;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Finding duplicate routine",
+      routineTitle: title,
+      folderId: folderId,
+    });
+  }
+}
+
+/**
  * Creates a routine from the sheet data and submits it to Hevy API
  * Reads exercise data from the Routine Builder sheet, validates it,
  * and creates a new routine in the user's Hevy account.
@@ -59,7 +92,7 @@ async function createRoutineFromSheet() {
   }
 
   try {
-    const loadedRoutineId = sheet.getRange("H1").getValue();
+    let loadedRoutineId = sheet.getRange("H1").getValue();
     let shouldUpdate = false;
 
     if (loadedRoutineId) {
@@ -88,10 +121,39 @@ async function createRoutineFromSheet() {
       ? await getOrCreateRoutineFolder(folderValue.trim())
       : null;
 
+    // Check for duplicate routine if not updating an existing loaded routine
+    if (!loadedRoutineId) {
+      const duplicateRoutine = await findDuplicateRoutine(title, folderId);
+      if (duplicateRoutine) {
+        const ui = SpreadsheetApp.getUi();
+        const folderName = duplicateRoutine.folder_name || "(No Folder)";
+        const response = ui.alert(
+          "Routine Already Exists",
+          `A routine with the name "${title}" already exists in the folder "${folderName}".\n\n` +
+            `Would you like to:\n` +
+            `• Replace the existing routine (Yes)\n` +
+            `• Create a new routine anyway (No)\n` +
+            `• Cancel (Cancel)`,
+          ui.ButtonSet.YES_NO_CANCEL
+        );
+
+        if (response === ui.Button.CANCEL) {
+          return null;
+        }
+
+        if (response === ui.Button.YES) {
+          shouldUpdate = true;
+          loadedRoutineId = duplicateRoutine.id;
+          // Store the duplicate routine ID in H1 so it can be used for update
+          sheet.getRange("H1").setValue(duplicateRoutine.id);
+        }
+      }
+    }
+
     const exerciseData = sheet
       .getRange("B8:I" + sheet.getLastRow())
       .getValues()
-      .filter((row) => row[0] && row[2]);
+      .filter((row) => row[2] || row[0] || row[7]);
 
     if (exerciseData.length === 0) {
       SpreadsheetApp.getUi().alert(
@@ -189,28 +251,57 @@ function clearRoutineBuilder() {
 /**
  * Gets a list of routines for the selection dialog
  * First tries to read from Routines sheet, falls back to API if needed
+ * Uses caching to improve performance on subsequent calls
  * @returns {Promise<Array<Object>>} Array of routine objects with id, title, folder_id, folder_name, updated_at
  */
 async function getRoutinesList() {
   try {
     const ss = getActiveSpreadsheet();
     const routinesSheet = ss.getSheetByName(ROUTINES_SHEET_NAME);
+    const client = getApiClient();
+    const cacheManager = client.cacheManager;
+
+    // Build cache key based on sheet state
+    let cacheKey = "routines_list_";
+    if (routinesSheet) {
+      const lastRow = routinesSheet.getLastRow();
+      const lastModified = routinesSheet.getParent().getLastEdited();
+      cacheKey += `sheet_${lastRow}_${lastModified.getTime()}`;
+    } else {
+      cacheKey += "no_sheet";
+    }
+
+    // Check cache first
+    const cached = cacheManager.getCachedResponse(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     // Build folder name map from Routine Folders sheet
     const folderNameMap = new Map();
     const foldersSheet = ss.getSheetByName(ROUTINE_FOLDERS_SHEET_NAME);
     if (foldersSheet) {
-      const folderData = foldersSheet.getDataRange().getValues();
-      if (folderData.length > 1) {
-        const headers = folderData[0];
+      // Optimize: only read ID and Title columns
+      const lastRow = foldersSheet.getLastRow();
+      if (lastRow > 1) {
+        const headers = foldersSheet
+          .getRange(1, 1, 1, foldersSheet.getLastColumn())
+          .getValues()[0];
         const idIndex = headers.indexOf("ID");
         const titleIndex = headers.indexOf("Title");
 
         if (idIndex !== -1 && titleIndex !== -1) {
-          for (let i = 1; i < folderData.length; i++) {
-            const row = folderData[i];
-            const folderId = row[idIndex];
-            const folderTitle = row[titleIndex];
+          // Optimize: only read ID and Title columns instead of all data
+          const idData = foldersSheet
+            .getRange(2, idIndex + 1, lastRow - 1, 1)
+            .getValues();
+          const titleData = foldersSheet
+            .getRange(2, titleIndex + 1, lastRow - 1, 1)
+            .getValues();
+
+          for (let i = 0; i < idData.length; i++) {
+            const folderId = idData[i][0];
+            const folderTitle = titleData[i][0];
             if (folderId && folderTitle) {
               folderNameMap.set(String(folderId), String(folderTitle));
             }
@@ -221,9 +312,11 @@ async function getRoutinesList() {
 
     // Try to get routines from sheet first
     if (routinesSheet) {
-      const routineData = routinesSheet.getDataRange().getValues();
-      if (routineData.length > 1) {
-        const headers = routineData[0];
+      const lastRow = routinesSheet.getLastRow();
+      if (lastRow > 1) {
+        const headers = routinesSheet
+          .getRange(1, 1, 1, routinesSheet.getLastColumn())
+          .getValues()[0];
         const idIndex = headers.indexOf("ID");
         const titleIndex = headers.indexOf("Title");
         const folderIdIndex = headers.indexOf("Folder ID");
@@ -237,17 +330,38 @@ async function getRoutinesList() {
         ) {
           const routinesMap = new Map();
 
+          // Optimize: only read necessary columns (ID, Title, Folder ID, Updated At)
+          // Read all rows but only the columns we need
+          const numRows = lastRow - 1;
+          const idCol = idIndex + 1;
+          const titleCol = titleIndex + 1;
+          const folderIdCol = folderIdIndex + 1;
+          const updatedAtCol = updatedAtIndex + 1;
+
+          // Read columns in batches for better performance
+          const idData = routinesSheet
+            .getRange(2, idCol, numRows, 1)
+            .getValues();
+          const titleData = routinesSheet
+            .getRange(2, titleCol, numRows, 1)
+            .getValues();
+          const folderIdData = routinesSheet
+            .getRange(2, folderIdCol, numRows, 1)
+            .getValues();
+          const updatedAtData = routinesSheet
+            .getRange(2, updatedAtCol, numRows, 1)
+            .getValues();
+
           // Process rows - each routine may have multiple rows (one per exercise)
-          for (let i = 1; i < routineData.length; i++) {
-            const row = routineData[i];
-            const routineId = String(row[idIndex] || "").trim();
+          for (let i = 0; i < numRows; i++) {
+            const routineId = String(idData[i][0] || "").trim();
             if (!routineId || routineId === "N/A") continue;
 
             // Only add if we haven't seen this routine ID yet
             if (!routinesMap.has(routineId)) {
-              const title = String(row[titleIndex] || "").trim();
-              const folderId = row[folderIdIndex];
-              const updatedAt = row[updatedAtIndex];
+              const title = String(titleData[i][0] || "").trim();
+              const folderId = folderIdData[i][0];
+              const updatedAt = updatedAtData[i][0];
 
               const folderName = folderId
                 ? folderNameMap.get(String(folderId)) || null
@@ -272,6 +386,9 @@ async function getRoutinesList() {
               if (!b.updated_at) return -1;
               return new Date(b.updated_at) - new Date(a.updated_at);
             });
+
+            // Cache the result
+            cacheManager.storeInCache(cacheKey, routines);
             return routines;
           }
         }
@@ -279,38 +396,73 @@ async function getRoutinesList() {
     }
 
     // Fall back to API if sheet is empty or doesn't exist
-    const apiKey = getApiClient().apiKeyManager.getApiKeyFromProperties();
+    const apiKey = client.apiKeyManager.getApiKeyFromProperties();
     if (!apiKey) {
       throw new ConfigurationError("API key not found");
     }
 
-    const client = getApiClient();
-    const options = client.createRequestOptions(apiKey);
-
     const routines = [];
-    const processRoutinePage = async (routineList) => {
-      for (const routine of routineList) {
-        const folderName = routine.folder_id
-          ? folderNameMap.get(String(routine.folder_id)) || null
-          : null;
+    const importManager = client.importManager;
 
-        routines.push({
-          id: routine.id,
-          title: routine.title || "Untitled Routine",
-          folder_id: routine.folder_id || null,
-          folder_name: folderName,
-          updated_at: routine.updated_at || null,
-        });
+    // Manually fetch pages until we have enough routines (limited fetch for performance)
+    let page = 1;
+    let hasMore = true;
+    const maxPages = Math.ceil(ROUTINE_DROPDOWN_LIMIT / PAGE_SIZE.ROUTINES);
+
+    while (
+      hasMore &&
+      page <= maxPages &&
+      routines.length < ROUTINE_DROPDOWN_LIMIT
+    ) {
+      try {
+        const response = await importManager.fetchPage(
+          API_ENDPOINTS.ROUTINES,
+          apiKey,
+          page,
+          PAGE_SIZE.ROUTINES,
+          {}
+        );
+
+        const routineList = response.routines || [];
+        if (!routineList || routineList.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        for (const routine of routineList) {
+          // Stop if we've reached the limit
+          if (routines.length >= ROUTINE_DROPDOWN_LIMIT) {
+            break;
+          }
+
+          const folderName = routine.folder_id
+            ? folderNameMap.get(String(routine.folder_id)) || null
+            : null;
+
+          routines.push({
+            id: routine.id,
+            title: routine.title || "Untitled Routine",
+            folder_id: routine.folder_id || null,
+            folder_name: folderName,
+            updated_at: routine.updated_at || null,
+          });
+        }
+
+        // Check if there are more pages
+        hasMore = routineList.length === PAGE_SIZE.ROUTINES;
+        page++;
+      } catch (error) {
+        // If 404, no more pages
+        if (
+          error instanceof ApiError &&
+          error.statusCode === HTTP_STATUS.NOT_FOUND
+        ) {
+          hasMore = false;
+          break;
+        }
+        throw error;
       }
-    };
-
-    await client.fetchPaginatedData(
-      API_ENDPOINTS.ROUTINES,
-      PAGE_SIZE.ROUTINES,
-      processRoutinePage,
-      "routines",
-      {}
-    );
+    }
 
     // Sort by updated_at descending
     routines.sort((a, b) => {
@@ -319,6 +471,9 @@ async function getRoutinesList() {
       if (!b.updated_at) return -1;
       return new Date(b.updated_at) - new Date(a.updated_at);
     });
+
+    // Cache the result
+    cacheManager.storeInCache(cacheKey, routines);
 
     return routines;
   } catch (error) {
