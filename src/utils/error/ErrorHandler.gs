@@ -332,7 +332,7 @@ class ErrorHandler {
     // Enhance based on error characteristics
     if (this.isPermissionError(error)) {
       return new DrivePermissionError(
-        "Unable to access file. This may be due to permission restrictions.",
+        ERROR_CONFIG.MESSAGES.DRIVE_PERMISSION,
         context
       );
     }
@@ -422,16 +422,45 @@ class ErrorHandler {
     }
 
     const message = error?.message?.toLowerCase() ?? "";
-    const permissionKeywords = [
-      "access denied",
-      "insufficient permissions",
-      "permission",
+    if (!message) {
+      return false;
+    }
+
+    // Avoid misclassifying UI scope issues as Drive permission problems.
+    // These are handled separately in UiUtils with a dedicated alert.
+    const uiPermissionIndicators = [
+      "ui.showmodaldialog",
+      "ui.showsidebar",
+      "script.container.ui",
+    ];
+    if (uiPermissionIndicators.some((keyword) => message.includes(keyword))) {
+      return false;
+    }
+
+    // Strong indicators of Drive/file access issues
+    const fileDriveKeywords = [
       "unable to access file",
       "file not found",
+      "cannot find file",
       "drive",
-      "restriction",
+      "driveapp",
     ];
-    return permissionKeywords.some((keyword) => message.includes(keyword));
+    if (fileDriveKeywords.some((keyword) => message.includes(keyword))) {
+      return true;
+    }
+
+    // Generic permission phrases, but only treat as Drive-related when
+    // combined with file-like terminology.
+    const genericPermissionKeywords = [
+      "access denied",
+      "insufficient permissions",
+    ];
+    const fileContextKeywords = ["file", "document", "spreadsheet"];
+
+    return (
+      genericPermissionKeywords.some((keyword) => message.includes(keyword)) &&
+      fileContextKeywords.some((keyword) => message.includes(keyword))
+    );
   }
 }
 
