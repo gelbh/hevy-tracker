@@ -141,17 +141,26 @@ class SheetManager {
         return;
       }
 
-      if (this.sheet.getLastRow() > 0) {
-        this.sheet.clear();
+      const lastRow = this.sheet.getLastRow();
+      const hasData = lastRow > 0;
+
+      if (hasData) {
+        const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
+
+        headerRange
+          .setValues([this.headers])
+          .setFontWeight("bold")
+          .setBackground(this.theme.evenRowColor)
+          .setFontColor(this.theme.fontColor);
+      } else {
+        const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
+
+        headerRange
+          .setValues([this.headers])
+          .setFontWeight("bold")
+          .setBackground(this.theme.evenRowColor)
+          .setFontColor(this.theme.fontColor);
       }
-
-      const headerRange = this.sheet.getRange(1, 1, 1, this.headers.length);
-
-      headerRange
-        .setValues([this.headers])
-        .setFontWeight("bold")
-        .setBackground(this.theme.evenRowColor)
-        .setFontColor(this.theme.fontColor);
 
       this.sheet.setFrozenRows(1);
     } catch (error) {

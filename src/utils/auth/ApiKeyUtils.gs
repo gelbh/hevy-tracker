@@ -120,16 +120,12 @@ function useApiKey(label) {
   documentProperties.setProperty("HEVY_API_KEY", storedKey);
   documentProperties.deleteProperty("LAST_WORKOUT_UPDATE");
 
-  // Clear all data sheets before importing with new key
-  // This ensures previous data is removed and replaced with data from the new key
   try {
     SheetManager.getOrCreate(WORKOUTS_SHEET_NAME).clearSheet();
-    SheetManager.getOrCreate(EXERCISES_SHEET_NAME).clearSheet();
     SheetManager.getOrCreate(ROUTINES_SHEET_NAME).clearSheet();
     SheetManager.getOrCreate(ROUTINE_FOLDERS_SHEET_NAME).clearSheet();
   } catch (error) {
     console.warn("Error clearing data sheets:", error);
-    // Continue with import even if clearing fails
   }
 
   // Clear import progress to force a fresh import
