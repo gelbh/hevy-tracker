@@ -21,17 +21,8 @@ function processExercises(exerciseData) {
     let currentTemplateId = null;
 
     for (const row of exerciseData) {
-      const [
-        setNumber,
-        name,
-        rest,
-        setType,
-        weight,
-        reps,
-        notes,
-        supersetId,
-        templateId,
-      ] = row;
+      const [name, rest, setType, weight, reps, notes, supersetId, templateId] =
+        row;
       const normalizedTemplateId = normalizeTemplateId(
         templateId,
         currentTemplateId,
