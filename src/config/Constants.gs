@@ -100,6 +100,13 @@ const PAGE_SIZE = {
 const MAX_PAGES = 10000;
 
 /**
+ * Maximum number of routines to fetch for the dropdown list
+ * Limits API calls when Routines sheet is empty to improve performance
+ * @type {number}
+ */
+const ROUTINE_DROPDOWN_LIMIT = 50;
+
+/**
  * Rate limiting configuration to respect API quotas
  * @type {Object<number>}
  */
