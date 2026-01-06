@@ -86,6 +86,7 @@ const createImportSubmenu = (ui) => {
 const createRoutineBuilderSubmenu = (ui) =>
   ui
     .createMenu("📝 Routine Builder")
+    .addItem("📥 Load Routine for Editing", "showLoadRoutineDialog")
     .addItem("📋 Create Routine from Sheet", "createRoutineFromSheet")
     .addItem("🗑️ Clear Builder Form", "clearRoutineBuilder");
 
@@ -316,6 +317,10 @@ const MENU_ACTIONS = {
   importAllRoutineFolders: {
     handler: importAllRoutineFolders,
     message: "Folders import initiated",
+  },
+  showLoadRoutineDialog: {
+    handler: showLoadRoutineDialog,
+    message: "Loading routine",
   },
   createRoutineFromSheet: {
     handler: createRoutineFromSheet,

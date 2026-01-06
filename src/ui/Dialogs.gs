@@ -19,12 +19,12 @@ const showInitialSetup = () => {
       });
     }
   } catch (error) {
-    // Check if this is a Drive permission error from HTML dialog
+    // Check if this is a Drive permission error from HTML dialog or file access
+    const message = error?.message?.toLowerCase() ?? "";
     const isDrivePermissionError =
       error instanceof DrivePermissionError ||
       error?.isDrivePermissionError === true ||
-      (error?.message?.toLowerCase().includes("unable to access file") &&
-        error?.message?.toLowerCase().includes("drive"));
+      (message.includes("unable to access file") && message.includes("drive"));
 
     if (isDrivePermissionError) {
       // Show user-friendly alert with instructions
@@ -40,9 +40,17 @@ const showInitialSetup = () => {
           "After re-authorization, you can set your API key using the menu.",
         ui.ButtonSet.OK
       );
+
+      // Log the error without showing an additional toast, then exit gracefully
+      ErrorHandler.handle(
+        error,
+        { operation: "Showing initial setup", uiAlertShown: true },
+        false
+      );
+      return;
     }
 
-    // Still throw the error so it gets logged by ErrorHandler
+    // Non-permission errors should still be surfaced and logged as failures
     throw ErrorHandler.handle(error, { operation: "Showing initial setup" });
   }
 };
@@ -112,4 +120,20 @@ const showDevApiManagerDialog = () => {
     width: DIALOG_DIMENSIONS.DEV_API_MANAGER_WIDTH,
     height: DIALOG_DIMENSIONS.DEV_API_MANAGER_HEIGHT,
   });
+};
+
+/**
+ * Shows the Load Routine dialog for selecting a routine to edit
+ */
+const showLoadRoutineDialog = () => {
+  try {
+    showHtmlDialog("ui/dialogs/LoadRoutine", {
+      width: DIALOG_DIMENSIONS.LOAD_ROUTINE_WIDTH,
+      height: DIALOG_DIMENSIONS.LOAD_ROUTINE_HEIGHT,
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing load routine dialog",
+    });
+  }
 };

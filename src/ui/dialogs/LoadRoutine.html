@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Load Routine for Editing</title>
+    <base target="_top" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
+  </head>
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] m-0 fade-in"
+    role="dialog"
+    aria-labelledby="dialog-title"
+    aria-describedby="dialog-description"
+  >
+    <main class="max-w-[600px] p-6 mx-auto">
+      <article class="card p-6 scale-in">
+        <header class="flex flex-col items-center mb-5">
+          <div
+            class="w-16 h-16 flex items-center justify-center mb-4 p-2 rounded-full bg-[hsl(var(--primary)/0.1)]"
+            aria-hidden="true"
+          >
+            <i
+              data-lucide="folder-open"
+              class="icon icon-xl text-[hsl(var(--primary))]"
+            ></i>
+          </div>
+          <h1 id="dialog-title" class="heading-3 m-0 mb-2 text-center">
+            Load Routine for Editing
+          </h1>
+          <p
+            id="dialog-description"
+            class="text-sm text-[hsl(var(--muted-foreground))] text-center"
+          >
+            Select a routine to load into the Routine Builder
+          </p>
+        </header>
+
+        <div
+          id="loading-indicator"
+          class="text-center py-8"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex flex-col items-center gap-3">
+            <div class="spinner spinner-lg" aria-hidden="true"></div>
+            <p class="text-sm text-[hsl(var(--muted-foreground))]">
+              Loading routines...
+            </p>
+          </div>
+        </div>
+
+        <div id="content" class="hidden">
+          <div class="input-group mb-4">
+            <label for="routineSelect" class="label">
+              <i
+                data-lucide="list"
+                class="icon icon-sm inline-block mr-1.5"
+                aria-hidden="true"
+              ></i>
+              Select Routine
+            </label>
+            <select
+              id="routineSelect"
+              class="input"
+              aria-label="Select routine to load"
+            >
+              <option value="">-- Select a routine --</option>
+            </select>
+          </div>
+
+          <div
+            id="status"
+            class="alert alert-info hidden mb-4"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <i
+              data-lucide="info"
+              class="alert-icon icon"
+              aria-hidden="true"
+            ></i>
+            <div class="alert-content" id="statusContent"></div>
+          </div>
+        </div>
+
+        <nav class="flex justify-center gap-3 mt-6" aria-label="Dialog actions">
+          <button
+            type="button"
+            id="loadBtn"
+            class="btn btn-primary"
+            aria-label="Load selected routine"
+            disabled
+          >
+            <i
+              data-lucide="folder-open"
+              class="icon icon-sm"
+              aria-hidden="true"
+            ></i>
+            Load Routine
+          </button>
+          <button
+            type="button"
+            id="cancelBtn"
+            class="btn btn-secondary"
+            aria-label="Cancel"
+          >
+            <i data-lucide="x" class="icon icon-sm" aria-hidden="true"></i>
+            Cancel
+          </button>
+        </nav>
+      </article>
+    </main>
+
+    <script>
+      // DOM element references
+      let loadingIndicator;
+      let content;
+      let routineSelect;
+      let loadBtn;
+      let status;
+      let statusContent;
+      let cancelBtn;
+      let allRoutines = [];
+
+      /**
+       * Formats a date string for display
+       * @param {string} dateString - ISO date string
+       * @returns {string} Formatted date string
+       */
+      const formatDate = (dateString) => {
+        if (!dateString) return "";
+        try {
+          const date = new Date(dateString);
+          return date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+        } catch (e) {
+          return dateString;
+        }
+      };
+
+      /**
+       * Formats routine option text for dropdown
+       * @param {Object} routine - Routine object
+       * @returns {string} Formatted option text
+       */
+      const formatRoutineOption = (routine) => {
+        const folderText = routine.folder_name
+          ? ` (${routine.folder_name})`
+          : "";
+        return `${routine.title || "Untitled Routine"}${folderText}`;
+      };
+
+      /**
+       * Populates the select dropdown with routines
+       */
+      const populateSelect = () => {
+        routineSelect.innerHTML =
+          '<option value="">-- Select a routine --</option>';
+
+        if (!allRoutines || allRoutines.length === 0) {
+          return;
+        }
+
+        allRoutines.forEach((routine) => {
+          const option = document.createElement("option");
+          option.value = routine.id;
+          option.textContent = formatRoutineOption(routine);
+          routineSelect.appendChild(option);
+        });
+      };
+
+      /**
+       * Shows an error message
+       * @param {string} message - Error message
+       */
+      const showError = (message) => {
+        status.className = "alert alert-error mb-4";
+        statusContent.textContent = message;
+        status.classList.remove("hidden");
+      };
+
+      /**
+       * Loads a routine into the builder
+       * @param {string} routineId - Routine ID to load
+       */
+      const loadRoutine = (routineId) => {
+        if (!routineId) {
+          showError("Please select a routine.");
+          return;
+        }
+
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          showError("Unable to connect to Google Apps Script.");
+          return;
+        }
+
+        // Show loading state
+        loadBtn.disabled = true;
+        status.className = "alert alert-info mb-4";
+        statusContent.textContent = "Loading routine into builder...";
+        status.classList.remove("hidden");
+
+        google.script.run
+          .withSuccessHandler(() => {
+            if (google.script.host) {
+              google.script.host.close();
+            }
+          })
+          .withFailureHandler((error) => {
+            loadBtn.disabled = false;
+            const errorMessage =
+              error && error.message
+                ? `Failed to load routine: ${error.message}`
+                : "Failed to load routine: Unknown error";
+            showError(errorMessage);
+          })
+          .loadRoutineIntoBuilder(routineId);
+      };
+
+      /**
+       * Fetches routines list
+       * @param {number} retries - Number of retries remaining
+       */
+      const fetchRoutines = (retries = 10) => {
+        // Check if Google Apps Script API is available
+        if (
+          typeof google === "undefined" ||
+          !google.script ||
+          !google.script.run
+        ) {
+          if (retries > 0) {
+            // Retry after a short delay
+            setTimeout(() => fetchRoutines(retries - 1), 200);
+            return;
+          }
+          // Out of retries
+          showError("Unable to connect to Google Apps Script.");
+          loadingIndicator.classList.add("hidden");
+          content.classList.remove("hidden");
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler((routines) => {
+            loadingIndicator.classList.add("hidden");
+            content.classList.remove("hidden");
+
+            if (!routines || routines.length === 0) {
+              status.className = "alert alert-info mb-4";
+              statusContent.textContent =
+                "No routines found. Please import routines first or create a new one.";
+              status.classList.remove("hidden");
+              return;
+            }
+
+            allRoutines = routines;
+            populateSelect();
+          })
+          .withFailureHandler((error) => {
+            loadingIndicator.classList.add("hidden");
+            content.classList.remove("hidden");
+            const errorMessage =
+              error && error.message
+                ? `Failed to load routines: ${error.message}`
+                : "Failed to load routines: Unknown error";
+            showError(errorMessage);
+          })
+          .getRoutinesList();
+      };
+
+      // Initialize when DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        // Cache DOM references
+        loadingIndicator = document.getElementById("loading-indicator");
+        content = document.getElementById("content");
+        routineSelect = document.getElementById("routineSelect");
+        loadBtn = document.getElementById("loadBtn");
+        status = document.getElementById("status");
+        statusContent = document.getElementById("statusContent");
+        cancelBtn = document.getElementById("cancelBtn");
+
+        // Set up event listeners
+        if (routineSelect) {
+          routineSelect.addEventListener("change", (e) => {
+            loadBtn.disabled = !e.target.value;
+          });
+        }
+
+        if (loadBtn) {
+          loadBtn.addEventListener("click", () => {
+            loadRoutine(routineSelect.value);
+          });
+        }
+
+        if (cancelBtn) {
+          cancelBtn.addEventListener("click", () => {
+            if (
+              typeof google !== "undefined" &&
+              google.script &&
+              google.script.host
+            ) {
+              google.script.host.close();
+            }
+          });
+        }
+
+        // Initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+
+        // Fetch routines
+        fetchRoutines();
+      });
+    </script>
+  </body>
+</html>
