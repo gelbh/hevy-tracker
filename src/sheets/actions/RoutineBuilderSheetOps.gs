@@ -210,16 +210,27 @@ function populateRoutineBuilderSheet(routine) {
     sheet.getRange("D2:H4").clearContent();
     sheet.getRange("B8:H").clearContent();
 
-    sheet.getRange("D2").setValue(routine.title || "");
+    // Set routine title in D2
+    const routineTitle = routine.title || "";
+    sheet.getRange("D2").setValue(routineTitle);
 
-    const folderName = routine.folder_id
-      ? getFolderNameFromId(routine.folder_id) || "(No Folder)"
-      : "(No Folder)";
+    // Set folder name in D3
+    let folderName = "(No Folder)";
+    if (routine.folder_id) {
+      const foundFolderName = getFolderNameFromId(routine.folder_id);
+      if (foundFolderName) {
+        folderName = foundFolderName;
+      }
+    }
     sheet.getRange("D3").setValue(folderName);
 
-    sheet.getRange("D4").setValue(routine.notes || "");
+    // Set notes in D4
+    const routineNotes = routine.notes || "";
+    sheet.getRange("D4").setValue(routineNotes);
 
-    sheet.getRange("H1").setValue(routine.id || "");
+    // Store routine ID in H1 for update tracking
+    const routineId = routine.id || "";
+    sheet.getRange("H1").setValue(routineId);
 
     const ss = getActiveSpreadsheet();
     const mainSheet = ss.getSheetByName("Main");
