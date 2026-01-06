@@ -554,12 +554,11 @@ class ImportManager {
       const existingProgress = ImportProgressTracker.loadProgress();
       if (existingProgress?.completedSteps?.length > 0) {
         if (skipResumeDialog) {
-          // Skip dialog and automatically start fresh when called from saveUserApiKey
-          ImportProgressTracker.clearProgress();
-          completedSteps = [];
+          // Skip dialog and automatically resume when called from continueImport dialog
+          completedSteps = existingProgress.completedSteps;
           this._showToast(
-            "Starting fresh import...",
-            "Import Started",
+            `Resuming import. Skipping ${completedSteps.length} completed step(s)...`,
+            "Resuming Import",
             TOAST_DURATION.NORMAL
           );
         } else {
@@ -609,11 +608,16 @@ class ImportManager {
 
         if (elapsed > IMPORT_CONFIG.MAX_EXECUTION_TIME_MS) {
           ImportProgressTracker.saveProgress(completedSteps);
-          this._showToast(
-            "Import paused due to time limit. Run 'Import All' again to resume.",
-            "Import Paused",
-            TOAST_DURATION.LONG
-          );
+          // Show dialog if there's progress to resume, otherwise show toast
+          if (completedSteps.length > 0) {
+            showContinueImportDialog();
+          } else {
+            this._showToast(
+              "Import paused due to time limit. Run 'Import All' again to resume.",
+              "Import Paused",
+              TOAST_DURATION.LONG
+            );
+          }
           return true;
         }
         return false;
@@ -708,11 +712,16 @@ class ImportManager {
         (error.message.includes("Exceeded maximum execution time") ||
           error.message.includes("timeout"))
       ) {
-        this._showToast(
-          "Import paused due to time limit. Run 'Import All' again to resume.",
-          "Import Paused",
-          TOAST_DURATION.LONG
-        );
+        // Show dialog if there's progress to resume, otherwise show toast
+        if (completedSteps.length > 0) {
+          showContinueImportDialog();
+        } else {
+          this._showToast(
+            "Import paused due to time limit. Run 'Import All' again to resume.",
+            "Import Paused",
+            TOAST_DURATION.LONG
+          );
+        }
         return;
       }
 
@@ -726,6 +735,12 @@ class ImportManager {
           SpreadsheetApp.getUi().ButtonSet.OK
         );
         showInitialSetup();
+        return;
+      }
+
+      // For other errors, show dialog if there's progress to resume
+      if (completedSteps.length > 0) {
+        showContinueImportDialog();
         return;
       }
 

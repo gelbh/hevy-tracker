@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Continue Import</title>
+    <base target="_top" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+      };
+    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('ui/dialogs/shared-theme').getContent() ?>
+  </head>
+  <body
+    class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] fade-in centered-content"
+    role="dialog"
+    aria-labelledby="dialog-title"
+    aria-modal="true"
+    style="width: 100%; padding: 1.25rem"
+  >
+    <main
+      class="flex flex-col gap-4"
+      style="width: 100%; max-width: 28rem; margin: 0 auto"
+    >
+      <header
+        class="flex flex-col items-center gap-3 pb-4"
+        style="border-bottom: 1px solid hsl(var(--border))"
+      >
+        <div
+          class="p-5 bg-[hsl(var(--warning)/0.1)] rounded-[calc(var(--radius)+4px)] inline-flex items-center justify-center border-none"
+          aria-hidden="true"
+        >
+          <i
+            data-lucide="clock"
+            class="icon icon-xl text-[hsl(var(--warning))]"
+            aria-hidden="true"
+          ></i>
+        </div>
+        <h1 id="dialog-title" class="heading-4 m-0 text-center">
+          Import Incomplete
+        </h1>
+        <p
+          class="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed text-center"
+        >
+          The import was interrupted. You can continue from where it left off.
+        </p>
+      </header>
+
+      <section aria-labelledby="progress-title">
+        <h2
+          id="progress-title"
+          class="text-sm font-semibold mb-3 text-[hsl(var(--foreground))]"
+        >
+          Import Progress
+        </h2>
+        <div class="flex flex-col gap-2" id="progress-list"></div>
+      </section>
+
+      <nav class="flex justify-end gap-3 pt-1" aria-label="Dialog actions">
+        <button
+          type="button"
+          id="laterBtn"
+          class="btn btn-secondary"
+          aria-label="Continue later"
+        >
+          <i data-lucide="x" class="icon icon-sm" aria-hidden="true"></i>
+          Later
+        </button>
+        <button
+          type="button"
+          id="continueBtn"
+          class="btn btn-primary"
+          aria-label="Continue import"
+        >
+          <i
+            data-lucide="play"
+            class="icon icon-sm"
+            id="continueIcon"
+            aria-hidden="true"
+          ></i>
+          <span id="continueText">Continue Import</span>
+          <span
+            id="spinner"
+            class="spinner ml-2 hidden"
+            aria-hidden="true"
+            aria-label="Continuing"
+          ></span>
+        </button>
+      </nav>
+    </main>
+
+    <script>
+      // Application state
+      let isContinuing = false;
+
+      // DOM element references
+      let progressList;
+      let continueBtn;
+      let laterBtn;
+      let spinner;
+      let continueIcon;
+      let continueText;
+
+      /**
+       * Step labels mapping
+       */
+      const STEP_LABELS = {
+        exercises: "Exercises",
+        routineFolders: "Routine Folders",
+        routines: "Routines",
+        workouts: "Workouts",
+      };
+
+      /**
+       * Renders the progress list
+       * @param {Array<string>} completedSteps - Completed step names
+       * @param {Array<string>} remainingSteps - Remaining step names
+       */
+      const renderProgress = (completedSteps, remainingSteps) => {
+        progressList.innerHTML = "";
+
+        // Render completed steps
+        completedSteps.forEach((step) => {
+          const item = document.createElement("div");
+          item.className =
+            "flex items-center gap-2 text-sm text-[hsl(var(--success))]";
+          item.innerHTML = `
+            <i data-lucide="check-circle" class="icon text-[hsl(var(--success))]" aria-hidden="true"></i>
+            <span>${STEP_LABELS[step] || step}</span>
+          `;
+          progressList.appendChild(item);
+        });
+
+        // Render remaining steps
+        remainingSteps.forEach((step) => {
+          const item = document.createElement("div");
+          item.className =
+            "flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]";
+          item.innerHTML = `
+            <i data-lucide="circle" class="icon text-[hsl(var(--muted-foreground))]" aria-hidden="true"></i>
+            <span>${STEP_LABELS[step] || step}</span>
+          `;
+          progressList.appendChild(item);
+        });
+
+        // Re-initialize icons after DOM update
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+      };
+
+      /**
+       * Closes the dialog
+       */
+      const closeDialog = () => {
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.host
+        ) {
+          google.script.host.close();
+        }
+      };
+
+      /**
+       * Continues the import
+       */
+      const continueImport = () => {
+        if (isContinuing) {
+          return;
+        }
+
+        isContinuing = true;
+        continueBtn.disabled = true;
+        spinner.classList.remove("hidden");
+        continueIcon.classList.add("hidden");
+        continueText.textContent = "Continuing...";
+
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.run
+        ) {
+          google.script.run
+            .withSuccessHandler(() => {
+              closeDialog();
+            })
+            .withFailureHandler((error) => {
+              isContinuing = false;
+              continueBtn.disabled = false;
+              spinner.classList.add("hidden");
+              continueIcon.classList.remove("hidden");
+              continueText.textContent = "Continue Import";
+
+              const errorMessage =
+                error && error.message
+                  ? error.message
+                  : "Failed to continue import. Please try again.";
+
+              // Show error (could use an alert or status message)
+              alert(errorMessage);
+
+              // Re-initialize icons after DOM update
+              if (
+                window.HevyTrackerUtils &&
+                window.HevyTrackerUtils.initIcons
+              ) {
+                window.HevyTrackerUtils.initIcons();
+              }
+            })
+            .continueImport();
+        }
+      };
+
+      /**
+       * Fetches import progress data
+       */
+      const fetchProgressData = () => {
+        if (
+          typeof google !== "undefined" &&
+          google.script &&
+          google.script.run
+        ) {
+          google.script.run
+            .withSuccessHandler((data) => {
+              if (data && data.completedSteps && data.remainingSteps) {
+                renderProgress(data.completedSteps, data.remainingSteps);
+              }
+            })
+            .withFailureHandler((error) => {
+              console.error("Failed to fetch progress data:", error);
+            })
+            .getContinueImportData();
+        }
+      };
+
+      // Initialize when DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        // Cache DOM references
+        progressList = document.getElementById("progress-list");
+        continueBtn = document.getElementById("continueBtn");
+        laterBtn = document.getElementById("laterBtn");
+        spinner = document.getElementById("spinner");
+        continueIcon = document.getElementById("continueIcon");
+        continueText = document.getElementById("continueText");
+
+        // Set up event listeners
+        if (continueBtn) {
+          continueBtn.addEventListener("click", continueImport);
+        }
+
+        if (laterBtn) {
+          laterBtn.addEventListener("click", closeDialog);
+        }
+
+        // Initialize icons
+        if (window.HevyTrackerUtils && window.HevyTrackerUtils.initIcons) {
+          window.HevyTrackerUtils.initIcons();
+        }
+
+        // Fetch progress data
+        fetchProgressData();
+      });
+    </script>
+  </body>
+</html>

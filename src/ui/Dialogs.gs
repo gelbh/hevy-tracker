@@ -137,3 +137,40 @@ const showLoadRoutineDialog = () => {
     });
   }
 };
+
+/**
+ * Gets import progress data for the continue import dialog
+ * @returns {Object} Object containing completedSteps, remainingSteps, and stepLabels
+ */
+function getContinueImportData() {
+  try {
+    const progress = ImportProgressTracker.loadProgress();
+    const completedSteps = progress?.completedSteps ?? [];
+    const remainingSteps = ImportProgressTracker.getRemainingSteps();
+
+    return {
+      completedSteps,
+      remainingSteps,
+    };
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Getting continue import data",
+    });
+  }
+}
+
+/**
+ * Shows the continue import dialog when import is interrupted
+ */
+function showContinueImportDialog() {
+  try {
+    showHtmlDialog("ui/dialogs/ContinueImport", {
+      width: DIALOG_DIMENSIONS.CONTINUE_IMPORT_WIDTH,
+      height: DIALOG_DIMENSIONS.CONTINUE_IMPORT_HEIGHT,
+    });
+  } catch (error) {
+    throw ErrorHandler.handle(error, {
+      operation: "Showing continue import dialog",
+    });
+  }
+}

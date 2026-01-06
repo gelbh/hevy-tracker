@@ -12,6 +12,15 @@ async function runFullImport() {
 }
 
 /**
+ * Continues an interrupted import by automatically resuming from where it left off
+ * Called from the continue import dialog
+ * @returns {Promise<void>}
+ */
+async function continueImport() {
+  return getApiClient().runFullImport(null, true);
+}
+
+/**
  * Triggers when the add-on is installed
  * @param {Object} e - The event object
  */
