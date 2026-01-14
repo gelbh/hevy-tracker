@@ -15,20 +15,13 @@ const MISSING_SHEET_MESSAGE =
   "Copy it from:\nhttps://docs.google.com/spreadsheets/d/1i0g1h1oBrwrw-L4-BW0YUHeZ50UATcehNrg2azkcyXk/copy";
 
 /**
- * Gets the Routine Builder sheet or shows error
+ * Gets the Routine Builder sheet
  * @returns {GoogleAppsScript.Spreadsheet.Sheet|null} The sheet or null if not found
  */
 function getRoutineBuilderSheet() {
   const sheet = getActiveSpreadsheet().getSheetByName(
     ROUTINE_BUILDER_SHEET_NAME
   );
-  if (!sheet) {
-    SpreadsheetApp.getUi().alert(
-      "Missing 'Routine Builder' Sheet",
-      MISSING_SHEET_MESSAGE,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-  }
   return sheet;
 }
 
@@ -213,13 +206,10 @@ function convertRoutineExerciseToSheetRows(exercise, weightUnit) {
 async function populateRoutineBuilderSheet(routine) {
   const sheet = getRoutineBuilderSheet();
   if (!sheet) {
-    throw new SheetError(
-      "Routine Builder sheet not found",
-      ROUTINE_BUILDER_SHEET_NAME,
-      {
-        operation: "Populating routine builder",
-      }
-    );
+    throw new SheetError(MISSING_SHEET_MESSAGE, ROUTINE_BUILDER_SHEET_NAME, {
+      operation: "Populating routine builder",
+      isMissingSheet: true,
+    });
   }
 
   try {

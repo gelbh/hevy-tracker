@@ -69,10 +69,14 @@ async function importAllWorkouts(checkTimeout = null) {
     const exerciseManager = SheetManager.getOrCreate(EXERCISES_SHEET_NAME);
     const exerciseSheet = exerciseManager.sheet;
 
-    // Validate headers before accessing sheet data
     if (!exerciseManager.validateHeaders()) {
+      const lastColumn = exerciseSheet.getLastColumn();
+      const numColumns =
+        lastColumn === 0
+          ? SHEET_HEADERS[EXERCISES_SHEET_NAME].length
+          : lastColumn;
       const headers = exerciseSheet
-        .getRange(1, 1, 1, exerciseSheet.getLastColumn())
+        .getRange(1, 1, 1, numColumns)
         .getValues()[0];
       const requiredHeaders = ["ID", "Title", "Count"];
       validateExerciseSheetHeaders(headers, requiredHeaders);

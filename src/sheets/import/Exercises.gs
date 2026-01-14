@@ -133,16 +133,16 @@ async function handlePostProcessing(sheet, checkTimeout, updateMessage) {
  * @param {{id:string,title:string}[]} apiExercises Array of all exercises from the API
  */
 function syncCustomExerciseIds(sheet, apiExercises) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const lastColumn = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1 || lastColumn === 0) return;
+
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
 
   validateExerciseSheetHeaders(headers, ["ID", "Title"]);
 
   const idCol = headers.indexOf("ID") + 1;
   const titleCol = headers.indexOf("Title") + 1;
-
-  const lastColumn = sheet.getLastColumn();
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1 || lastColumn === 0) return;
 
   const data = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
 
