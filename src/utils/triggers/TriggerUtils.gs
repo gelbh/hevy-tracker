@@ -18,7 +18,11 @@ async function runAutomaticImport() {
 
   if (!apiKey) {
     if (!isTemplate) {
-      showInitialSetup();
+      ss.toast(
+        "Hevy API Key not configured. Please use Extensions → Hevy Tracker → 🔑 Set Hevy API Key to set up the add-on.",
+        "Setup Required",
+        TOAST_DURATION.LONG
+      );
     }
     return;
   }

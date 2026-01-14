@@ -21,30 +21,90 @@ const showInitialSetup = () => {
   } catch (error) {
     // Check if this is a Drive permission error from HTML dialog or file access
     const message = error?.message?.toLowerCase() ?? "";
+    const errorString = error?.toString()?.toLowerCase() ?? "";
+    const fullErrorText = message + " " + errorString;
+
     const isDrivePermissionError =
       error instanceof DrivePermissionError ||
       error?.isDrivePermissionError === true ||
-      (message.includes("unable to access file") && message.includes("drive"));
+      (fullErrorText.includes("unable to access file") &&
+        fullErrorText.includes("drive"));
+
+    const isUiPermissionError =
+      fullErrorText.includes("script.container.ui") ||
+      fullErrorText.includes("ui.showmodaldialog") ||
+      fullErrorText.includes("ui.showsidebar") ||
+      (fullErrorText.includes("permission") &&
+        (fullErrorText.includes("ui") ||
+          fullErrorText.includes("showmodaldialog") ||
+          fullErrorText.includes("showsidebar"))) ||
+      message.includes("You do not have permission to call");
 
     if (isDrivePermissionError) {
-      // Show user-friendly alert with instructions
       const ui = SpreadsheetApp.getUi();
-      ui.alert(
-        "Drive Permission Required",
-        "The Hevy Tracker add-on needs Drive file access permissions to display setup dialogs.\n\n" +
-          "To fix this:\n" +
-          "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
-          "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
-          "3. Ensure you have edit access to this spreadsheet\n" +
-          "4. If the issue persists, try uninstalling and reinstalling the add-on\n\n" +
-          "After re-authorization, you can set your API key using the menu.",
-        ui.ButtonSet.OK
+      try {
+        ui.alert(
+          "Drive Permission Required",
+          "The Hevy Tracker add-on needs Drive file access permissions to display setup dialogs.\n\n" +
+            "To fix this:\n" +
+            "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
+            "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
+            "3. Ensure you have edit access to this spreadsheet\n" +
+            "4. If the issue persists, try uninstalling and reinstalling the add-on\n\n" +
+            "After re-authorization, you can set your API key using the menu.",
+          ui.ButtonSet.OK
+        );
+      } catch (alertError) {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        if (ss) {
+          ss.toast(
+            "Please use Extensions → Hevy Tracker → Set Hevy API Key. Re-authorization may be required.",
+            "Setup Required",
+            TOAST_DURATION.LONG
+          );
+        }
+      }
+
+      ErrorHandler.handle(
+        error,
+        { operation: "Showing initial setup", uiAlertShown: true },
+        false
       );
+      return;
+    }
+
+    if (isUiPermissionError) {
+      const ui = SpreadsheetApp.getUi();
+      try {
+        ui.alert(
+          "Additional Permission Required",
+          "The Hevy Tracker add-on needs additional permissions to display dialogs.\n\n" +
+            "To fix this:\n" +
+            "1. Use any menu item in Extensions → Hevy Tracker (this will trigger re-authorization)\n" +
+            "2. Or go to Extensions → Add-ons → Manage add-ons → Hevy Tracker → Options → Re-authorize\n" +
+            "3. Or uninstall and reinstall the add-on from the Marketplace\n\n" +
+            "After re-authorization, the dialogs will work correctly.",
+          ui.ButtonSet.OK
+        );
+      } catch (alertError) {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        if (ss) {
+          ss.toast(
+            "Please use Extensions → Hevy Tracker → Set Hevy API Key. Re-authorization may be required.",
+            "Setup Required",
+            TOAST_DURATION.LONG
+          );
+        }
+      }
 
       // Log the error without showing an additional toast, then exit gracefully
       ErrorHandler.handle(
         error,
-        { operation: "Showing initial setup", uiAlertShown: true },
+        {
+          operation: "Showing initial setup",
+          uiAlertShown: true,
+          isUiPermissionError: true,
+        },
         false
       );
       return;

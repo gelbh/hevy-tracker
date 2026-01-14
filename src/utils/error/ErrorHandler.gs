@@ -54,6 +54,8 @@ const ERROR_CONFIG = {
       "The request timed out. Please try again with a smaller dataset.",
     E_VALIDATION_ERROR: "Please check your input and try again.",
     E_CONFIGURATION_ERROR: "Please check your configuration settings.",
+    E_SHEET_ERROR:
+      "Please check that all required sheets exist in your spreadsheet.",
   },
 };
 
@@ -81,7 +83,7 @@ class ErrorHandler {
       errorId,
       errorCode,
       timestamp: new Date().toISOString(),
-      recoverySuggestion: this.getRecoverySuggestion(errorCode),
+      recoverySuggestion: this.getRecoverySuggestion(errorCode, enhancedError),
     });
 
     // Log error with structured data
@@ -305,10 +307,18 @@ class ErrorHandler {
   /**
    * Gets recovery suggestion for an error code
    * @param {string} errorCode - The error code
+   * @param {Error} [error] - Optional error object to check for specific context
    * @returns {string} Recovery suggestion
    * @private
    */
-  static getRecoverySuggestion(errorCode) {
+  static getRecoverySuggestion(errorCode, error = null) {
+    if (
+      errorCode === ERROR_CONFIG.CODES.SHEET_ERROR &&
+      error?.context?.isMissingSheet === true
+    ) {
+      return "Please make a copy of the official template spreadsheet to restore the missing sheet.";
+    }
+
     return (
       ERROR_CONFIG.RECOVERY_SUGGESTIONS[errorCode] ??
       "Please try again or contact support if the issue persists."
@@ -389,6 +399,10 @@ class ErrorHandler {
       return ERROR_CONFIG.MESSAGES.API_KEY_VALIDATION;
     }
 
+    if (error instanceof SheetError && error.context?.isMissingSheet === true) {
+      return error.message;
+    }
+
     return ERROR_CONFIG.MESSAGES.DEFAULT(error?.errorId ?? "unknown");
   }
 
@@ -416,7 +430,6 @@ class ErrorHandler {
    * @private
    */
   static isPermissionError(error) {
-    // Check for explicit Drive permission error flag
     if (error?.isDrivePermissionError === true) {
       return true;
     }
@@ -426,8 +439,6 @@ class ErrorHandler {
       return false;
     }
 
-    // Avoid misclassifying UI scope issues as Drive permission problems.
-    // These are handled separately in UiUtils with a dedicated alert.
     const uiPermissionIndicators = [
       "ui.showmodaldialog",
       "ui.showsidebar",
@@ -437,7 +448,6 @@ class ErrorHandler {
       return false;
     }
 
-    // Strong indicators of Drive/file access issues
     const fileDriveKeywords = [
       "unable to access file",
       "file not found",
@@ -449,8 +459,6 @@ class ErrorHandler {
       return true;
     }
 
-    // Generic permission phrases, but only treat as Drive-related when
-    // combined with file-like terminology.
     const genericPermissionKeywords = [
       "access denied",
       "insufficient permissions",
