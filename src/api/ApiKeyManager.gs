@@ -189,7 +189,18 @@ class ApiKeyManager {
    * @private
    */
   _showToast(message, title, duration = TOAST_DURATION.NORMAL) {
-    getActiveSpreadsheet().toast(message, title, duration);
+    try {
+      const spreadsheet = getActiveSpreadsheet();
+      if (spreadsheet) {
+        spreadsheet.toast(message, title, duration);
+      }
+    } catch (error) {
+      console.warn(
+        "ApiKeyManager: Unable to show toast notification:",
+        error.message || error
+      );
+      console.log(`[${title}] ${message}`);
+    }
   }
 
   /**

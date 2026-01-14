@@ -14,6 +14,7 @@ let _cachedSpreadsheet = null;
 /**
  * Gets the active spreadsheet instance (cached per execution)
  * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet} Active spreadsheet
+ * @throws {Error} If spreadsheet access is unavailable
  */
 function getActiveSpreadsheet() {
   if (!_cachedSpreadsheet) {

@@ -421,11 +421,13 @@ class ImportManager {
    * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss - The spreadsheet
    */
   ensureImportTrigger(ss) {
-    const triggers = ScriptApp.getUserTriggers(ss);
+    const spreadsheetId = ss.getId();
+    const triggers = ScriptApp.getProjectTriggers();
     const exists = triggers.some(
       (t) =>
         t.getHandlerFunction() === "runAutomaticImport" &&
-        t.getEventType() === ScriptApp.EventType.ON_OPEN
+        t.getEventType() === ScriptApp.EventType.ON_OPEN &&
+        t.getTriggerSourceId() === spreadsheetId
     );
 
     if (!exists) {
