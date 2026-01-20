@@ -244,6 +244,12 @@ class ErrorHandler {
    * @private
    */
   static _showErrorToast(error) {
+    if (this.isPermissionError(error) || error instanceof DrivePermissionError) {
+      const userMessage = this.getUserMessage(error);
+      console.error("ErrorHandler: Permission error (toast skipped):", userMessage);
+      return;
+    }
+
     try {
       const userMessage = this.getUserMessage(error);
       getActiveSpreadsheet().toast(userMessage, "Error", TOAST_DURATION.NORMAL);
@@ -479,6 +485,22 @@ class ErrorHandler {
       return false;
     }
 
+    const spreadsheetPermissionKeywords = [
+      "spreadsheetapp",
+      "you do not have permission to call",
+      "required permissions:",
+      "spreadsheets.currentonly",
+      "spreadsheets",
+    ];
+    if (
+      spreadsheetPermissionKeywords.some((keyword) =>
+        message.includes(keyword)
+      ) &&
+      message.includes("permission")
+    ) {
+      return true;
+    }
+
     const fileDriveKeywords = [
       "unable to access file",
       "file not found",
@@ -493,6 +515,7 @@ class ErrorHandler {
     const genericPermissionKeywords = [
       "access denied",
       "insufficient permissions",
+      "do not have permission",
     ];
     const fileContextKeywords = ["file", "document", "spreadsheet"];
 

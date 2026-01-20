@@ -18,7 +18,19 @@ let _cachedSpreadsheet = null;
  */
 function getActiveSpreadsheet() {
   if (!_cachedSpreadsheet) {
-    _cachedSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    try {
+      _cachedSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    } catch (error) {
+      const errorMessage = error?.message?.toLowerCase() ?? "";
+      if (
+        errorMessage.includes("permission") &&
+        (errorMessage.includes("spreadsheetapp") ||
+          errorMessage.includes("spreadsheets"))
+      ) {
+        error.isDrivePermissionError = true;
+      }
+      throw error;
+    }
   }
   return _cachedSpreadsheet;
 }
