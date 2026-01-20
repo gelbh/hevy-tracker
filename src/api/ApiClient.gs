@@ -200,6 +200,11 @@ class ApiClient {
    * @private
    */
   _shouldRetry(error, attempt) {
+    // Never retry circuit breaker errors - they indicate systematic failure
+    if (error?.context?.isCircuitBreakerError === true) {
+      return false;
+    }
+
     return (
       error instanceof ApiError &&
       error.isRetryable() &&
@@ -266,11 +271,10 @@ class ApiClient {
       } catch (error) {
         lastError = error;
 
-        // Record failure if not retrying or on final attempt
+        // ALWAYS record failures immediately for circuit breaker
+        this.circuitBreaker.recordFailure(error);
+
         const shouldRetry = this._shouldRetry(error, attempt);
-        if (!shouldRetry || attempt === this.retryConfig.maxRetries - 1) {
-          this.circuitBreaker.recordFailure(error);
-        }
 
         if (!shouldRetry) {
           throw ErrorHandler.handle(error, {
@@ -281,7 +285,21 @@ class ApiClient {
           });
         }
 
-        const delay = this.calculateBackoff(attempt);
+        // Calculate delay with special handling for 503 errors
+        let delay = this.calculateBackoff(attempt);
+
+        // For 503 errors, enforce a mandatory minimum delay per Google Cloud best practices
+        if (
+          error instanceof ApiError &&
+          error.statusCode === HTTP_STATUS.SERVICE_UNAVAILABLE
+        ) {
+          const config = this._getApiClientConfig();
+          delay = Math.max(delay, config.SERVICE_UNAVAILABLE_DELAY_MS);
+          console.warn(
+            `API returned 503 Service Unavailable. Waiting ${delay}ms before retry ${attempt + 2}/${this.retryConfig.maxRetries}`
+          );
+        }
+
         Utilities.sleep(delay);
       }
     }

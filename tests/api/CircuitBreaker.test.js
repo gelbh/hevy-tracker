@@ -4,7 +4,10 @@
 
 // Mock constants
 const HTTP_STATUS = {
+  TOO_MANY_REQUESTS: 429,
   SERVICE_UNAVAILABLE: 503,
+  BAD_GATEWAY: 502,
+  GATEWAY_TIMEOUT: 504,
 };
 
 // Mock error class
@@ -36,6 +39,7 @@ class CircuitBreaker {
     this.state = "CLOSED";
     this.failureThreshold = config.CIRCUIT_BREAKER_FAILURE_THRESHOLD;
     this.resetTimeout = config.CIRCUIT_BREAKER_RESET_TIMEOUT_MS;
+    this.statusCode = config.CIRCUIT_BREAKER_STATUS_CODE;
   }
 
   check(endpoint) {
@@ -51,14 +55,19 @@ class CircuitBreaker {
     }
 
     if (this.state === "OPEN") {
+      const waitTime = Math.ceil(
+        (this.resetTimeout - (now - this.lastFailureTime)) / 1000
+      );
       throw new ApiError(
-        "Circuit breaker is open. API is temporarily unavailable.",
-        HTTP_STATUS.SERVICE_UNAVAILABLE,
+        `Too many API failures. Circuit breaker is open to prevent cascading failures. Please wait ${waitTime} seconds before retrying.`,
+        this.statusCode,
         null,
         {
           endpoint,
           circuitBreakerState: this.state,
           lastFailureTime: this.lastFailureTime,
+          isCircuitBreakerError: true,
+          waitTimeSeconds: waitTime,
         }
       );
     }
@@ -74,14 +83,37 @@ class CircuitBreaker {
     }
   }
 
+  _getFailureWeight(error) {
+    if (error?.context?.isCircuitBreakerError === true) {
+      return 0;
+    }
+
+    const temporaryErrorCodes = [
+      HTTP_STATUS.TOO_MANY_REQUESTS,
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      HTTP_STATUS.BAD_GATEWAY,
+      HTTP_STATUS.GATEWAY_TIMEOUT,
+    ];
+
+    if (
+      error instanceof ApiError &&
+      temporaryErrorCodes.includes(error.statusCode)
+    ) {
+      return 0.5;
+    }
+
+    return 1.0;
+  }
+
   recordFailure(error) {
-    this.failures++;
+    const weight = this._getFailureWeight(error);
+    this.failures += weight;
     this.lastFailureTime = Date.now();
 
     if (this.failures >= this.failureThreshold) {
       this.state = "OPEN";
       console.warn(
-        `Circuit breaker opened after ${this.failures} failures. Will retry after ${this.resetTimeout}ms.`
+        `Circuit breaker opened after ${this.failures.toFixed(1)} weighted failures (threshold: ${this.failureThreshold}). Will retry after ${this.resetTimeout}ms.`
       );
     }
   }
@@ -90,8 +122,9 @@ class CircuitBreaker {
 describe("CircuitBreaker", () => {
   let circuitBreaker;
   const config = {
-    CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5,
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5.0,
     CIRCUIT_BREAKER_RESET_TIMEOUT_MS: 60000,
+    CIRCUIT_BREAKER_STATUS_CODE: 429,
   };
 
   beforeEach(() => {
@@ -136,7 +169,7 @@ describe("CircuitBreaker", () => {
 
       expect(() => circuitBreaker.check("/endpoint")).toThrow(ApiError);
       expect(() => circuitBreaker.check("/endpoint")).toThrow(
-        "Circuit breaker is open. API is temporarily unavailable."
+        /Too many API failures.*Circuit breaker is open/
       );
     });
 
@@ -158,7 +191,7 @@ describe("CircuitBreaker", () => {
       expect(circuitBreaker.state).toBe("OPEN");
     });
 
-    test("should include endpoint in error context", () => {
+    test("should include endpoint and circuit breaker flag in error context", () => {
       circuitBreaker.state = "OPEN";
       circuitBreaker.lastFailureTime = Date.now();
 
@@ -167,6 +200,8 @@ describe("CircuitBreaker", () => {
       } catch (error) {
         expect(error.context.endpoint).toBe("/test/endpoint");
         expect(error.context.circuitBreakerState).toBe("OPEN");
+        expect(error.context.isCircuitBreakerError).toBe(true);
+        expect(error.statusCode).toBe(429);
       }
     });
   });
@@ -225,7 +260,7 @@ describe("CircuitBreaker", () => {
       expect(circuitBreaker.state).toBe("OPEN");
       expect(circuitBreaker.failures).toBe(5);
       expect(console.warn).toHaveBeenCalledWith(
-        "Circuit breaker opened after 5 failures. Will retry after 60000ms."
+        "Circuit breaker opened after 5.0 weighted failures (threshold: 5). Will retry after 60000ms."
       );
     });
 
@@ -250,6 +285,68 @@ describe("CircuitBreaker", () => {
       circuitBreaker.recordFailure(new Error("final error"));
 
       expect(circuitBreaker.failures).toBe(5);
+      expect(circuitBreaker.state).toBe("OPEN");
+    });
+  });
+
+  describe("weighted failure counting", () => {
+    test("should count temporary errors (503) as 0.5 failures", () => {
+      const error503 = new ApiError("Service Unavailable", 503);
+
+      circuitBreaker.recordFailure(error503);
+      expect(circuitBreaker.failures).toBe(0.5);
+
+      circuitBreaker.recordFailure(error503);
+      expect(circuitBreaker.failures).toBe(1.0);
+    });
+
+    test("should count permanent errors as 1.0 failures", () => {
+      const error400 = new ApiError("Bad Request", 400);
+
+      circuitBreaker.recordFailure(error400);
+      expect(circuitBreaker.failures).toBe(1.0);
+    });
+
+    test("should not count circuit breaker errors", () => {
+      const cbError = new ApiError("Circuit breaker", 429, null, {
+        isCircuitBreakerError: true,
+      });
+
+      circuitBreaker.recordFailure(cbError);
+      expect(circuitBreaker.failures).toBe(0);
+    });
+
+    test("should require 10 temporary errors to open circuit", () => {
+      const error503 = new ApiError("Service Unavailable", 503);
+
+      // 9 503 errors = 4.5 failures (below threshold)
+      for (let i = 0; i < 9; i++) {
+        circuitBreaker.recordFailure(error503);
+      }
+      expect(circuitBreaker.state).toBe("CLOSED");
+      expect(circuitBreaker.failures).toBe(4.5);
+
+      // 10th 503 error = 5.0 failures (threshold reached)
+      circuitBreaker.recordFailure(error503);
+      expect(circuitBreaker.state).toBe("OPEN");
+      expect(circuitBreaker.failures).toBe(5.0);
+    });
+
+    test("should open circuit with mix of temporary and permanent errors", () => {
+      const error503 = new ApiError("Service Unavailable", 503);
+      const error400 = new ApiError("Bad Request", 400);
+
+      // 3 temporary (1.5) + 4 permanent (4.0) = 5.5 total
+      circuitBreaker.recordFailure(error503); // 0.5
+      circuitBreaker.recordFailure(error503); // 1.0
+      circuitBreaker.recordFailure(error400); // 2.0
+      circuitBreaker.recordFailure(error503); // 2.5
+      circuitBreaker.recordFailure(error400); // 3.5
+      circuitBreaker.recordFailure(error400); // 4.5
+
+      expect(circuitBreaker.state).toBe("CLOSED");
+
+      circuitBreaker.recordFailure(error400); // 5.5 - OPEN
       expect(circuitBreaker.state).toBe("OPEN");
     });
   });

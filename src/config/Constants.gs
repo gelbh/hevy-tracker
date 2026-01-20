@@ -166,8 +166,10 @@ const API_CLIENT_CONFIG = {
   MAX_DELAY_MS: 10000, // Maximum delay for exponential backoff (milliseconds)
   VALIDATION_TIMEOUT_MS: 15000, // Timeout for API key validation (milliseconds)
   REQUEST_TIMEOUT_MS: 30000, // Timeout for API requests (milliseconds)
-  CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5, // Number of failures before opening circuit
+  SERVICE_UNAVAILABLE_DELAY_MS: 5000, // Mandatory delay before retrying 503 errors (5 seconds)
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5.0, // Weighted failure count before opening circuit
   CIRCUIT_BREAKER_RESET_TIMEOUT_MS: 60000, // Time to wait before attempting reset (1 minute)
+  CIRCUIT_BREAKER_STATUS_CODE: 429, // Status code used by circuit breaker (429 = Too Many Requests)
 };
 
 /**

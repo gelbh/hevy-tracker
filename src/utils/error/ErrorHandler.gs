@@ -30,6 +30,8 @@ const ERROR_CONFIG = {
     NETWORK_ERROR: "E_NETWORK",
     TIMEOUT_ERROR: "E_TIMEOUT",
     RATE_LIMIT_ERROR: "E_RATE_LIMIT",
+    SERVICE_UNAVAILABLE: "E_SERVICE_UNAVAILABLE",
+    CIRCUIT_BREAKER: "E_CIRCUIT_BREAKER",
     UNKNOWN_ERROR: "E_UNKNOWN",
   },
 
@@ -56,6 +58,10 @@ const ERROR_CONFIG = {
     E_CONFIGURATION_ERROR: "Please check your configuration settings.",
     E_SHEET_ERROR:
       "Please check that all required sheets exist in your spreadsheet.",
+    E_SERVICE_UNAVAILABLE:
+      "The Hevy API is temporarily unavailable (server overload or maintenance). This is automatically retried with exponential backoff. If the issue persists, please try again in a few minutes.",
+    E_CIRCUIT_BREAKER:
+      "Too many consecutive API failures detected. The circuit breaker has activated to prevent cascading failures. Please wait for the specified time before trying again.",
   },
 };
 
@@ -271,16 +277,31 @@ class ErrorHandler {
 
     // Handle ApiError with status-specific codes
     if (error instanceof ApiError) {
-      const { statusCode } = error;
+      const { statusCode, context } = error;
+
+      // Circuit breaker errors (identified by context flag)
+      if (context?.isCircuitBreakerError === true) {
+        return ERROR_CONFIG.CODES.CIRCUIT_BREAKER;
+      }
+
+      // Service unavailable (503)
+      if (statusCode === HTTP_STATUS.SERVICE_UNAVAILABLE) {
+        return ERROR_CONFIG.CODES.SERVICE_UNAVAILABLE;
+      }
+
+      // Rate limit (429)
       if (statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
         return ERROR_CONFIG.CODES.RATE_LIMIT_ERROR;
       }
+
+      // Timeout errors
       if (
         statusCode === HTTP_STATUS.REQUEST_TIMEOUT ||
         statusCode === HTTP_STATUS.GATEWAY_TIMEOUT
       ) {
         return ERROR_CONFIG.CODES.TIMEOUT_ERROR;
       }
+
       return ERROR_CONFIG.CODES.API_ERROR;
     }
 
@@ -392,11 +413,21 @@ class ErrorHandler {
       return ERROR_CONFIG.MESSAGES.INVALID_API_KEY;
     }
 
-    if (
-      error instanceof ApiError &&
-      error.statusCode === HTTP_STATUS.UNAUTHORIZED
-    ) {
-      return ERROR_CONFIG.MESSAGES.API_KEY_VALIDATION;
+    if (error instanceof ApiError) {
+      // Circuit breaker errors with wait time
+      if (error.context?.isCircuitBreakerError === true) {
+        return error.message; // Use the detailed message from circuit breaker
+      }
+
+      // Service unavailable (503)
+      if (error.statusCode === HTTP_STATUS.SERVICE_UNAVAILABLE) {
+        return `The Hevy API is temporarily unavailable. This will be automatically retried. If the problem persists, please try again in a few minutes. (Error ID: ${error?.errorId ?? "unknown"})`;
+      }
+
+      // Unauthorized (401)
+      if (error.statusCode === HTTP_STATUS.UNAUTHORIZED) {
+        return ERROR_CONFIG.MESSAGES.API_KEY_VALIDATION;
+      }
     }
 
     if (error instanceof SheetError && error.context?.isMissingSheet === true) {
